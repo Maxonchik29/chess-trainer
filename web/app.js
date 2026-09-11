@@ -3795,7 +3795,23 @@ analyzeButton.addEventListener(
                         },
 
                         body: JSON.stringify({
-                            pgn: pgn
+
+                            pgn: pgn,
+
+                            telegram_user:
+                                tg?.initDataUnsafe?.user
+                                    ? {
+                                        id:
+                                            tg.initDataUnsafe.user.id,
+
+                                        username:
+                                            tg.initDataUnsafe.user.username || null,
+
+                                        first_name:
+                                            tg.initDataUnsafe.user.first_name || null
+                                    }
+                                    : null
+
                         })
                     }
                 );

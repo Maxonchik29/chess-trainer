@@ -36,7 +36,7 @@ BOT_TOKEN = os.environ.get("BOT_TOKEN")
 # TELEGRAM MINI APP
 # ============================================================
 
-WEB_APP_URL = "https://ТВОЙ-АДРЕС-MINI-APP"
+WEB_APP_URL = "https://chess-trainer-3cni.onrender.com"
 
 
 # ============================================================
