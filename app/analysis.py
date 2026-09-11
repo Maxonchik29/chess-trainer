@@ -70,6 +70,27 @@ MISTAKE_THRESHOLD = 40
 
 EQUIVALENT_MOVE_THRESHOLD = 30
 
+# ============================================================
+# НАСТРОЙКИ АНАЛИЗА
+# ============================================================
+
+if os.name == "nt":
+
+    # Windows — полноценный анализ
+    ANALYSIS_DEPTH = 12
+    DEEP_ANALYSIS_DEPTH = 14
+
+    ANALYSIS_MULTIPV = 5
+    DEEP_ANALYSIS_MULTIPV = 3
+
+else:
+
+    # Render / Linux — облегчённый анализ
+    ANALYSIS_DEPTH = 10
+    DEEP_ANALYSIS_DEPTH = 10
+
+    ANALYSIS_MULTIPV = 3
+    DEEP_ANALYSIS_MULTIPV = 2
 
 # ==========================================================
 # ПУТЬ К АРХИВУ АНАЛИЗОВ
@@ -117,21 +138,15 @@ def get_engine():
     # ======================================================
     # STOCKFISH
     # ======================================================
-    #
-    # Windows:
-    #     используем локальный stockfish.exe
-    #
-    # Render / Linux:
-    #     используем системный Stockfish
-    #
-    # ======================================================
 
     if os.name == "nt":
 
+        # Windows
         engine_path = "engine/stockfish.exe"
 
     else:
 
+        # Render / Linux
         engine_path = "/usr/games/stockfish"
 
     print(
@@ -142,6 +157,30 @@ def get_engine():
     engine = chess.engine.SimpleEngine.popen_uci(
         engine_path
     )
+
+    # ======================================================
+    # ОГРАНИЧЕНИЕ ПАМЯТИ
+    # ======================================================
+
+    try:
+
+        engine.configure({
+            "Threads": 1,
+            "Hash": 8
+        })
+
+        print(
+            "STOCKFISH SETTINGS:",
+            "Threads=1",
+            "Hash=8MB"
+        )
+
+    except Exception as error:
+
+        print(
+            "НЕ УДАЛОСЬ НАСТРОИТЬ STOCKFISH:",
+            repr(error)
+        )
 
     return engine
 
@@ -334,11 +373,17 @@ def detect_tactical_threat(
     """
 
     results = engine.analyse(
+
         board_after_move,
+
         chess.engine.Limit(
-            depth=14
+
+            depth=DEEP_ANALYSIS_DEPTH
+
         ),
-        multipv=3
+
+        multipv=DEEP_ANALYSIS_MULTIPV
+
     )
 
     threats = []
@@ -1138,11 +1183,17 @@ def analyze_game(
         # ==================================================
 
         before = engine.analyse(
+
             board,
+
             chess.engine.Limit(
-                depth=12
+
+                depth=ANALYSIS_DEPTH
+
             ),
-            multipv=5
+
+            multipv=ANALYSIS_MULTIPV
+
         )
 
         if not before:
@@ -2037,13 +2088,21 @@ def analyze_game(
             )
 
             played_results = (
+
                 engine.analyse(
+
                     position_after_played,
+
                     chess.engine.Limit(
-                        depth=14
+
+                        depth=DEEP_ANALYSIS_DEPTH
+
                     ),
-                    multipv=3
+
+                    multipv=DEEP_ANALYSIS_MULTIPV
+
                 )
+
             )
 
             for i, engine_result in enumerate(
@@ -2133,9 +2192,9 @@ def analyze_game(
                 engine.analyse(
                     position_after_best,
                     chess.engine.Limit(
-                        depth=14
+                        depth=DEEP_ANALYSIS_DEPTH
                     ),
-                    multipv=3
+                    multipv=DEEP_ANALYSIS_MULTIPV
                 )
             )
 
