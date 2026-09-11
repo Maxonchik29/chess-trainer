@@ -2,3 +2,4 @@ Flask
 gunicorn
 python-chess
 psycopg2-binary
+python-telegram-bot
