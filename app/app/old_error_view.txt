@@ -1,0 +1,39 @@
+    for mistake in mistakes:
+
+        frame = tk.Frame(analysis_window)
+        frame.pack(fill="x", padx=10, pady=5)
+
+        if "Неточность" in mistake["type"]:
+            color = "#d4a017"   
+
+        elif "Ошибка" in mistake["type"]:
+            color = "#ff8800"
+
+        else:
+            color = "#cc0000"
+
+        text = (
+            f"{mistake['type']}\n"
+            f"Ход {mistake['move']}\n"
+            f"До хода: {mistake['before_score']}\n"
+            f"После хода: {mistake['after_score']}\n"
+            f"Потеря: {mistake['loss']} cp\n"
+            f"Лучший ход: {mistake['best']}\n\n"
+            f"{mistake['explanation']}"
+
+        )
+
+        tk.Label(
+           frame,
+           text=text,
+           fg=color,
+           font=("Arial", 12, "bold"),
+           justify="left",
+           anchor="w"
+        ).pack(side="left")
+
+        tk.Button(
+            frame,
+            text="🎯 Попробовать",
+            command=lambda fen=mistake["fen"], best=mistake["best_uci"]: show_position(fen, best)
+        ).pack(side="right", padx=5)

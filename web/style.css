@@ -1,0 +1,1020 @@
+* {
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+}
+
+html,
+body {
+margin: 0;
+padding: 0;
+
+width: 100%;
+min-height: 100%;
+
+font-family:
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Roboto,
+    Arial,
+    sans-serif;
+
+background:
+    var(--tg-theme-bg-color, #ffffff);
+
+color:
+    var(--tg-theme-text-color, #222222);
+
+}
+
+body {
+overflow-x: hidden;
+}
+
+.app {
+width: 100%;
+max-width: 700px;
+
+margin: 0 auto;
+
+padding:
+    12px
+    12px
+    30px;
+
+}
+
+.hidden {
+display: none !important;
+}
+
+/* =========================================================
+ГЛАВНОЕ МЕНЮ
+========================================================= */
+
+#menuScreen {
+min-height: calc(100vh - 42px);
+
+display: flex;
+
+flex-direction: column;
+
+justify-content: center;
+
+padding-bottom: 30px;
+
+}
+
+.menu-header {
+text-align: center;
+
+margin-bottom: 38px;
+
+}
+
+.menu-logo {
+font-size: 64px;
+
+line-height: 1;
+
+margin-bottom: 12px;
+
+}
+
+.menu-title {
+font-size: 30px;
+
+font-weight: 800;
+
+letter-spacing: -0.5px;
+
+}
+
+.menu-subtitle {
+margin-top: 8px;
+
+font-size: 14px;
+
+opacity: 0.6;
+
+}
+
+.menu-buttons {
+display: flex;
+
+flex-direction: column;
+
+gap: 12px;
+
+}
+
+.menu-button {
+width: 100%;
+
+min-height: 58px;
+
+border: none;
+
+border-radius: 14px;
+
+padding: 12px 18px;
+
+display: flex;
+
+align-items: center;
+
+justify-content: center;
+
+gap: 12px;
+
+font-size: 17px;
+
+font-weight: 700;
+
+background:
+    var(
+        --tg-theme-button-color,
+        #2481cc
+    );
+
+color:
+    var(
+        --tg-theme-button-text-color,
+        #ffffff
+    );
+
+cursor: pointer;
+
+transition:
+    transform 0.08s ease,
+    filter 0.08s ease;
+
+}
+
+.menu-button.secondary {
+background:
+var(
+--tg-theme-secondary-bg-color,
+#eeeeee
+);
+
+color:
+    var(
+        --tg-theme-text-color,
+        #222222
+    );
+
+}
+
+.menu-button {
+transform: scale(0.98);
+}
+
+.menu-button-icon {
+font-size: 22px;
+
+line-height: 1;
+
+}
+
+/* =========================================================
+ОБЩИЕ ЗАГОЛОВКИ
+========================================================= */
+
+.header {
+text-align: center;
+
+margin-bottom: 14px;
+
+position: relative;
+
+}
+
+.title {
+font-size: 22px;
+
+font-weight: 700;
+
+}
+
+.turn-text {
+margin-top: 4px;
+
+font-size: 15px;
+
+opacity: 0.7;
+
+}
+
+.page-header {
+text-align: center;
+
+margin-bottom: 24px;
+
+}
+
+.page-header h1 {
+margin:
+12px
+0
+8px;
+
+font-size: 24px;
+
+}
+
+.page-description {
+font-size: 14px;
+
+line-height: 1.4;
+
+opacity: 0.65;
+
+}
+
+.back-button {
+border: none;
+
+background: transparent;
+
+color:
+    var(
+        --tg-theme-link-color,
+        #2481cc
+    );
+
+font-size: 15px;
+
+font-weight: 600;
+
+cursor: pointer;
+
+padding: 6px 0;
+
+}
+
+/* =========================================================
+BOARD
+========================================================= */
+
+.board-wrapper {
+display: flex;
+
+width: 100%;
+
+justify-content: center;
+
+}
+
+.rank-labels {
+width: 22px;
+
+display: grid;
+
+grid-template-rows:
+    repeat(8, 1fr);
+
+align-items: center;
+
+text-align: center;
+
+font-size: 13px;
+
+font-weight: 600;
+
+opacity: 0.65;
+
+}
+
+.board {
+width: min(
+calc(100vw - 48px),
+620px
+);
+
+height: min(
+    calc(100vw - 48px),
+    620px
+);
+
+display: grid;
+
+grid-template-columns:
+    repeat(8, 1fr);
+
+grid-template-rows:
+    repeat(8, 1fr);
+
+box-shadow:
+    0 4px 18px
+    rgba(0, 0, 0, 0.18);
+
+border-radius: 4px;
+
+overflow: hidden;
+
+}
+
+/* =========================================================
+CELLS
+========================================================= */
+
+.square {
+position: relative;
+
+display: flex;
+
+align-items: center;
+
+justify-content: center;
+
+border: none;
+
+padding: 0;
+
+margin: 0;
+
+cursor: pointer;
+
+user-select: none;
+
+transition:
+    filter 0.08s ease,
+    transform 0.08s ease;
+
+}
+
+.square.light {
+background: #f0d9b5;
+}
+
+.square.dark {
+background: #b58863;
+}
+
+/* =========================================================
+SVG FIGURES
+========================================================= */
+
+.piece-image {
+width: 92%;
+
+height: 92%;
+
+object-fit: contain;
+
+display: block;
+
+pointer-events: none;
+
+user-select: none;
+
+}
+
+/* =========================================================
+SELECTED
+========================================================= */
+
+.square.selected {
+box-shadow:
+inset 0 0 0 5px
+rgba(255, 214, 0, 0.95);
+
+filter:
+    brightness(1.08);
+
+}
+
+/* =========================================================
+LAST MOVE
+========================================================= */
+
+.square.last-move {
+box-shadow:
+inset 0 0 0 4px
+rgba(255, 215, 0, 0.55);
+}
+
+/* =========================================================
+LEGAL MOVE
+========================================================= */
+
+.square.legal::after {
+content: "";
+
+position: absolute;
+
+width: 24%;
+
+height: 24%;
+
+border-radius: 50%;
+
+background:
+    rgba(0, 0, 0, 0.28);
+
+z-index: 1;
+
+}
+
+/* =========================================================
+FILE LABELS
+========================================================= */
+
+.file-labels {
+width: 100%;
+
+display: grid;
+
+grid-template-columns:
+    repeat(8, 1fr);
+
+text-align: center;
+
+margin-top: 4px;
+
+font-size: 13px;
+
+font-weight: 600;
+
+opacity: 0.65;
+
+}
+
+/* =========================================================
+INFO
+========================================================= */
+
+.info {
+text-align: center;
+
+margin-top: 16px;
+
+}
+
+.message {
+min-height: 22px;
+
+font-size: 15px;
+
+opacity: 0.8;
+
+}
+
+/* =========================================================
+BUTTONS
+========================================================= */
+
+.buttons {
+display: flex;
+
+flex-direction: column;
+
+gap: 10px;
+
+margin-top: 16px;
+
+}
+
+.button {
+width: 100%;
+
+min-height: 48px;
+
+border: none;
+
+border-radius: 12px;
+
+padding: 10px 16px;
+
+font-size: 16px;
+
+font-weight: 600;
+
+background:
+    var(
+        --tg-theme-button-color,
+        #2481cc
+    );
+
+color:
+    var(
+        --tg-theme-button-text-color,
+        #ffffff
+    );
+
+cursor: pointer;
+
+}
+
+.button {
+transform: scale(0.98);
+}
+
+.button.secondary {
+background:
+var(
+--tg-theme-secondary-bg-color,
+#eeeeee
+);
+
+color:
+    var(
+        --tg-theme-text-color,
+        #222222
+    );
+
+}
+
+/* =========================================================
+АНАЛИЗ
+========================================================= */
+
+.analysis-card {
+display: flex;
+
+flex-direction: column;
+
+gap: 12px;
+
+}
+
+.pgn-input {
+width: 100%;
+
+min-height: 280px;
+
+resize: vertical;
+
+border: none;
+
+border-radius: 12px;
+
+padding: 14px;
+
+font-family:
+    Consolas,
+    "Courier New",
+    monospace;
+
+font-size: 13px;
+
+line-height: 1.5;
+
+color:
+    var(
+        --tg-theme-text-color,
+        #222222
+    );
+
+background:
+    var(
+        --tg-theme-secondary-bg-color,
+        #eeeeee
+    );
+
+outline: none;
+
+}
+
+.pgn-input {
+box-shadow:
+inset 0 0 0 2px
+var(
+--tg-theme-button-color,
+#2481cc
+);
+}
+
+.analyze-button {
+margin-top: 2px;
+}
+
+.analysis-message {
+text-align: center;
+
+margin-top: 16px;
+
+min-height: 22px;
+
+font-size: 14px;
+
+opacity: 0.7;
+
+}
+
+.analysis-result {
+margin-top: 18px;
+
+padding: 14px;
+
+border-radius: 12px;
+
+background:
+    var(
+        --tg-theme-secondary-bg-color,
+        #eeeeee
+    );
+
+line-height: 1.5;
+
+}
+
+/* =========================================================
+МОИ ОШИБКИ
+========================================================= */
+
+.empty-state {
+text-align: center;
+
+padding:
+    50px
+    20px;
+
+}
+
+.empty-icon {
+font-size: 56px;
+
+margin-bottom: 16px;
+
+}
+
+.empty-title {
+font-size: 20px;
+
+font-weight: 700;
+
+margin-bottom: 8px;
+
+}
+
+.empty-text {
+font-size: 14px;
+
+line-height: 1.5;
+
+opacity: 0.65;
+
+}
+
+/* =========================================================
+SMALL SCREENS
+========================================================= */
+
+@media (max-width: 380px) {
+
+.app {
+    padding-left: 7px;
+
+    padding-right: 7px;
+}
+
+
+.rank-labels {
+    width: 18px;
+}
+
+
+.board {
+    width:
+        calc(100vw - 34px);
+
+    height:
+        calc(100vw - 34px);
+}
+
+
+.menu-title {
+    font-size: 27px;
+}
+
+
+.menu-header {
+    margin-bottom: 30px;
+}
+
+}
+
+/* =========================================================
+LANDSCAPE
+========================================================= */
+
+@media (orientation: landscape)
+and (max-height: 600px) {
+
+.app {
+    max-width: 900px;
+
+    padding-top: 8px;
+}
+
+
+.menu-header {
+    margin-bottom: 15px;
+}
+
+
+.menu-logo {
+    font-size: 42px;
+}
+
+
+.menu-title {
+    font-size: 22px;
+}
+
+
+.menu-subtitle {
+    display: none;
+}
+
+
+.menu-buttons {
+    max-width: 400px;
+
+    margin-left: auto;
+
+    margin-right: auto;
+}
+
+
+.header {
+    margin-bottom: 6px;
+}
+
+
+.title {
+    font-size: 18px;
+}
+
+
+.turn-text {
+    font-size: 13px;
+}
+
+
+.board {
+    width: min(
+        calc(100vh - 100px),
+        600px
+    );
+
+    height: min(
+        calc(100vh - 100px),
+        600px
+    );
+}
+
+
+.buttons {
+    max-width: 300px;
+
+    margin-left: auto;
+
+    margin-right: auto;
+}
+
+}
+
+
+/* ============================================================
+ДОСКА ПОЗИЦИИ ОШИБКИ
+============================================================ */
+
+.position-screen {
+    width: 100%;
+}
+
+.position-header {
+    width: 100%;
+    margin-bottom: 12px;
+}
+
+.position-info {
+    width: 100%;
+    text-align: center;
+    margin-bottom: 15px;
+}
+
+
+/* Сама доска */
+
+.position-board {
+    width: min(92vw, 500px);
+    height: min(92vw, 500px);
+
+    margin: 0 auto;
+
+    display: grid;
+
+    grid-template-columns:
+        repeat(8, 1fr);
+
+    grid-template-rows:
+        repeat(8, 1fr);
+
+    overflow: hidden;
+}
+
+
+/* Клетка */
+
+.position-square {
+    width: 100%;
+    height: 100%;
+
+    display: flex;
+
+    align-items: center;
+    justify-content: center;
+
+    position: relative;
+}
+
+
+/* Светлая клетка */
+
+.position-square.position-light {
+    background: #f0d9b5;
+}
+
+
+/* Тёмная клетка */
+
+.position-square.position-dark {
+    background: #b58863;
+}
+
+
+/* Фигура на доске позиции */
+
+.position-square .piece-image {
+    width: 88%;
+    height: 88%;
+
+    object-fit: contain;
+
+    display: block;
+
+    position: relative;
+
+    z-index: 2;
+}
+
+
+/* Сообщение об ошибке */
+
+.position-error {
+    width: 100%;
+
+    text-align: center;
+
+    padding: 20px;
+}
+
+/* ============================================================
+   ИНТЕРАКТИВНАЯ ДОСКА ПОЗИЦИИ ОШИБКИ
+   ============================================================ */
+
+.position-board {
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.18);
+    border-radius: 4px;
+}
+
+.position-square {
+    cursor: pointer;
+    transition: filter 0.08s ease;
+}
+
+.position-square:hover {
+    filter: brightness(1.05);
+}
+
+.position-square.position-selected {
+    box-shadow: inset 0 0 0 5px rgba(255, 214, 0, 0.95);
+}
+
+.position-square.position-best-from {
+    background: #f6f669 !important;
+}
+
+.position-square.position-best-to {
+    background: #a9d18e !important;
+}
+
+.position-square.position-user-from {
+    background: #f6f669 !important;
+}
+
+.position-square.position-user-to {
+    background: #a9d18e !important;
+}
+
+.position-square.position-wrong {
+    animation: positionWrong 0.25s ease;
+}
+
+@keyframes positionWrong {
+    0% {
+        filter: brightness(1);
+    }
+
+    50% {
+        filter: brightness(1.25);
+    }
+
+    100% {
+        filter: brightness(1);
+    }
+}
+
+
+/* ============================================================
+   РЕЗУЛЬТАТ ПРОВЕРКИ ХОДА
+   ============================================================ */
+
+.position-result {
+    width: 100%;
+    text-align: center;
+    margin-top: 12px;
+    margin-bottom: 4px;
+    min-height: 24px;
+    font-size: 16px;
+    font-weight: 700;
+}
+
+.position-result.correct {
+    color: #218739;
+}
+
+.position-result.wrong {
+    color: #c62828;
+}
+
+.position-result.neutral {
+    opacity: 0.75;
+}
+
+
+/* ============================================================
+   КООРДИНАТЫ ДОСКИ
+   ============================================================ */
+
+.position-board-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.position-ranks {
+    width: 20px;
+    height: min(92vw, 520px);
+    display: grid;
+    grid-template-rows: repeat(8, 1fr);
+    align-items: center;
+    text-align: center;
+    font-size: 12px;
+    font-weight: 600;
+    opacity: 0.65;
+}
+
+.position-files {
+    width: min(92vw, 520px);
+    margin-left: 20px;
+    display: grid;
+    grid-template-columns: repeat(8, 1fr);
+    text-align: center;
+    font-size: 12px;
+    font-weight: 600;
+    opacity: 0.65;
+    margin-top: 3px;
+}
+
+.position-coordinates {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+
+/* ============================================================
+   МОБИЛЬНЫЕ
+   ============================================================ */
+
+@media (max-width: 380px) {
+
+    .position-ranks {
+        width: 17px;
+        height: calc(100vw - 30px);
+    }
+
+    .position-files {
+        width: calc(100vw - 30px);
+        margin-left: 17px;
+    }
+
+}

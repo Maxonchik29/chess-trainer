@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+
+```
+<meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+>
+
+<title>Chess Trainer</title>
+
+<link rel="stylesheet" href="style.css">
+```
+
+</head>
+
+<body>
+
+<div class="app">
+
+```
+<!-- =====================================================
+     ГЛАВНОЕ МЕНЮ
+     ===================================================== -->
+
+<section id="menuScreen" class="screen">
+
+    <header class="menu-header">
+
+        <div class="menu-logo">
+            ♟
+        </div>
+
+        <div class="menu-title">
+            Chess Trainer
+        </div>
+
+        <div class="menu-subtitle">
+            Тренируйся. Анализируй. Улучшайся.
+        </div>
+
+    </header>
+
+
+    <div class="menu-buttons">
+
+        <button
+            id="playButton"
+            class="menu-button"
+        >
+            <span class="menu-button-icon">🎮</span>
+            <span>Играть</span>
+        </button>
+
+
+        <button
+            id="analysisButton"
+            class="menu-button"
+        >
+            <span class="menu-button-icon">🔍</span>
+            <span>Анализ партии</span>
+        </button>
+
+
+        <button
+            id="mistakesButton"
+            class="menu-button secondary"
+        >
+            <span class="menu-button-icon">📚</span>
+            <span>Мои ошибки</span>
+        </button>
+
+    </div>
+
+</section>
+
+
+<!-- =====================================================
+     ЭКРАН ИГРЫ
+     ===================================================== -->
+
+<section
+    id="gameScreen"
+    class="screen hidden"
+>
+
+    <header class="header">
+
+        <button
+            id="backFromGameButton"
+            class="back-button"
+        >
+            ← Меню
+        </button>
+
+        <div class="title">
+            ♟ Chess Trainer
+        </div>
+
+        <div
+            id="turnText"
+            class="turn-text"
+        >
+            Ваш ход
+        </div>
+
+    </header>
+
+
+    <main>
+
+        <div class="board-wrapper">
+
+            <div class="rank-labels">
+                <span>8</span>
+                <span>7</span>
+                <span>6</span>
+                <span>5</span>
+                <span>4</span>
+                <span>3</span>
+                <span>2</span>
+                <span>1</span>
+            </div>
+
+
+            <div>
+
+                <div
+                    id="board"
+                    class="board"
+                ></div>
+
+
+                <div class="file-labels">
+
+                    <span>a</span>
+                    <span>b</span>
+                    <span>c</span>
+                    <span>d</span>
+                    <span>e</span>
+                    <span>f</span>
+                    <span>g</span>
+                    <span>h</span>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </main>
+
+
+    <section class="info">
+
+        <div
+            id="message"
+            class="message"
+        >
+            Выберите фигуру
+        </div>
+
+    </section>
+
+
+    <section class="buttons">
+
+        <button
+            id="hintButton"
+            class="button"
+        >
+            💡 Подсказка
+        </button>
+
+
+        <button
+            id="newGameButton"
+            class="button secondary"
+        >
+            🔄 Новая игра
+        </button>
+
+    </section>
+
+</section>
+
+
+<!-- =====================================================
+     ЭКРАН АНАЛИЗА
+     ===================================================== -->
+
+<section
+    id="analysisScreen"
+    class="screen hidden"
+>
+
+    <header class="page-header">
+
+        <button
+            id="backFromAnalysisButton"
+            class="back-button"
+        >
+            ← Меню
+        </button>
+
+        <h1>
+            🔍 Анализ партии
+        </h1>
+
+        <div class="page-description">
+            Вставь PGN партии, чтобы разобрать свои ошибки.
+        </div>
+
+    </header>
+
+
+    <div class="analysis-card">
+
+        <textarea
+            id="pgnInput"
+            class="pgn-input"
+            placeholder="[Event &quot;Live Chess&quot;]
+```
+
+[White "Player"]
+[Black "Opponent"]
+
+1. e4 e5 2. Nf3 Nc6 ..."
+   ></textarea>
+
+   ```
+        <button
+            id="analyzeButton"
+            class="button analyze-button"
+        >
+            🔍 Анализировать партию
+        </button>
+
+    </div>
+
+
+    <div
+        id="analysisMessage"
+        class="analysis-message"
+    >
+        Вставьте PGN партии.
+    </div>
+
+
+    <div
+        id="analysisResult"
+        class="analysis-result hidden"
+    >
+
+    </div>
+   ```
+
+    </section>
+
+    <!-- =====================================================
+         ЭКРАН МОИХ ОШИБОК
+         ===================================================== -->
+
+    <section
+        id="mistakesScreen"
+        class="screen hidden"
+    >
+
+   ```
+    <header class="page-header">
+
+        <button
+            id="backFromMistakesButton"
+            class="back-button"
+        >
+            ← Меню
+        </button>
+
+        <h1>
+            📚 Мои ошибки
+        </h1>
+
+    </header>
+
+
+    <div class="empty-state">
+
+        <div class="empty-icon">
+            ♟
+        </div>
+
+        <div class="empty-title">
+            Раздел готовится
+        </div>
+
+        <div class="empty-text">
+            Здесь будут сохраняться твои ошибки
+            из анализа партий.
+        </div>
+
+    </div>
+   ```
+
+    </section>
+
+</div>
+
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+
+<script src="app.js"></script>
+
+</body>
+</html>
