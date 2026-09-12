@@ -3780,7 +3780,34 @@ async function loadMyMistakes() {
 
 
         myMistakesData =
-            data.mistakes || [];
+            (data.mistakes || []).map(mistake => ({
+                ...mistake,
+
+                // FEN позиции перед ошибочным ходом
+                position_fen:
+                    mistake.position_fen ??
+                    mistake.fen,
+
+                // Ход пользователя
+                position_played_uci:
+                    mistake.position_played_uci ??
+                    mistake.played_move,
+
+                // Лучший ход
+                best_move_uci:
+                    mistake.best_move_uci ??
+                    mistake.best_move,
+
+                // Сторона, которая должна ходить в позиции.
+                // Именно она совершила ошибку.
+                user_side:
+                    mistake.user_side ??
+                    (
+                        String(mistake.fen || "").split(" ")[1] === "b"
+                            ? "black"
+                            : "white"
+                    )
+            }));
 
 
         renderMyMistakes();
@@ -4692,6 +4719,8 @@ ${JSON.stringify(
 
                             }
 
+                            currentMistakeSource =
+                                "analysis";
 
                             showMistakePosition(
                                 mistake
