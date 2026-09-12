@@ -907,6 +907,22 @@ def analyze_pgn():
             "========================================"
         )
 
+        print(
+            "========== DEBUG BEFORE ANALYZE_GAME ==========",
+            flush=True
+        )
+
+        analysis_result = analyze_game(
+            parsed_game,
+            start_move=start_move,
+            end_move=end_move
+        )
+
+        print(
+            "========== DEBUG AFTER ANALYZE_GAME ==========",
+            flush=True
+        )
+
         (
             mistakes,
             scores,
@@ -914,13 +930,18 @@ def analyze_pgn():
             statistics,
             phase_statistics,
             user_color
-        ) = analyze_game(
-            parsed_game,
-            start_move=start_move,
-            end_move=end_move
+        ) = analysis_result
+
+        print(
+            "========== DEBUG AFTER UNPACK ==========",
+            flush=True
         )
 
-        print("========== DEBUG 1: ANALYZE_GAME ЗАВЕРШЁН ==========")
+        print(
+            "MISTAKES =",
+            len(mistakes),
+            flush=True
+        )
         print("MISTAKES =", len(mistakes))
         print("========== DEBUG 2: ИДЁМ ДАЛЬШЕ ПО /analyze ==========")
 
