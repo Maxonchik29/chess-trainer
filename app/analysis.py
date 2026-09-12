@@ -2498,6 +2498,8 @@ def analyze_game(
         "\nНайденные ошибки:\n"
     )
 
+    print("========== TEST 1: ПОСЛЕ НАЙДЕННЫХ ОШИБОК ==========", flush=True)
+
     for mistake in mistakes:
 
         ply = mistake["move"]
@@ -2551,7 +2553,12 @@ def analyze_game(
     # СТАТИСТИКА
     # ==============================================================
 
+    print(
+        "========== DEBUG X: ЦИКЛ ВЫВОДА ОШИБОК ЗАКОНЧЕН ==========",
+        flush=True
+    )
     print("========== DEBUG A: НАЧАЛО СТАТИСТИКИ ==========")
+    
 
     accuracy = calculate_accuracy(
         scores
@@ -2748,7 +2755,8 @@ def analyze_game(
     )
 
     print(
-        "========== DEBUG O: ПЕРЕД RETURN =========="
+        "========== DEBUG O: ПЕРЕД RETURN ==========",
+        flush=True
     )
 
     return (
