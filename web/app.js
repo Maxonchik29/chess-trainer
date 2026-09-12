@@ -438,7 +438,14 @@ function renderBoard() {
                 );
 
                 pieceElement.src =
-                    `pieces/${piece.color}/${piece.type}.svg?v=3`;
+                    `pieces/${piece.color}/${piece.type}.svg?v=4`;
+
+                pieceElement.onerror = () => {
+                    console.error(
+                        "Не удалось загрузить фигуру:",
+                        pieceElement.src
+                    );
+                };
 
                 pieceElement.alt =
                     `${piece.color} ${piece.type}`;
@@ -2460,7 +2467,14 @@ function renderPositionBoard() {
                 );
 
                 pieceElement.src =
-                    `pieces/${piece.color}/${piece.type}.svg?v=3`;
+                    `pieces/${piece.color}/${piece.type}.svg?v=4`;
+
+                pieceElement.onerror = () => {
+                    console.error(
+                        "Не удалось загрузить фигуру:",
+                        pieceElement.src
+                    );
+                };
 
                 pieceElement.alt =
                     `${piece.color} ${piece.type}`;
