@@ -920,6 +920,9 @@ def analyze_pgn():
             end_move=end_move
         )
 
+        print("========== DEBUG 1: ANALYZE_GAME ЗАВЕРШЁН ==========")
+        print("MISTAKES =", len(mistakes))
+
         # ====================================================
         # ВОССТАНАВЛИВАЕМ ПОЗИЦИИ
         # ====================================================
@@ -1146,6 +1149,7 @@ def analyze_pgn():
         print("========== ПЕРЕД СОХРАНЕНИЕМ В БД ==========")
         print("TELEGRAM USER =", telegram_user)
         print("MISTAKES COUNT =", len(mistakes))
+        print("========== DB BLOCK VERSION 2026-09-12 ==========")
 
         saved_to_database = False
 
