@@ -63,18 +63,17 @@ games = {}
 # ОСНОВНАЯ КЛАВИАТУРА
 # ============================================================
 
-main_keyboard = ReplyKeyboardMarkup(
+main_keyboard = InlineKeyboardMarkup(
     [
         [
-            KeyboardButton(
+            InlineKeyboardButton(
                 "♟ Играть с компьютером",
                 web_app=WebAppInfo(
                     url=WEB_APP_URL
                 )
-            ),
-        ],
-    ],
-    resize_keyboard=True,
+            )
+        ]
+    ]
 )
 
 
