@@ -175,6 +175,18 @@ def save_analysis_to_database(
                     flush=True
                 )
 
+                print(
+                    "DB: telegram_id =",
+                    safe_int(telegram_id),
+                    flush=True
+                )
+
+                print(
+                    "DB: username =",
+                    username,
+                    flush=True
+                )
+
                 cur.execute(
                     """
                     INSERT INTO public.users
@@ -182,18 +194,14 @@ def save_analysis_to_database(
                         telegram_id,
                         username
                     )
-
                     VALUES
                     (
                         %s,
                         %s
                     )
-
                     ON CONFLICT (telegram_id)
-
                     DO UPDATE SET
                         username = EXCLUDED.username
-
                     RETURNING id
                     """,
                     (
@@ -202,10 +210,30 @@ def save_analysis_to_database(
                     )
                 )
 
+                print(
+                    "DB: INSERT USERS ЗАВЕРШЁН",
+                    flush=True
+                )
+
+                print(
+                    "DB: ПЕРЕД FETCHONE USERS",
+                    flush=True
+                )
+
                 user_row = cur.fetchone()
 
-                if not user_row:
+                print(
+                    "DB: ПОСЛЕ FETCHONE USERS",
+                    flush=True
+                )
 
+                print(
+                    "DB: user_row =",
+                    user_row,
+                    flush=True
+                )
+
+                if not user_row:
                     raise RuntimeError(
                         "Не удалось получить user_id."
                     )
@@ -214,7 +242,8 @@ def save_analysis_to_database(
 
                 print(
                     "DB: user_id =",
-                    user_id
+                    user_id,
+                    flush=True
                 )
 
                 # ====================================================
@@ -228,6 +257,11 @@ def save_analysis_to_database(
                     )
                 )
 
+                print(
+                    "DB: ПЕРЕД INSERT GAMES",
+                    flush=True
+                )
+
                 cur.execute(
                     """
                     INSERT INTO public.games
@@ -236,14 +270,12 @@ def save_analysis_to_database(
                         pgn,
                         result
                     )
-
                     VALUES
                     (
                         %s,
                         %s,
                         %s
                     )
-
                     RETURNING id
                     """,
                     (
@@ -253,10 +285,30 @@ def save_analysis_to_database(
                     )
                 )
 
+                print(
+                    "DB: INSERT GAMES ЗАВЕРШЁН",
+                    flush=True
+                )
+
+                print(
+                    "DB: ПЕРЕД FETCHONE GAMES",
+                    flush=True
+                )
+
                 game_row = cur.fetchone()
 
-                if not game_row:
+                print(
+                    "DB: ПОСЛЕ FETCHONE GAMES",
+                    flush=True
+                )
 
+                print(
+                    "DB: game_row =",
+                    game_row,
+                    flush=True
+                )
+
+                if not game_row:
                     raise RuntimeError(
                         "Не удалось получить game_id."
                     )
@@ -265,7 +317,8 @@ def save_analysis_to_database(
 
                 print(
                     "DB: game_id =",
-                    game_id
+                    game_id,
+                    flush=True
                 )
 
                 # ====================================================
