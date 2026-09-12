@@ -1168,10 +1168,27 @@ def analyze_pgn():
         # СОХРАНЯЕМ АНАЛИЗ В SUPABASE
         # ====================================================
 
-        print("========== ПЕРЕД СОХРАНЕНИЕМ В БД ==========")
-        print("TELEGRAM USER =", telegram_user)
-        print("MISTAKES COUNT =", len(mistakes))
-        print("========== DB BLOCK VERSION 2026-09-12 ==========")
+        print(
+            "========== ПЕРЕД СОХРАНЕНИЕМ В БД ==========",
+            flush=True
+        )
+        print(
+            "TELEGRAM USER =",
+            telegram_user,
+            flush=True
+        )
+
+        print(
+            "MISTAKES COUNT =",
+            len(mistakes),
+            flush=True
+        )
+
+        print(
+            "========== DB BLOCK VERSION 2026-09-12 ==========",
+            flush=True
+        )
+        
         saved_to_database = False
 
         try:
