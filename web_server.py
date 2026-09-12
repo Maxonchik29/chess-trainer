@@ -147,13 +147,33 @@ def save_analysis_to_database(
 
     try:
 
+        print(
+            "DB: ПЕРЕД WITH CONN",
+            flush=True
+        )
+
         with conn:
 
+            print(
+                "DB: ПОСЛЕ WITH CONN",
+                flush=True
+            )
+
             with conn.cursor() as cur:
+
+                print(
+                    "DB: CURSOR ПОЛУЧЕН",
+                    flush=True
+                )
 
                 # ====================================================
                 # USERS
                 # ====================================================
+
+                print(
+                    "DB: ПЕРЕД INSERT USERS",
+                    flush=True
+                )
 
                 cur.execute(
                     """
