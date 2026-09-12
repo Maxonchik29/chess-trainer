@@ -14,39 +14,7 @@ if (tg) {
 
 }
 
-// ============================================================
-// ВРЕМЕННАЯ ПРОВЕРКА TELEGRAM WEB APP
-// ============================================================
 
-const telegramDebug = document.createElement("div");
-
-telegramDebug.style.position = "fixed";
-telegramDebug.style.left = "10px";
-telegramDebug.style.right = "10px";
-telegramDebug.style.top = "10px";
-telegramDebug.style.zIndex = "99999";
-telegramDebug.style.background = "#222";
-telegramDebug.style.color = "white";
-telegramDebug.style.padding = "12px";
-telegramDebug.style.borderRadius = "8px";
-telegramDebug.style.fontSize = "14px";
-telegramDebug.style.fontFamily = "Arial";
-telegramDebug.style.whiteSpace = "pre-wrap";
-
-const telegramUser = tg?.initDataUnsafe?.user;
-
-telegramDebug.textContent =
-    "TELEGRAM DEBUG\n\n" +
-    "Telegram: " + (window.Telegram ? "YES" : "NO") + "\n" +
-    "WebApp: " + (tg ? "YES" : "NO") + "\n" +
-    "initData: " + (tg?.initData ? "YES" : "NO") + "\n" +
-    "initDataUnsafe: " + (tg?.initDataUnsafe ? "YES" : "NO") + "\n" +
-    "USER: " + (tg?.initDataUnsafe?.user ? "YES" : "NO") + "\n" +
-    "USER ID: " + (tg?.initDataUnsafe?.user?.id ?? "НЕТ") + "\n\n" +
-    "FULL initDataUnsafe:\n" +
-    JSON.stringify(tg?.initDataUnsafe, null, 2);
-
-document.body.appendChild(telegramDebug);
 
 console.log("========== TELEGRAM WEBAPP DEBUG ==========");
 console.log("Telegram =", window.Telegram);
