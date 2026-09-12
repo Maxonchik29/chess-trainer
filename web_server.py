@@ -1272,6 +1272,108 @@ def analyze_pgn():
         }), 500
 
 
+@app.route("/mistakes", methods=["POST"])
+def get_mistakes():
+
+    data = request.get_json(silent=True) or {}
+
+    telegram_user = data.get("telegram_user")
+
+    if not telegram_user:
+        return jsonify({
+            "ok": False,
+            "error": "Telegram user не передан."
+        }), 400
+
+    telegram_id = telegram_user.get("id")
+
+    if not telegram_id:
+        return jsonify({
+            "ok": False,
+            "error": "Telegram ID не передан."
+        }), 400
+
+    conn = get_db_connection()
+
+    try:
+
+        with conn:
+
+            with conn.cursor() as cur:
+
+                cur.execute(
+                    """
+                    SELECT
+                        m.id,
+                        m.game_id,
+                        m.move_number,
+                        m.fen,
+                        m.played_move,
+                        m.best_move,
+                        m.evaluation_before,
+                        m.evaluation_after,
+                        m.loss,
+                        m.explanation,
+                        m.solved,
+                        g.pgn,
+                        g.result
+                    FROM public.mistakes m
+                    JOIN public.games g
+                        ON g.id = m.game_id
+                    JOIN public.users u
+                        ON u.id = m.user_id
+                    WHERE u.telegram_id = %s
+                    ORDER BY m.id DESC
+                    """,
+                    (
+                        safe_int(telegram_id),
+                    )
+                )
+
+                rows = cur.fetchall()
+
+                mistakes = []
+
+                for row in rows:
+
+                    mistakes.append({
+                        "id": row[0],
+                        "game_id": row[1],
+                        "move_number": row[2],
+                        "fen": row[3],
+                        "played_move": row[4],
+                        "best_move": row[5],
+                        "evaluation_before": row[6],
+                        "evaluation_after": row[7],
+                        "loss": row[8],
+                        "explanation": row[9],
+                        "solved": row[10],
+                        "pgn": row[11],
+                        "result": row[12]
+                    })
+
+                return jsonify({
+                    "ok": True,
+                    "mistakes": mistakes,
+                    "count": len(mistakes)
+                })
+
+    except Exception as error:
+
+        print(
+            "ОШИБКА ПОЛУЧЕНИЯ ОШИБОК:",
+            repr(error)
+        )
+
+        return jsonify({
+            "ok": False,
+            "error": str(error)
+        }), 500
+
+    finally:
+
+        conn.close()
+
 # ============================================================
 # ЗАПУСК
 # ============================================================
