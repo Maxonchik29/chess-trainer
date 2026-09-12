@@ -133,6 +133,14 @@ let gameOver = false;
 
 let currentAnalysisData = null;
 
+/* ============================================================
+ДАННЫЕ «МОИ ОШИБКИ»
+============================================================ */
+
+let myMistakesData = [];
+
+let currentMistakeSource = "analysis";
+
 
 /* ============================================================
 ЭКРАН ПОЗИЦИИ ОШИБКИ
@@ -1117,9 +1125,23 @@ function createPositionScreen() {
                 "hidden"
             );
 
-            analysisScreen.classList.remove(
-                "hidden"
-            );
+
+            if (
+                currentMistakeSource ===
+                "mistakes"
+            ) {
+
+                mistakesScreen.classList.remove(
+                    "hidden"
+                );
+
+            } else {
+
+                analysisScreen.classList.remove(
+                    "hidden"
+                );
+
+            }
 
         };
 
@@ -1179,17 +1201,37 @@ function createPositionScreen() {
 
 function navigateMistake(direction) {
 
+    let mistakes = null;
+
+
     if (
-        !currentAnalysisData ||
-        !currentAnalysisData.mistakes ||
-        !positionScreen.currentMistake
+        currentMistakeSource ===
+        "mistakes"
     ) {
-        return;
+
+        mistakes =
+            myMistakesData;
+
+    } else if (
+        currentAnalysisData &&
+        currentAnalysisData.mistakes
+    ) {
+
+        mistakes =
+            currentAnalysisData.mistakes;
+
     }
 
 
-    const mistakes =
-        currentAnalysisData.mistakes;
+    if (
+        !mistakes ||
+        mistakes.length === 0 ||
+        !positionScreen.currentMistake
+    ) {
+
+        return;
+
+    }
 
 
     const currentIndex =
@@ -1211,7 +1253,9 @@ function navigateMistake(direction) {
         newIndex < 0 ||
         newIndex >= mistakes.length
     ) {
+
         return;
+
     }
 
 
@@ -1220,7 +1264,6 @@ function navigateMistake(direction) {
     );
 
 }
-
 
 /* ============================================================
    ПОЛУЧИТЬ СТОРОНУ ИГРОКА
@@ -3606,6 +3649,478 @@ function showBestMove(
 
 }
 
+/* ============================================================
+ЗАГРУЗКА «МОИХ ОШИБОК»
+============================================================ */
+
+async function loadMyMistakes() {
+
+    mistakesScreen.innerHTML = `
+        <div class="screen-content">
+
+            <h2>
+                Мои ошибки
+            </h2>
+
+            <div class="analysis-message">
+                ⏳ Загружаем ошибки...
+            </div>
+
+        </div>
+    `;
+
+
+    try {
+
+        const telegramUser =
+            tg?.initDataUnsafe?.user
+                ? {
+                    id:
+                        tg.initDataUnsafe.user.id,
+
+                    username:
+                        tg.initDataUnsafe.user.username || null,
+
+                    first_name:
+                        tg.initDataUnsafe.user.first_name || null
+                }
+                : null;
+
+
+        if (!telegramUser) {
+
+            mistakesScreen.innerHTML = `
+                <div class="screen-content">
+
+                    <h2>
+                        Мои ошибки
+                    </h2>
+
+                    <div class="analysis-empty">
+
+                        Не удалось получить
+                        пользователя Telegram.
+
+                    </div>
+
+                    <button
+                        id="backFromMistakesButton"
+                        class="button secondary"
+                    >
+                        ← Назад
+                    </button>
+
+                </div>
+            `;
+
+
+            document
+                .getElementById(
+                    "backFromMistakesButton"
+                )
+                .addEventListener(
+                    "click",
+                    () => {
+
+                        showScreen(
+                            menuScreen
+                        );
+
+                    }
+                );
+
+
+            return;
+
+        }
+
+
+        const response =
+            await fetch(
+                "/mistakes",
+                {
+                    method: "POST",
+
+                    headers: {
+                        "Content-Type":
+                            "application/json"
+                    },
+
+                    body: JSON.stringify({
+
+                        telegram_user:
+                            telegramUser
+
+                    })
+                }
+            );
+
+
+        const data =
+            await response.json();
+
+
+        console.log(
+            "Мои ошибки:",
+            data
+        );
+
+
+        if (
+            !response.ok ||
+            !data.ok
+        ) {
+
+            throw new Error(
+                data.error ||
+                "Не удалось загрузить ошибки."
+            );
+
+        }
+
+
+        myMistakesData =
+            data.mistakes || [];
+
+
+        renderMyMistakes();
+
+
+    } catch (error) {
+
+        console.error(
+            "Ошибка загрузки ошибок:",
+            error
+        );
+
+
+        mistakesScreen.innerHTML = `
+            <div class="screen-content">
+
+                <h2>
+                    Мои ошибки
+                </h2>
+
+                <div class="analysis-empty">
+
+                    ❌ Не удалось загрузить ошибки.
+
+                </div>
+
+                <button
+                    id="backFromMistakesButton"
+                    class="button secondary"
+                >
+                    ← Назад
+                </button>
+
+            </div>
+        `;
+
+
+        document
+            .getElementById(
+                "backFromMistakesButton"
+            )
+            .addEventListener(
+                "click",
+                () => {
+
+                    showScreen(
+                        menuScreen
+                    );
+
+                }
+            );
+
+    }
+
+}
+
+
+/* ============================================================
+ОТОБРАЖЕНИЕ «МОИХ ОШИБОК»
+============================================================ */
+
+function renderMyMistakes() {
+
+    let html = `
+
+        <div class="screen-content">
+
+            <h2>
+                Мои ошибки
+            </h2>
+
+    `;
+
+
+    if (
+        myMistakesData.length === 0
+    ) {
+
+        html += `
+
+            <div class="analysis-empty">
+
+                Ошибок пока нет.
+
+            </div>
+
+            <button
+                id="backFromMistakesButton"
+                class="button secondary"
+            >
+                ← Назад
+            </button>
+
+        `;
+
+        html += `</div>`;
+
+        mistakesScreen.innerHTML =
+            html;
+
+
+        document
+            .getElementById(
+                "backFromMistakesButton"
+            )
+            .addEventListener(
+                "click",
+                () => {
+
+                    showScreen(
+                        menuScreen
+                    );
+
+                }
+            );
+
+
+        return;
+
+    }
+
+
+    html += `
+
+        <div class="mistakes-list">
+
+            <div class="mistakes-count">
+
+                Найдено ошибок:
+                <strong>
+                    ${myMistakesData.length}
+                </strong>
+
+            </div>
+
+    `;
+
+
+    myMistakesData.forEach(
+        (
+            mistake,
+            index
+        ) => {
+
+            const moveNumber =
+                mistake.move_number ??
+                "—";
+
+
+            const playedMove =
+                mistake.played_move ||
+                "—";
+
+
+            const bestMove =
+                mistake.best_move ||
+                "—";
+
+
+            const loss =
+                mistake.loss;
+
+
+            const solved =
+                mistake.solved;
+
+
+            html += `
+
+                <div
+                    class="mistake-card"
+                >
+
+                    <div>
+
+                        <strong>
+                            Ход ${moveNumber}
+                        </strong>
+
+                    </div>
+
+
+                    <div>
+
+                        Сыграно:
+
+                        <strong>
+                            ${playedMove}
+                        </strong>
+
+                    </div>
+
+
+                    <div>
+
+                        Лучший ход:
+
+                        <strong>
+                            ${bestMove}
+                        </strong>
+
+                    </div>
+
+
+                    ${
+                        loss !== null &&
+                        loss !== undefined
+                        ?
+                        `
+                        <div>
+
+                            Потеря:
+
+                            <strong>
+                                ${loss}
+                            </strong>
+
+                        </div>
+                        `
+                        :
+                        ""
+                    }
+
+
+                    <div>
+
+                        ${
+                            solved
+                                ? "✅ Решено"
+                                : "❌ Не решено"
+                        }
+
+                    </div>
+
+
+                    <button
+                        type="button"
+                        class="show-my-mistake-button"
+                        data-mistake-index="${index}"
+                    >
+                        Показать позицию
+                    </button>
+
+                </div>
+
+            `;
+
+        }
+    );
+
+
+    html += `
+
+        </div>
+
+
+        <button
+            id="backFromMistakesButton"
+            class="button secondary"
+        >
+            ← Назад
+        </button>
+
+    </div>
+
+    `;
+
+
+    mistakesScreen.innerHTML =
+        html;
+
+
+    /* ========================================================
+       НАЗАД
+    ======================================================== */
+
+    document
+        .getElementById(
+            "backFromMistakesButton"
+        )
+        .addEventListener(
+            "click",
+            () => {
+
+                showScreen(
+                    menuScreen
+                );
+
+            }
+        );
+
+
+    /* ========================================================
+       ПОКАЗ ПОЗИЦИИ
+    ======================================================== */
+
+    const buttons =
+        mistakesScreen.querySelectorAll(
+            ".show-my-mistake-button"
+        );
+
+
+    buttons.forEach(
+        button => {
+
+            button.addEventListener(
+                "click",
+                () => {
+
+                    const index =
+                        Number(
+                            button.dataset
+                                .mistakeIndex
+                        );
+
+
+                    const mistake =
+                        myMistakesData[index];
+
+
+                    if (!mistake) {
+                        return;
+                    }
+
+
+                    currentMistakeSource =
+                        "mistakes";
+
+
+                    showMistakePosition(
+                        mistake
+                    );
+
+                }
+            );
+
+        }
+    );
+
+}
 
 /* ============================================================
 ПЕРЕКЛЮЧЕНИЕ ЭКРАНОВ
@@ -3701,6 +4216,9 @@ mistakesButton.addEventListener(
         showScreen(
             mistakesScreen
         );
+
+
+        loadMyMistakes();
 
     }
 );
