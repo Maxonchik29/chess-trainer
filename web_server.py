@@ -139,53 +139,17 @@ def save_analysis_to_database(
     # ПОДКЛЮЧАЕМСЯ К SUPABASE
     # --------------------------------------------------------
 
-    print("DB: ПЕРЕД ПОДКЛЮЧЕНИЕМ К POSTGRES", flush=True)
-
     conn = get_db_connection()
-
-    print("DB: ПОДКЛЮЧЕНИЕ К POSTGRES ПОЛУЧЕНО", flush=True)
 
     try:
 
-        print(
-            "DB: ПЕРЕД WITH CONN",
-            flush=True
-        )
-
         with conn:
 
-            print(
-                "DB: ПОСЛЕ WITH CONN",
-                flush=True
-            )
-
             with conn.cursor() as cur:
-
-                print(
-                    "DB: CURSOR ПОЛУЧЕН",
-                    flush=True
-                )
 
                 # ====================================================
                 # USERS
                 # ====================================================
-
-                print(
-                    "DB: ПЕРЕД INSERT USERS",
-                    flush=True
-                )
-
-                print(
-                    "DB: telegram_id =",
-                    safe_int(telegram_id),
-                    flush=True
-                )
-
-                print(
-                    "DB: username =",
-                    username,
-                    flush=True
-                )
 
                 cur.execute(
                     """
@@ -210,41 +174,15 @@ def save_analysis_to_database(
                     )
                 )
 
-                print(
-                    "DB: INSERT USERS ЗАВЕРШЁН",
-                    flush=True
-                )
-
-                print(
-                    "DB: ПЕРЕД FETCHONE USERS",
-                    flush=True
-                )
-
                 user_row = cur.fetchone()
 
-                print(
-                    "DB: ПОСЛЕ FETCHONE USERS",
-                    flush=True
-                )
-
-                print(
-                    "DB: user_row =",
-                    user_row,
-                    flush=True
-                )
-
                 if not user_row:
+
                     raise RuntimeError(
                         "Не удалось получить user_id."
                     )
 
                 user_id = user_row[0]
-
-                print(
-                    "DB: user_id =",
-                    user_id,
-                    flush=True
-                )
 
                 # ====================================================
                 # GAMES
@@ -255,11 +193,6 @@ def save_analysis_to_database(
                         "Result",
                         ""
                     )
-                )
-
-                print(
-                    "DB: ПЕРЕД INSERT GAMES",
-                    flush=True
                 )
 
                 cur.execute(
@@ -285,41 +218,15 @@ def save_analysis_to_database(
                     )
                 )
 
-                print(
-                    "DB: INSERT GAMES ЗАВЕРШЁН",
-                    flush=True
-                )
-
-                print(
-                    "DB: ПЕРЕД FETCHONE GAMES",
-                    flush=True
-                )
-
                 game_row = cur.fetchone()
 
-                print(
-                    "DB: ПОСЛЕ FETCHONE GAMES",
-                    flush=True
-                )
-
-                print(
-                    "DB: game_row =",
-                    game_row,
-                    flush=True
-                )
-
                 if not game_row:
+
                     raise RuntimeError(
                         "Не удалось получить game_id."
                     )
 
                 game_id = game_row[0]
-
-                print(
-                    "DB: game_id =",
-                    game_id,
-                    flush=True
-                )
 
                 # ====================================================
                 # MISTAKES
@@ -473,7 +380,6 @@ def save_analysis_to_database(
                             explanation,
                             solved
                         )
-
                         VALUES
                         (
                             %s,
@@ -492,18 +398,28 @@ def save_analysis_to_database(
                         (
                             game_id,
                             user_id,
-                            safe_int(move_number),
+                            safe_int(
+                                move_number
+                            ),
                             fen,
-                            safe_text(played_move),
-                            safe_text(best_move),
+                            safe_text(
+                                played_move
+                            ),
+                            safe_text(
+                                best_move
+                            ),
                             safe_int(
                                 evaluation_before
                             ),
                             safe_int(
                                 evaluation_after
                             ),
-                            safe_int(loss),
-                            safe_text(explanation),
+                            safe_int(
+                                loss
+                            ),
+                            safe_text(
+                                explanation
+                            ),
                             False
                         )
                     )
@@ -511,13 +427,14 @@ def save_analysis_to_database(
                     saved_count += 1
 
                 print(
-                    "DB: сохранено ошибок =",
+                    "DB: Анализ сохранён.",
+                    "user_id =",
+                    user_id,
+                    "game_id =",
+                    game_id,
+                    "ошибок =",
                     saved_count
                 )
-
-        print(
-            "DB: анализ успешно сохранён."
-        )
 
         return True
 
@@ -984,22 +901,6 @@ def analyze_pgn():
             "========================================"
         )
 
-        print(
-            "========== DEBUG BEFORE ANALYZE_GAME ==========",
-            flush=True
-        )
-
-        analysis_result = analyze_game(
-            parsed_game,
-            start_move=start_move,
-            end_move=end_move
-        )
-
-        print(
-            "========== DEBUG AFTER ANALYZE_GAME ==========",
-            flush=True
-        )
-
         (
             mistakes,
             scores,
@@ -1007,20 +908,11 @@ def analyze_pgn():
             statistics,
             phase_statistics,
             user_color
-        ) = analysis_result
-
-        print(
-            "========== DEBUG AFTER UNPACK ==========",
-            flush=True
+        ) = analyze_game(
+            parsed_game,
+            start_move=start_move,
+            end_move=end_move
         )
-
-        print(
-            "MISTAKES =",
-            len(mistakes),
-            flush=True
-        )
-        print("MISTAKES =", len(mistakes))
-        print("========== DEBUG 2: ИДЁМ ДАЛЬШЕ ПО /analyze ==========")
 
         # ====================================================
         # ВОССТАНАВЛИВАЕМ ПОЗИЦИИ
@@ -1245,40 +1137,15 @@ def analyze_pgn():
         # СОХРАНЯЕМ АНАЛИЗ В SUPABASE
         # ====================================================
 
-        print(
-            "========== ПЕРЕД СОХРАНЕНИЕМ В БД ==========",
-            flush=True
-        )
-        print(
-            "TELEGRAM USER =",
-            telegram_user,
-            flush=True
-        )
-
-        print(
-            "MISTAKES COUNT =",
-            len(mistakes),
-            flush=True
-        )
-
-        print(
-            "========== DB BLOCK VERSION 2026-09-12 ==========",
-            flush=True
-        )
-
         saved_to_database = False
 
         try:
 
             saved_to_database = (
                 save_analysis_to_database(
-
                     telegram_user,
-
                     pgn_text,
-
                     parsed_game,
-
                     mistakes
                 )
             )
@@ -1289,16 +1156,6 @@ def analyze_pgn():
                 "ОШИБКА СОХРАНЕНИЯ В БД:",
                 repr(db_error)
             )
-
-        print("========== ПОСЛЕ СОХРАНЕНИЯ В БД ==========")
-        print("SAVED TO DATABASE =", saved_to_database)
-
-            # ------------------------------------------------
-            # ВАЖНО:
-            # АНАЛИЗ НЕ ЛОМАЕМ.
-            # ЕСЛИ БД НЕДОСТУПНА,
-            # РЕЗУЛЬТАТ ВСЁ РАВНО ВЕРНЁТСЯ.
-            # ------------------------------------------------
 
         # ====================================================
         # ФОРМИРУЕМ ОТВЕТ
@@ -1436,4 +1293,3 @@ if __name__ == "__main__":
     finally:
 
         game.close()
-
