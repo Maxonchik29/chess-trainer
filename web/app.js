@@ -1,20 +1,16 @@
 /* ============================================================
-TELEGRAM MINI APP
+   TELEGRAM MINI APP
 ============================================================ */
 
 const tg = window.Telegram?.WebApp;
 
 if (tg) {
-
     tg.ready();
 
     if (tg.expand) {
         tg.expand();
     }
-
 }
-
-
 
 console.log("========== TELEGRAM WEBAPP DEBUG ==========");
 console.log("Telegram =", window.Telegram);
@@ -26,7 +22,7 @@ console.log("============================================");
 
 
 /* ============================================================
-ЭКРАНЫ
+   ЭКРАНЫ
 ============================================================ */
 
 const menuScreen =
@@ -43,7 +39,7 @@ const mistakesScreen =
 
 
 /* ============================================================
-КНОПКИ МЕНЮ
+   КНОПКИ МЕНЮ
 ============================================================ */
 
 const playButton =
@@ -70,7 +66,7 @@ const backFromMistakesButton =
 
 
 /* ============================================================
-ИГРА — ЭЛЕМЕНТЫ
+   ИГРА
 ============================================================ */
 
 const boardElement =
@@ -90,7 +86,7 @@ const newGameButton =
 
 
 /* ============================================================
-АНАЛИЗ — ЭЛЕМЕНТЫ
+   АНАЛИЗ
 ============================================================ */
 
 const pgnInput =
@@ -111,7 +107,7 @@ const analysisResult =
 
 
 /* ============================================================
-СОСТОЯНИЕ ИГРЫ
+   СОСТОЯНИЕ ИГРЫ
 ============================================================ */
 
 let board = [];
@@ -128,14 +124,10 @@ let gameOver = false;
 
 
 /* ============================================================
-ДАННЫЕ ПОСЛЕДНЕГО АНАЛИЗА
+   СОСТОЯНИЕ АНАЛИЗА
 ============================================================ */
 
 let currentAnalysisData = null;
-
-/* ============================================================
-ДАННЫЕ «МОИ ОШИБКИ»
-============================================================ */
 
 let myMistakesData = [];
 
@@ -143,14 +135,26 @@ let currentMistakeSource = "analysis";
 
 
 /* ============================================================
-ЭКРАН ПОЗИЦИИ ОШИБКИ
+   СОСТОЯНИЕ ПОЗИЦИИ ОШИБКИ
 ============================================================ */
 
 let positionScreen = null;
 
+let positionBoardState = null;
+
+let positionSelectedSquare = null;
+
+let positionOrientation = "white";
+
+let positionBestMoveShown = false;
+
+let positionUserMove = null;
+
+let positionCastlingRights = "-";
+
 
 /* ============================================================
-КООРДИНАТЫ
+   КООРДИНАТЫ
 ============================================================ */
 
 const FILES = [
@@ -166,19 +170,40 @@ const FILES = [
 
 
 /* ============================================================
-FEN → ДОСКА
+   TELEGRAM USER
+============================================================ */
+
+function getTelegramUser() {
+
+    if (
+        tg &&
+        tg.initDataUnsafe &&
+        tg.initDataUnsafe.user
+    ) {
+        return tg.initDataUnsafe.user;
+    }
+
+    return null;
+}
+
+
+/* ============================================================
+   FEN → ДОСКА
 ============================================================ */
 
 function fenToBoard(fen) {
 
+    if (!fen) {
+        return [];
+    }
+
     const position =
-        fen.split(" ")[0];
+        String(fen).split(" ")[0];
 
     const rows =
         position.split("/");
 
     const result = [];
-
 
     for (
         let row = 0;
@@ -188,9 +213,11 @@ function fenToBoard(fen) {
 
         const resultRow = [];
 
+        const rowText =
+            rows[row] || "";
 
         for (
-            const char of rows[row]
+            const char of rowText
         ) {
 
             if (!isNaN(char)) {
@@ -198,41 +225,31 @@ function fenToBoard(fen) {
                 const emptyCount =
                     parseInt(char);
 
-
                 for (
                     let i = 0;
                     i < emptyCount;
                     i++
                 ) {
-
                     resultRow.push(null);
-
                 }
 
             } else {
 
                 let color;
 
-
                 if (
                     char ===
                     char.toUpperCase()
                 ) {
-
                     color = "white";
-
                 } else {
-
                     color = "black";
-
                 }
-
 
                 const lower =
                     char.toLowerCase();
 
                 let type = null;
-
 
                 if (lower === "k") {
                     type = "king";
@@ -258,29 +275,39 @@ function fenToBoard(fen) {
                     type = "pawn";
                 }
 
-
                 resultRow.push({
                     type: type,
                     color: color
                 });
-
             }
-
         }
 
+        while (resultRow.length < 8) {
+            resultRow.push(null);
+        }
 
         result.push(resultRow);
-
     }
 
+    while (result.length < 8) {
+        result.push([
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+        ]);
+    }
 
     return result;
-
 }
 
 
 /* ============================================================
-ПОЛУЧИТЬ ФИГУРУ
+   ПОЛУЧИТЬ ФИГУРУ ОСНОВНОЙ ДОСКИ
 ============================================================ */
 
 function getPiece(squareName) {
@@ -290,37 +317,41 @@ function getPiece(squareName) {
             squareName[0]
         );
 
-
     const rank =
-        8 - parseInt(
+        8 -
+        parseInt(
             squareName[1]
         );
-
 
     if (
         file < 0 ||
         rank < 0 ||
         rank > 7
     ) {
-
         return null;
-
     }
 
+    if (
+        !board[rank]
+    ) {
+        return null;
+    }
 
     return board[rank][file];
-
 }
 
 
 /* ============================================================
-ОТРИСОВКА ОСНОВНОЙ ДОСКИ
+   ОТРИСОВКА ОСНОВНОЙ ДОСКИ
 ============================================================ */
 
 function renderBoard() {
 
-    boardElement.innerHTML = "";
+    if (!boardElement) {
+        return;
+    }
 
+    boardElement.innerHTML = "";
 
     for (
         let row = 0;
@@ -339,13 +370,11 @@ function renderBoard() {
                     "button"
                 );
 
+            square.type = "button";
 
             square.classList.add(
                 "square"
             );
-
-
-            /* Цвет клетки */
 
             if (
                 (row + col) % 2 === 0
@@ -360,41 +389,29 @@ function renderBoard() {
                 square.classList.add(
                     "dark"
                 );
-
             }
-
-
-            /* Координата */
 
             const squareName =
                 FILES[col] +
                 (8 - row);
 
-
             square.dataset.square =
                 squareName;
-
-
-            /* Последний ход */
 
             if (
                 lastMove &&
                 (
                     lastMove.from ===
-                    squareName ||
+                        squareName ||
                     lastMove.to ===
-                    squareName
+                        squareName
                 )
             ) {
 
                 square.classList.add(
                     "last-move"
                 );
-
             }
-
-
-            /* Выбранная клетка */
 
             if (
                 selectedSquare ===
@@ -404,15 +421,10 @@ function renderBoard() {
                 square.classList.add(
                     "selected"
                 );
-
             }
 
-
-            /* Фигура */
-
             const piece =
-                board[row][col];
-
+                board[row]?.[col];
 
             if (piece) {
 
@@ -421,32 +433,23 @@ function renderBoard() {
                         "img"
                     );
 
-
                 pieceElement.classList.add(
                     "piece-image"
                 );
 
-
                 pieceElement.src =
-                    `pieces/${piece.color}/${piece.type.charAt(0).toUpperCase() + piece.type.slice(1)}.svg?v=2`;
-
+                    `pieces/${piece.color}/${piece.type}.svg?v=3`;
 
                 pieceElement.alt =
                     `${piece.color} ${piece.type}`;
 
-
                 pieceElement.draggable =
                     false;
-
 
                 square.appendChild(
                     pieceElement
                 );
-
             }
-
-
-            /* Нажатие */
 
             square.addEventListener(
                 "click",
@@ -456,20 +459,16 @@ function renderBoard() {
                     )
             );
 
-
             boardElement.appendChild(
                 square
             );
-
         }
-
     }
-
 }
 
 
 /* ============================================================
-НАЖАТИЕ НА КЛЕТКУ
+   НАЖАТИЕ НА КЛЕТКУ
 ============================================================ */
 
 function handleSquareClick(squareName) {
@@ -481,9 +480,7 @@ function handleSquareClick(squareName) {
         );
 
         return;
-
     }
-
 
     if (!playerTurn) {
 
@@ -492,17 +489,15 @@ function handleSquareClick(squareName) {
         );
 
         return;
-
     }
-
 
     const piece =
         getPiece(squareName);
 
 
-    /* Фигура ещё не выбрана */
-
-    if (selectedSquare === null) {
+    if (
+        selectedSquare === null
+    ) {
 
         if (!piece) {
 
@@ -511,9 +506,7 @@ function handleSquareClick(squareName) {
             );
 
             return;
-
         }
-
 
         if (
             piece.color !==
@@ -525,27 +518,20 @@ function handleSquareClick(squareName) {
             );
 
             return;
-
         }
-
 
         selectedSquare =
             squareName;
-
 
         setMessage(
             `Выбрана ${squareName}. Выберите клетку назначения.`
         );
 
-
         renderBoard();
 
         return;
-
     }
 
-
-    /* Нажали ту же клетку */
 
     if (
         selectedSquare ===
@@ -554,20 +540,15 @@ function handleSquareClick(squareName) {
 
         selectedSquare = null;
 
-
         setMessage(
             "Выбор отменён."
         );
 
-
         renderBoard();
 
         return;
-
     }
 
-
-    /* Другая своя фигура */
 
     if (
         piece &&
@@ -578,20 +559,15 @@ function handleSquareClick(squareName) {
         selectedSquare =
             squareName;
 
-
         setMessage(
             `Выбрана ${squareName}.`
         );
 
-
         renderBoard();
 
         return;
-
     }
 
-
-    /* Отправляем ход */
 
     const from =
         selectedSquare;
@@ -599,27 +575,19 @@ function handleSquareClick(squareName) {
     const to =
         squareName;
 
-
     const uciMove =
         from + to;
 
-
-    console.log(
-        "Отправляем ход:",
-        uciMove
-    );
-
-
     selectedSquare = null;
 
-
-    makeMove(uciMove);
-
+    makeMove(
+        uciMove
+    );
 }
 
 
 /* ============================================================
-ОТПРАВКА ХОДА
+   ОТПРАВКА ХОДА
 ============================================================ */
 
 async function makeMove(uciMove) {
@@ -627,7 +595,6 @@ async function makeMove(uciMove) {
     setMessage(
         "Проверяем ход..."
     );
-
 
     try {
 
@@ -642,22 +609,16 @@ async function makeMove(uciMove) {
                             "application/json"
                     },
 
-                    body: JSON.stringify({
-                        move: uciMove
-                    })
+                    body:
+                        JSON.stringify({
+                            move:
+                                uciMove
+                        })
                 }
             );
 
-
         const data =
             await response.json();
-
-
-        console.log(
-            "Ответ Python:",
-            data
-        );
-
 
         if (
             !response.ok ||
@@ -669,42 +630,50 @@ async function makeMove(uciMove) {
                 "Недопустимый ход."
             );
 
-
             renderBoard();
 
             return;
-
         }
-
 
         board =
             fenToBoard(
                 data.fen
             );
 
+        if (
+            data.played_move
+        ) {
 
-        lastMove = {
+            lastMove = {
+                from:
+                    data.played_move.substring(
+                        0,
+                        2
+                    ),
 
-            from:
-                data.played_move
-                    .substring(0, 2),
+                to:
+                    data.played_move.substring(
+                        2,
+                        4
+                    )
+            };
 
-            to:
-                data.played_move
-                    .substring(2, 4)
+        } else {
 
-        };
-
+            lastMove = null;
+        }
 
         playerTurn =
-            data.player_turn;
+            Boolean(
+                data.player_turn
+            );
 
         gameOver =
-            data.game_over;
-
+            Boolean(
+                data.game_over
+            );
 
         renderBoard();
-
 
         if (data.is_best) {
 
@@ -717,41 +686,33 @@ async function makeMove(uciMove) {
             setMessage(
                 `Вы сыграли ${data.played_san}. Лучший ход: ${data.best_san}`
             );
-
         }
 
-
         updateTurnText();
-
 
         if (gameOver) {
 
             setMessage(
                 `Партия закончена: ${data.status}`
             );
-
         }
-
 
     } catch (error) {
 
         console.error(
-            "Ошибка:",
+            "Ошибка хода:",
             error
         );
-
 
         setMessage(
             "Ошибка соединения с сервером."
         );
-
     }
-
 }
 
 
 /* ============================================================
-ПОЛУЧИТЬ ТЕКУЩУЮ ИГРУ
+   ЗАГРУЗКА ИГРЫ
 ============================================================ */
 
 async function loadGame() {
@@ -759,41 +720,39 @@ async function loadGame() {
     try {
 
         const response =
-            await fetch("/game");
-
+            await fetch(
+                "/game"
+            );
 
         const data =
             await response.json();
-
-
-        console.log(
-            "Начальная позиция:",
-            data
-        );
-
 
         board =
             fenToBoard(
                 data.fen
             );
 
-
         playerTurn =
-            data.player_turn;
+            Boolean(
+                data.player_turn
+            );
 
         gameOver =
-            data.game_over;
+            Boolean(
+                data.game_over
+            );
 
+        selectedSquare = null;
+
+        lastMove = null;
 
         renderBoard();
 
         updateTurnText();
 
-
         setMessage(
             "Выберите фигуру"
         );
-
 
     } catch (error) {
 
@@ -802,21 +761,22 @@ async function loadGame() {
             error
         );
 
-
         setMessage(
             "Не удалось загрузить игру."
         );
-
     }
-
 }
 
 
 /* ============================================================
-ТЕКСТ ХОДА
+   ТЕКСТ ХОДА
 ============================================================ */
 
 function updateTurnText() {
+
+    if (!turnElement) {
+        return;
+    }
 
     if (gameOver) {
 
@@ -824,9 +784,7 @@ function updateTurnText() {
             "Партия закончена";
 
         return;
-
     }
-
 
     if (playerTurn) {
 
@@ -837,157 +795,299 @@ function updateTurnText() {
 
         turnElement.textContent =
             "🤖 Ход компьютера";
-
     }
-
 }
 
 
 /* ============================================================
-СООБЩЕНИЕ
+   СООБЩЕНИЕ
 ============================================================ */
 
 function setMessage(text) {
 
+    if (!messageElement) {
+        return;
+    }
+
     messageElement.textContent =
         text;
-
 }
 
 
 /* ============================================================
-ПОДСКАЗКА
+   ПОДСКАЗКА
 ============================================================ */
 
-hintButton.addEventListener(
-    "click",
-    async () => {
+if (hintButton) {
 
-        setMessage(
-            "Получаем лучший ход..."
-        );
+    hintButton.addEventListener(
+        "click",
+        async () => {
 
+            setMessage(
+                "Получаем лучший ход..."
+            );
 
-        try {
+            try {
 
-            const response =
-                await fetch("/game");
+                const response =
+                    await fetch(
+                        "/game"
+                    );
 
+                const data =
+                    await response.json();
 
-            const data =
-                await response.json();
+                if (
+                    data.legal_moves &&
+                    data.legal_moves.length
+                ) {
 
+                    setMessage(
+                        "Подсказка: позже здесь покажем лучший ход Stockfish."
+                    );
+                }
 
-            if (
-                data.legal_moves &&
-                data.legal_moves.length > 0
-            ) {
+            } catch (error) {
+
+                console.error(
+                    error
+                );
 
                 setMessage(
-                    "Подсказка: позже здесь покажем лучший ход Stockfish."
+                    "Ошибка получения подсказки."
                 );
-
             }
-
-
-        } catch (error) {
-
-            console.error(error);
-
-
-            setMessage(
-                "Ошибка получения подсказки."
-            );
-
         }
-
-    }
-);
+    );
+}
 
 
 /* ============================================================
-НОВАЯ ИГРА
+   НОВАЯ ИГРА
 ============================================================ */
 
-newGameButton.addEventListener(
-    "click",
-    async () => {
+if (newGameButton) {
 
-        try {
+    newGameButton.addEventListener(
+        "click",
+        async () => {
 
-            const response =
-                await fetch(
-                    "/reset",
-                    {
-                        method: "POST"
-                    }
+            try {
+
+                const response =
+                    await fetch(
+                        "/reset",
+                        {
+                            method: "POST"
+                        }
+                    );
+
+                const data =
+                    await response.json();
+
+                board =
+                    fenToBoard(
+                        data.fen
+                    );
+
+                selectedSquare = null;
+
+                lastMove = null;
+
+                playerTurn =
+                    Boolean(
+                        data.player_turn
+                    );
+
+                gameOver =
+                    Boolean(
+                        data.game_over
+                    );
+
+                renderBoard();
+
+                updateTurnText();
+
+                setMessage(
+                    "Новая партия. Ваш ход."
                 );
 
+            } catch (error) {
 
-            const data =
-                await response.json();
-
-
-            board =
-                fenToBoard(
-                    data.fen
+                console.error(
+                    error
                 );
 
-
-            selectedSquare = null;
-
-            lastMove = null;
-
-
-            playerTurn =
-                data.player_turn;
-
-            gameOver =
-                data.game_over;
-
-
-            renderBoard();
-
-            updateTurnText();
-
-
-            setMessage(
-                "Новая партия. Ваш ход."
-            );
-
-
-        } catch (error) {
-
-            console.error(
-                error
-            );
-
-
-            setMessage(
-                "Не удалось начать новую игру."
-            );
-
+                setMessage(
+                    "Не удалось начать новую игру."
+                );
+            }
         }
-
-    }
-);
+    );
+}
 
 
 /* ============================================================
-   ЭКРАН ПОЗИЦИИ ОШИБКИ
+   ПОКАЗ ЭКРАНА
 ============================================================ */
 
-let positionBoardState = null;
+function showScreen(screen) {
 
-let positionSelectedSquare = null;
+    if (menuScreen) {
+        menuScreen.classList.add(
+            "hidden"
+        );
+    }
 
-let positionOrientation = "white";
+    if (gameScreen) {
+        gameScreen.classList.add(
+            "hidden"
+        );
+    }
 
-let positionBestMoveShown = false;
+    if (analysisScreen) {
+        analysisScreen.classList.add(
+            "hidden"
+        );
+    }
 
-let positionUserMove = null;
+    if (mistakesScreen) {
+        mistakesScreen.classList.add(
+            "hidden"
+        );
+    }
 
-let positionCastlingRights = "-";
+    if (positionScreen) {
+        positionScreen.classList.add(
+            "hidden"
+        );
+    }
+
+    if (screen) {
+        screen.classList.remove(
+            "hidden"
+        );
+    }
+}
+
+
+/* ============================================================
+   МЕНЮ → ИГРА
+============================================================ */
+
+if (playButton) {
+
+    playButton.addEventListener(
+        "click",
+        () => {
+
+            showScreen(
+                gameScreen
+            );
+
+            loadGame();
+        }
+    );
+}
+
+
+/* ============================================================
+   МЕНЮ → АНАЛИЗ
+============================================================ */
+
+if (analysisButton) {
+
+    analysisButton.addEventListener(
+        "click",
+        () => {
+
+            showScreen(
+                analysisScreen
+            );
+
+            if (analysisMessage) {
+
+                analysisMessage.textContent =
+                    "Вставьте PGN партии.";
+            }
+        }
+    );
+}
+
+
+/* ============================================================
+   МЕНЮ → МОИ ОШИБКИ
+============================================================ */
+
+if (mistakesButton) {
+
+    mistakesButton.addEventListener(
+        "click",
+        () => {
+
+            showScreen(
+                mistakesScreen
+            );
+
+            loadMyMistakes();
+        }
+    );
+}
+
+
+/* ============================================================
+   НАЗАД ИЗ ИГРЫ
+============================================================ */
+
+if (backFromGameButton) {
+
+    backFromGameButton.addEventListener(
+        "click",
+        () => {
+
+            showScreen(
+                menuScreen
+            );
+        }
+    );
+}
+
+
+/* ============================================================
+   НАЗАД ИЗ АНАЛИЗА
+============================================================ */
+
+if (backFromAnalysisButton) {
+
+    backFromAnalysisButton.addEventListener(
+        "click",
+        () => {
+
+            showScreen(
+                menuScreen
+            );
+        }
+    );
+}
+
+
+/* ============================================================
+   НАЗАД ИЗ МОИХ ОШИБОК
+============================================================ */
+
+if (backFromMistakesButton) {
+
+    backFromMistakesButton.addEventListener(
+        "click",
+        () => {
+
+            showScreen(
+                menuScreen
+            );
+        }
+    );
+}
 
 
 /* ============================================================
@@ -1000,37 +1100,34 @@ function createPositionScreen() {
         return;
     }
 
-
     positionScreen =
         document.createElement(
             "section"
         );
 
-
     positionScreen.id =
         "positionScreen";
 
-
     positionScreen.className =
-        "screen position-screen hidden";
-
+        "screen hidden";
 
     positionScreen.innerHTML = `
 
-        <header class="position-header">
+        <div class="position-header">
 
             <button
+                type="button"
                 id="backFromPositionButton"
-                class="back-button"
+                class="menu-button"
             >
-                ← Назад к ошибкам
+                ← Назад
             </button>
 
             <h2>
                 Позиция ошибки
             </h2>
 
-        </header>
+        </div>
 
 
         <div
@@ -1041,68 +1138,65 @@ function createPositionScreen() {
 
         <div
             id="positionResult"
-            class="position-result neutral"
+            class="position-result"
         ></div>
 
 
-        <div class="position-coordinates">
+        <div
+            id="positionBoard"
+            class="position-board"
+        ></div>
 
-            <div class="position-board-container">
 
-                <div
-                    id="positionRanks"
-                    class="position-ranks"
-                ></div>
+        <div
+            id="positionCoordinates"
+            class="position-coordinates"
+        ></div>
 
-                <div
-                    id="positionBoard"
-                    class="position-board"
-                ></div>
 
-            </div>
+        <div
+            id="positionBestMoveInfo"
+            class="position-best-move-info"
+        ></div>
 
-            <div
-                id="positionFiles"
-                class="position-files"
-            ></div>
+
+        <div
+            class="position-buttons"
+        >
+
+            <button
+                type="button"
+                id="showBestMoveButton"
+                class="menu-button"
+            >
+                💡 Показать лучший ход
+            </button>
 
         </div>
 
 
         <div
-            id="bestMoveInfo"
-            class="position-result neutral"
-        ></div>
-
-
-        <button
-            id="bestMoveButton"
-            class="button"
+            class="mistake-navigation"
         >
-            💡 Показать лучший ход
-        </button>
-
-
-        <div class="position-navigation">
 
             <button
-                id="previousPositionButton"
-                class="button secondary"
+                type="button"
+                id="previousMistakeButton"
+                class="menu-button"
             >
                 ← Предыдущая
             </button>
 
             <button
-                id="nextPositionButton"
-                class="button secondary"
+                type="button"
+                id="nextMistakeButton"
+                class="menu-button"
             >
                 Следующая →
             </button>
 
         </div>
-
     `;
-
 
     document
         .querySelector(".app")
@@ -1111,195 +1205,147 @@ function createPositionScreen() {
         );
 
 
-    /* ========================================================
-       НАЗАД
-    ======================================================== */
-
     document
         .getElementById(
             "backFromPositionButton"
         )
-        .onclick = () => {
+        .addEventListener(
+            "click",
+            () => {
 
-            positionScreen.classList.add(
-                "hidden"
-            );
-
-
-            if (
-                currentMistakeSource ===
-                "mistakes"
-            ) {
-
-                mistakesScreen.classList.remove(
+                positionScreen.classList.add(
                     "hidden"
                 );
 
-            } else {
+                if (
+                    currentMistakeSource ===
+                    "mistakes"
+                ) {
 
-                analysisScreen.classList.remove(
-                    "hidden"
-                );
+                    mistakesScreen.classList.remove(
+                        "hidden"
+                    );
 
+                } else {
+
+                    analysisScreen.classList.remove(
+                        "hidden"
+                    );
+                }
             }
-
-        };
-
-
-    /* ========================================================
-       ЛУЧШИЙ ХОД
-    ======================================================== */
-
-    document
-        .getElementById(
-            "bestMoveButton"
-        )
-        .onclick = () => {
-
-            showBestMove(
-                positionScreen.currentMistake
-            );
-
-        };
-
-
-    /* ========================================================
-       ПРЕДЫДУЩАЯ ПОЗИЦИЯ
-    ======================================================== */
-
-    document
-        .getElementById(
-            "previousPositionButton"
-        )
-        .onclick = () => {
-
-            navigateMistake(-1);
-
-        };
-
-
-    /* ========================================================
-       СЛЕДУЮЩАЯ ПОЗИЦИЯ
-    ======================================================== */
-
-    document
-        .getElementById(
-            "nextPositionButton"
-        )
-        .onclick = () => {
-
-            navigateMistake(1);
-
-        };
-
-}
-
-
-/* ============================================================
-   НАВИГАЦИЯ ПО ОШИБКАМ
-============================================================ */
-
-function navigateMistake(direction) {
-
-    let mistakes = null;
-
-
-    if (
-        currentMistakeSource ===
-        "mistakes"
-    ) {
-
-        mistakes =
-            myMistakesData;
-
-    } else if (
-        currentAnalysisData &&
-        currentAnalysisData.mistakes
-    ) {
-
-        mistakes =
-            currentAnalysisData.mistakes;
-
-    }
-
-
-    if (
-        !mistakes ||
-        mistakes.length === 0 ||
-        !positionScreen.currentMistake
-    ) {
-
-        return;
-
-    }
-
-
-    const currentIndex =
-        mistakes.indexOf(
-            positionScreen.currentMistake
         );
 
 
-    if (currentIndex === -1) {
-        return;
-    }
+    document
+        .getElementById(
+            "showBestMoveButton"
+        )
+        .addEventListener(
+            "click",
+            () => {
+
+                if (
+                    positionScreen &&
+                    positionScreen.currentMistake
+                ) {
+
+                    showBestMove(
+                        positionScreen.currentMistake
+                    );
+                }
+            }
+        );
 
 
-    const newIndex =
-        currentIndex + direction;
+    document
+        .getElementById(
+            "previousMistakeButton"
+        )
+        .addEventListener(
+            "click",
+            () => {
+
+                navigateMistake(
+                    -1
+                );
+            }
+        );
 
 
-    if (
-        newIndex < 0 ||
-        newIndex >= mistakes.length
-    ) {
+    document
+        .getElementById(
+            "nextMistakeButton"
+        )
+        .addEventListener(
+            "click",
+            () => {
 
-        return;
-
-    }
-
-
-    showMistakePosition(
-        mistakes[newIndex]
-    );
-
+                navigateMistake(
+                    1
+                );
+            }
+        );
 }
 
+
 /* ============================================================
-   ПОЛУЧИТЬ СТОРОНУ ИГРОКА
+   ОПРЕДЕЛЕНИЕ СТОРОНЫ ОШИБКИ
 ============================================================ */
 
 function getMistakeSide(mistake) {
 
-    const side =
-        String(
-            mistake.user_side ??
-            mistake.side ??
-            mistake.player_color ??
-            mistake.color ??
-            ""
-        ).toLowerCase();
+    if (!mistake) {
+        return "white";
+    }
 
+    const side =
+        mistake.user_side ??
+        mistake.side ??
+        mistake.player_color ??
+        mistake.color;
 
     if (
-        side === "black" ||
-        side === "b" ||
-        side === "черные" ||
-        side === "чёрные"
+        String(side)
+            .toLowerCase()
+            .trim()
+            .includes("black") ||
+        String(side)
+            .toLowerCase()
+            .trim() === "b" ||
+        String(side)
+            .toLowerCase()
+            .trim() === "черные" ||
+        String(side)
+            .toLowerCase()
+            .trim() === "чёрные"
     ) {
 
         return "black";
-
     }
 
+    const fen =
+        mistake.position_fen ??
+        mistake.fen;
+
+    if (fen) {
+
+        const parts =
+            String(fen).split(" ");
+
+        if (
+            parts[1] === "b"
+        ) {
+
+            return "black";
+        }
+    }
 
     return "white";
-
 }
 
 
 /* ============================================================
-   ПРЕОБРАЗОВАНИЕ КООРДИНАТ
+   ПОЛУЧИТЬ ИМЯ КЛЕТКИ ПО КООРДИНАТАМ
 ============================================================ */
 
 function getPositionSquareName(
@@ -1307,28 +1353,30 @@ function getPositionSquareName(
     col
 ) {
 
+    let realRow = row;
+    let realCol = col;
+
     if (
-        positionOrientation === "white"
+        positionOrientation ===
+        "black"
     ) {
 
-        return (
-            FILES[col] +
-            (8 - row)
-        );
+        realRow =
+            7 - row;
 
+        realCol =
+            7 - col;
     }
 
-
     return (
-        FILES[7 - col] +
-        (row + 1)
+        FILES[realCol] +
+        (8 - realRow)
     );
-
 }
 
 
 /* ============================================================
-   ПОЗИЦИЯ → КЛОН
+   КЛОНИРОВАНИЕ ПОЗИЦИИ
 ============================================================ */
 
 function clonePositionBoard(
@@ -1341,53 +1389,44 @@ function clonePositionBoard(
                 piece =>
                     piece
                         ? {
-                            type: piece.type,
-                            color: piece.color
+                            type:
+                                piece.type,
+                            color:
+                                piece.color
                         }
                         : null
             )
     );
-
 }
 
 
 /* ============================================================
-   ПОЛУЧИТЬ ФИГУРУ В ПОЗИЦИИ
+   ПОЛУЧИТЬ ФИГУРУ ПОЗИЦИИ
 ============================================================ */
 
 function getPositionPiece(
     squareName
 ) {
 
-    const file =
-        FILES.indexOf(
-            squareName[0]
+    const coords =
+        squareToCoords(
+            squareName
         );
 
-
-    const rank =
-        parseInt(
-            squareName[1]
-        );
-
-
-    if (
-        file < 0 ||
-        rank < 1 ||
-        rank > 8
-    ) {
-
+    if (!coords) {
         return null;
-
     }
 
-
-    const row =
-        8 - rank;
-
-
-    return positionBoardState[row][file];
-
+    return (
+        positionBoardState
+            ?.[
+                coords.row
+            ]
+            ?.[
+                coords.col
+            ] ??
+        null
+    );
 }
 
 
@@ -1396,61 +1435,68 @@ function getPositionPiece(
 ============================================================ */
 
 function setPositionPiece(
+    boardState,
     squareName,
     piece
 ) {
 
-    const file =
-        FILES.indexOf(
-            squareName[0]
+    const coords =
+        squareToCoords(
+            squareName
         );
 
-
-    const rank =
-        parseInt(
-            squareName[1]
-        );
-
-
-    if (
-        file < 0 ||
-        rank < 1 ||
-        rank > 8
-    ) {
-
+    if (!coords) {
         return;
-
     }
 
-
-    positionBoardState[8 - rank][file] =
-        piece;
-
+    boardState[
+        coords.row
+    ][
+        coords.col
+    ] = piece;
 }
 
 
 /* ============================================================
-   КООРДИНАТЫ → ЧИСЛО
+   SANDBOX КООРДИНАТЫ
 ============================================================ */
 
 function squareToCoords(
     squareName
 ) {
 
+    if (
+        !squareName ||
+        squareName.length < 2
+    ) {
+        return null;
+    }
+
+    const file =
+        FILES.indexOf(
+            squareName[0]
+        );
+
+    const rank =
+        parseInt(
+            squareName[1]
+        );
+
+    if (
+        file < 0 ||
+        rank < 1 ||
+        rank > 8
+    ) {
+        return null;
+    }
+
     return {
+        row:
+            8 - rank,
 
-        file:
-            FILES.indexOf(
-                squareName[0]
-            ),
-
-        rank:
-            parseInt(
-                squareName[1]
-            ) - 1
-
+        col:
+            file
     };
-
 }
 
 
@@ -1459,72 +1505,56 @@ function squareToCoords(
 ============================================================ */
 
 function isPathClear(
-    from,
-    to
+    boardState,
+    fromRow,
+    fromCol,
+    toRow,
+    toCol
 ) {
 
-    const a =
-        squareToCoords(from);
-
-    const b =
-        squareToCoords(to);
-
-
-    const df =
+    const rowStep =
         Math.sign(
-            b.file - a.file
+            toRow - fromRow
         );
 
-    const dr =
+    const colStep =
         Math.sign(
-            b.rank - a.rank
+            toCol - fromCol
         );
 
+    let row =
+        fromRow + rowStep;
 
-    let file =
-        a.file + df;
-
-    let rank =
-        a.rank + dr;
-
+    let col =
+        fromCol + colStep;
 
     while (
-        file !== b.file ||
-        rank !== b.rank
+        row !== toRow ||
+        col !== toCol
     ) {
 
-        const square =
-            FILES[file] +
-            (rank + 1);
-
-
         if (
-            getPositionPiece(square)
+            boardState[row]?.[col]
         ) {
-
             return false;
-
         }
 
-
-        file += df;
-        rank += dr;
-
+        row += rowStep;
+        col += colStep;
     }
 
-
     return true;
-
 }
 
 
 /* ============================================================
-   ПРОВЕРКА АТАКИ ПОЛЯ
+   АТАКОВАНА ЛИ КЛЕТКА
 ============================================================ */
 
 function isSquareAttackedByColor(
+    boardState,
     squareName,
-    attackerColor
+    attackingColor
 ) {
 
     const target =
@@ -1532,1063 +1562,459 @@ function isSquareAttackedByColor(
             squareName
         );
 
-
-    const targetFile =
-        target.file;
-
-    const targetRank =
-        target.rank;
-
-
-    if (
-        targetFile < 0 ||
-        targetRank < 0
-    ) {
-
+    if (!target) {
         return false;
-
     }
 
-
     for (
-        let rank = 1;
-        rank <= 8;
-        rank++
+        let row = 0;
+        row < 8;
+        row++
     ) {
 
         for (
-            let fileIndex = 0;
-            fileIndex < 8;
-            fileIndex++
+            let col = 0;
+            col < 8;
+            col++
         ) {
 
-            const fromSquare =
-                FILES[fileIndex] +
-                rank;
-
-
             const piece =
-                getPositionPiece(
-                    fromSquare
-                );
-
+                boardState[row][col];
 
             if (
                 !piece ||
                 piece.color !==
-                attackerColor
+                    attackingColor
             ) {
-
                 continue;
-
             }
 
+            const fromSquare =
+                FILES[col] +
+                (8 - row);
 
-            const from =
-                squareToCoords(
-                    fromSquare
-                );
-
-
-            const dx =
-                targetFile -
-                from.file;
-
-
-            const dy =
-                targetRank -
-                from.rank;
-
-
-            const absFile =
-                Math.abs(dx);
-
-
-            const absRank =
-                Math.abs(dy);
-
-
-            /* ПЕШКА */
+            const toSquare =
+                squareName;
 
             if (
-                piece.type === "pawn"
+                isPositionMoveLegal(
+                    boardState,
+                    fromSquare,
+                    toSquare,
+                    true
+                )
             ) {
-
-                const direction =
-                    attackerColor === "white"
-                        ? 1
-                        : -1;
-
-
-                if (
-                    absFile === 1 &&
-                    dy === direction
-                ) {
-
-                    return true;
-
-                }
-
-
-                continue;
-
+                return true;
             }
-
-
-            /* КОНЬ */
-
-            if (
-                piece.type === "knight"
-            ) {
-
-                if (
-                    (
-                        absFile === 1 &&
-                        absRank === 2
-                    ) ||
-                    (
-                        absFile === 2 &&
-                        absRank === 1
-                    )
-                ) {
-
-                    return true;
-
-                }
-
-
-                continue;
-
-            }
-
-
-            /* КОРОЛЬ */
-
-            if (
-                piece.type === "king"
-            ) {
-
-                if (
-                    absFile <= 1 &&
-                    absRank <= 1 &&
-                    (
-                        absFile > 0 ||
-                        absRank > 0
-                    )
-                ) {
-
-                    return true;
-
-                }
-
-
-                continue;
-
-            }
-
-
-            /* ЛАДЬЯ / ФЕРЗЬ */
-
-            if (
-                piece.type === "rook" ||
-                piece.type === "queen"
-            ) {
-
-                if (
-                    dx !== 0 &&
-                    dy !== 0
-                ) {
-
-                    continue;
-
-                }
-
-
-                if (
-                    isPathClear(
-                        fromSquare,
-                        squareName
-                    )
-                ) {
-
-                    return true;
-
-                }
-
-
-                continue;
-
-            }
-
-
-            /* СЛОН / ФЕРЗЬ */
-
-            if (
-                piece.type === "bishop" ||
-                piece.type === "queen"
-            ) {
-
-                if (
-                    absFile !== absRank
-                ) {
-
-                    continue;
-
-                }
-
-
-                if (
-                    absFile === 0
-                ) {
-
-                    continue;
-
-                }
-
-
-                if (
-                    isPathClear(
-                        fromSquare,
-                        squareName
-                    )
-                ) {
-
-                    return true;
-
-                }
-
-            }
-
         }
-
     }
 
-
     return false;
-
 }
 
 
 /* ============================================================
-   ПРОВЕРКА ХОДА
+   ПРОВЕРКА ХОДА ПОЗИЦИИ
 ============================================================ */
 
 function isPositionMoveLegal(
-    from,
-    to
+    boardState,
+    fromSquare,
+    toSquare,
+    attackOnly = false
 ) {
 
-    const piece =
-        getPositionPiece(from);
+    const from =
+        squareToCoords(
+            fromSquare
+        );
 
+    const to =
+        squareToCoords(
+            toSquare
+        );
+
+    if (!from || !to) {
+        return false;
+    }
+
+    const piece =
+        boardState[from.row]?.[
+            from.col
+        ];
 
     if (!piece) {
         return false;
     }
 
-
-    const targetPiece =
-        getPositionPiece(to);
-
-
-    /* Нельзя брать свою фигуру */
+    const target =
+        boardState[to.row]?.[
+            to.col
+        ];
 
     if (
-        targetPiece &&
-        targetPiece.color ===
-        piece.color
+        !attackOnly &&
+        target &&
+        target.color ===
+            piece.color
     ) {
-
         return false;
-
     }
 
+    const dr =
+        to.row -
+        from.row;
 
-    const fromCoords =
-        squareToCoords(from);
+    const dc =
+        to.col -
+        from.col;
 
+    const absDr =
+        Math.abs(dr);
 
-    const toCoords =
-        squareToCoords(to);
-
-
-    const dx =
-        toCoords.file -
-        fromCoords.file;
-
-
-    const dy =
-        toCoords.rank -
-        fromCoords.rank;
+    const absDc =
+        Math.abs(dc);
 
 
-    const absFile =
-        Math.abs(dx);
-
-
-    const absRank =
-        Math.abs(dy);
-
-
-    /* ПЕШКА */
+    /* --------------------------------------------------------
+       ПЕШКА
+    -------------------------------------------------------- */
 
     if (
-        piece.type === "pawn"
+        piece.type ===
+        "pawn"
     ) {
 
         const direction =
-            piece.color === "white"
-                ? 1
-                : -1;
-
-
-        const startRank =
-            piece.color === "white"
-                ? 1
-                : 6;
-
-
-        /* Обычный ход */
+            piece.color ===
+            "white"
+                ? -1
+                : 1;
 
         if (
-            dx === 0 &&
-            dy === direction &&
-            !targetPiece
+            attackOnly
         ) {
 
-            return true;
-
+            return (
+                dr === direction &&
+                absDc === 1
+            );
         }
 
-
-        /* Двойной ход */
+        if (
+            dc === 0 &&
+            dr === direction &&
+            !target
+        ) {
+            return true;
+        }
 
         if (
-            dx === 0 &&
-            dy === direction * 2 &&
-            fromCoords.rank === startRank &&
-            !targetPiece
+            dc === 0 &&
+            dr === 2 * direction &&
+            !target
         ) {
 
-            const middleSquare =
-                FILES[fromCoords.file] +
-                (
-                    fromCoords.rank +
-                    direction +
-                    1
-                );
-
+            const startRow =
+                piece.color ===
+                "white"
+                    ? 6
+                    : 1;
 
             if (
-                !getPositionPiece(
-                    middleSquare
-                )
+                from.row ===
+                startRow
             ) {
 
-                return true;
+                const middleRow =
+                    from.row +
+                    direction;
 
+                if (
+                    !boardState[
+                        middleRow
+                    ][from.col]
+                ) {
+                    return true;
+                }
             }
-
         }
-
-
-        /* Взятие */
 
         if (
-            absFile === 1 &&
-            dy === direction &&
-            targetPiece &&
-            targetPiece.color !==
-            piece.color
+            absDc === 1 &&
+            dr === direction &&
+            target
         ) {
-
             return true;
-
         }
 
-
         return false;
-
     }
 
 
-    /* КОНЬ */
+    /* --------------------------------------------------------
+       КОНЬ
+    -------------------------------------------------------- */
 
     if (
-        piece.type === "knight"
+        piece.type ===
+        "knight"
     ) {
 
         return (
             (
-                absFile === 1 &&
-                absRank === 2
+                absDr === 2 &&
+                absDc === 1
             ) ||
             (
-                absFile === 2 &&
-                absRank === 1
+                absDr === 1 &&
+                absDc === 2
             )
         );
-
     }
 
 
-    /* СЛОН */
+    /* --------------------------------------------------------
+       КОРОЛЬ
+    -------------------------------------------------------- */
 
     if (
-        piece.type === "bishop"
+        piece.type ===
+        "king"
     ) {
 
         return (
-            absFile === absRank &&
-            absFile > 0 &&
-            isPathClear(
-                from,
-                to
+            absDr <= 1 &&
+            absDc <= 1 &&
+            (
+                absDr !== 0 ||
+                absDc !== 0
             )
         );
-
     }
 
 
-    /* ЛАДЬЯ */
+    /* --------------------------------------------------------
+       ЛАДЬЯ
+    -------------------------------------------------------- */
 
     if (
-        piece.type === "rook"
+        piece.type ===
+        "rook"
     ) {
 
-        return (
-            (
-                dx === 0 ||
-                dy === 0
-            ) &&
-            (
-                dx !== 0 ||
-                dy !== 0
-            ) &&
-            isPathClear(
-                from,
-                to
-            )
-        );
+        if (
+            dr !== 0 &&
+            dc !== 0
+        ) {
+            return false;
+        }
 
+        return isPathClear(
+            boardState,
+            from.row,
+            from.col,
+            to.row,
+            to.col
+        );
     }
 
 
-    /* ФЕРЗЬ */
+    /* --------------------------------------------------------
+       СЛОН
+    -------------------------------------------------------- */
 
     if (
-        piece.type === "queen"
+        piece.type ===
+        "bishop"
+    ) {
+
+        if (
+            absDr !== absDc
+        ) {
+            return false;
+        }
+
+        return isPathClear(
+            boardState,
+            from.row,
+            from.col,
+            to.row,
+            to.col
+        );
+    }
+
+
+    /* --------------------------------------------------------
+       ФЕРЗЬ
+    -------------------------------------------------------- */
+
+    if (
+        piece.type ===
+        "queen"
     ) {
 
         const straight =
-            dx === 0 ||
-            dy === 0;
-
+            dr === 0 ||
+            dc === 0;
 
         const diagonal =
-            absFile === absRank;
+            absDr === absDc;
 
+        if (
+            !straight &&
+            !diagonal
+        ) {
+            return false;
+        }
 
-        return (
-            (
-                straight ||
-                diagonal
-            ) &&
-            (
-                dx !== 0 ||
-                dy !== 0
-            ) &&
-            isPathClear(
-                from,
-                to
-            )
+        return isPathClear(
+            boardState,
+            from.row,
+            from.col,
+            to.row,
+            to.col
         );
-
     }
-
-
-    /* КОРОЛЬ */
-
-    if (
-        piece.type === "king"
-    ) {
-
-        /* Обычный ход */
-
-        if (
-            absFile <= 1 &&
-            absRank <= 1 &&
-            (
-                absFile > 0 ||
-                absRank > 0
-            )
-        ) {
-
-            return true;
-
-        }
-
-
-        /* РОКИРОВКА */
-
-        if (
-            absFile !== 2 ||
-            absRank !== 0
-        ) {
-
-            return false;
-
-        }
-
-
-        const enemyColor =
-            piece.color === "white"
-                ? "black"
-                : "white";
-
-
-        const startSquare =
-            piece.color === "white"
-                ? "e1"
-                : "e8";
-
-
-        if (
-            from !== startSquare
-        ) {
-
-            return false;
-
-        }
-
-
-        /* КОРОТКАЯ */
-
-        if (
-            dx === 2
-        ) {
-
-            const rookSquare =
-                piece.color === "white"
-                    ? "h1"
-                    : "h8";
-
-
-            const rook =
-                getPositionPiece(
-                    rookSquare
-                );
-
-
-            const hasRight =
-                piece.color === "white"
-                    ? positionCastlingRights.includes("K")
-                    : positionCastlingRights.includes("k");
-
-
-            if (!hasRight) {
-                return false;
-            }
-
-
-            if (
-                !rook ||
-                rook.type !== "rook" ||
-                rook.color !== piece.color
-            ) {
-
-                return false;
-
-            }
-
-
-            const between1 =
-                piece.color === "white"
-                    ? "f1"
-                    : "f8";
-
-
-            const between2 =
-                piece.color === "white"
-                    ? "g1"
-                    : "g8";
-
-
-            if (
-                getPositionPiece(between1) ||
-                getPositionPiece(between2)
-            ) {
-
-                return false;
-
-            }
-
-
-            if (
-                isSquareAttackedByColor(
-                    startSquare,
-                    enemyColor
-                )
-            ) {
-
-                return false;
-
-            }
-
-
-            if (
-                isSquareAttackedByColor(
-                    between1,
-                    enemyColor
-                )
-            ) {
-
-                return false;
-
-            }
-
-
-            if (
-                isSquareAttackedByColor(
-                    between2,
-                    enemyColor
-                )
-            ) {
-
-                return false;
-
-            }
-
-
-            return true;
-
-        }
-
-
-        /* ДЛИННАЯ */
-
-        if (
-            dx === -2
-        ) {
-
-            const rookSquare =
-                piece.color === "white"
-                    ? "a1"
-                    : "a8";
-
-
-            const rook =
-                getPositionPiece(
-                    rookSquare
-                );
-
-
-            const hasRight =
-                piece.color === "white"
-                    ? positionCastlingRights.includes("Q")
-                    : positionCastlingRights.includes("q");
-
-
-            if (!hasRight) {
-                return false;
-            }
-
-
-            if (
-                !rook ||
-                rook.type !== "rook" ||
-                rook.color !== piece.color
-            ) {
-
-                return false;
-
-            }
-
-
-            const between1 =
-                piece.color === "white"
-                    ? "d1"
-                    : "d8";
-
-
-            const between2 =
-                piece.color === "white"
-                    ? "c1"
-                    : "c8";
-
-
-            const extraSquare =
-                piece.color === "white"
-                    ? "b1"
-                    : "b8";
-
-
-            if (
-                getPositionPiece(between1) ||
-                getPositionPiece(between2) ||
-                getPositionPiece(extraSquare)
-            ) {
-
-                return false;
-
-            }
-
-
-            if (
-                isSquareAttackedByColor(
-                    startSquare,
-                    enemyColor
-                )
-            ) {
-
-                return false;
-
-            }
-
-
-            if (
-                isSquareAttackedByColor(
-                    between1,
-                    enemyColor
-                )
-            ) {
-
-                return false;
-
-            }
-
-
-            if (
-                isSquareAttackedByColor(
-                    between2,
-                    enemyColor
-                )
-            ) {
-
-                return false;
-
-            }
-
-
-            return true;
-
-        }
-
-
-        return false;
-
-    }
-
 
     return false;
-
 }
 
 
 /* ============================================================
-   ВЫПОЛНИТЬ ХОД НА ДОСКЕ ПОЗИЦИИ
+   СДЕЛАТЬ ХОД НА ДОСКЕ ПОЗИЦИИ
 ============================================================ */
 
 function makePositionMove(
-    from,
-    to
+    fromSquare,
+    toSquare
 ) {
 
-    const originalBoard =
+    const from =
+        squareToCoords(
+            fromSquare
+        );
+
+    const to =
+        squareToCoords(
+            toSquare
+        );
+
+    if (!from || !to) {
+        return;
+    }
+
+    const movingPiece =
+        positionBoardState[
+            from.row
+        ][
+            from.col
+        ];
+
+    if (!movingPiece) {
+        return;
+    }
+
+    const newBoard =
         clonePositionBoard(
             positionBoardState
         );
 
+    let piece =
+        newBoard[
+            from.row
+        ][
+            from.col
+        ];
 
-    const piece =
-        getPositionPiece(from);
+    newBoard[
+        from.row
+    ][
+        from.col
+    ] = null;
 
-
-    if (!piece) {
-        return;
-    }
-
-
-    /* Убираем фигуру */
-
-    setPositionPiece(
-        from,
-        null
-    );
-
-
-    /* ========================================================
-       РОКИРОВКА
-    ======================================================== */
+    /* Простейшая рокировка */
 
     if (
         piece.type === "king" &&
         Math.abs(
-            FILES.indexOf(to[0]) -
-            FILES.indexOf(from[0])
+            to.col - from.col
         ) === 2
     ) {
 
-        const fromFile =
-            FILES.indexOf(
-                from[0]
-            );
-
-
-        const toFile =
-            FILES.indexOf(
-                to[0]
-            );
-
-
-        /* Короткая */
-
         if (
-            toFile > fromFile
+            to.col >
+            from.col
         ) {
 
-            const rookFrom =
-                piece.color === "white"
-                    ? "h1"
-                    : "h8";
+            newBoard[
+                from.row
+            ][7] = null;
 
+            newBoard[
+                from.row
+            ][5] = {
+                type: "rook",
+                color: piece.color
+            };
 
-            const rookTo =
-                piece.color === "white"
-                    ? "f1"
-                    : "f8";
+        } else {
 
+            newBoard[
+                from.row
+            ][0] = null;
 
-            const rook =
-                getPositionPiece(
-                    rookFrom
-                );
-
-
-            setPositionPiece(
-                rookFrom,
-                null
-            );
-
-
-            setPositionPiece(
-                rookTo,
-                rook
-            );
-
+            newBoard[
+                from.row
+            ][3] = {
+                type: "rook",
+                color: piece.color
+            };
         }
-
-
-        /* Длинная */
-
-        else {
-
-            const rookFrom =
-                piece.color === "white"
-                    ? "a1"
-                    : "a8";
-
-
-            const rookTo =
-                piece.color === "white"
-                    ? "d1"
-                    : "d8";
-
-
-            const rook =
-                getPositionPiece(
-                    rookFrom
-                );
-
-
-            setPositionPiece(
-                rookFrom,
-                null
-            );
-
-
-            setPositionPiece(
-                rookTo,
-                rook
-            );
-
-        }
-
     }
 
 
-    /* ========================================================
-       АВТОПРЕВРАЩЕНИЕ ПЕШКИ
-    ======================================================== */
-
-    let movedPiece =
-        piece;
-
-
-    const destinationRank =
-        parseInt(
-            to[1]
-        );
-
+    /* Превращение пешки */
 
     if (
-        piece.type === "pawn" &&
+        piece.type ===
+            "pawn" &&
         (
-            destinationRank === 8 ||
-            destinationRank === 1
+            to.row === 0 ||
+            to.row === 7
         )
     ) {
 
-        movedPiece = {
-
+        piece = {
             type: "queen",
-
             color: piece.color
-
         };
-
     }
 
+    newBoard[
+        to.row
+    ][
+        to.col
+    ] = piece;
 
-    /* Ставим фигуру */
-
-    setPositionPiece(
-        to,
-        movedPiece
-    );
-
-
-    /* Запоминаем ход */
-
-    positionUserMove = {
-
-        from: from,
-
-        to: to
-
-    };
-
-
-    positionSelectedSquare =
-        null;
-
-
-    positionBestMoveShown =
-        false;
-
-
-    renderPositionBoard();
-
-
-    /* ========================================================
-       ПРОВЕРКА ЛУЧШЕГО ХОДА
-    ======================================================== */
-
-    const mistake =
-        positionScreen.currentMistake;
-
-
-    const bestMove =
-        String(
-            mistake.best_move || ""
-        )
-        .trim()
-        .toLowerCase();
-
-
-    const playedMove =
-        (
-            from +
-            to
-        ).toLowerCase();
-
-
-    const resultElement =
-        document.getElementById(
-            "positionResult"
-        );
-
-
-    /* Сравниваем первые 4 символа */
-
-    const isCorrect =
-        bestMove.length >= 4 &&
-        playedMove.length >= 4 &&
-        playedMove.substring(0, 4) ===
-        bestMove.substring(0, 4);
-
-
-    if (isCorrect) {
-
-        resultElement.className =
-            "position-result success";
-
-
-        resultElement.textContent =
-            `✅ Правильно! ${mistake.best_san || bestMove} — лучший ход.`;
-
-
-        return;
-
-    }
-
-
-    /* ========================================================
-       НЕПРАВИЛЬНЫЙ ХОД
-    ======================================================== */
-
-    resultElement.className =
-        "position-result error";
-
-
-    resultElement.textContent =
-        `❌ Неправильно. Лучший ход: ${mistake.best_san || bestMove}`;
-
-
-    /* Через полсекунды возвращаем позицию */
-
-    setTimeout(() => {
-
-        positionBoardState =
-            clonePositionBoard(
-                originalBoard
-            );
-
-
-        positionSelectedSquare =
-            null;
-
-
-        positionUserMove =
-            null;
-
-
-        positionBestMoveShown =
-            false;
-
-
-        renderPositionBoard();
-
-
-        resultElement.className =
-            "position-result neutral";
-
-
-        resultElement.textContent =
-            "Выберите фигуру и попробуйте найти лучший ход.";
-
-    }, 500);
-
+    positionBoardState =
+        newBoard;
 }
 
 
 /* ============================================================
-   НАЖАТИЕ НА КЛЕТКУ ПОЗИЦИИ
+   НАЖАТИЕ НА ДОСКУ ПОЗИЦИИ
 ============================================================ */
 
 function handlePositionSquareClick(
     squareName
 ) {
+
+    if (
+        positionBestMoveShown
+    ) {
+        return;
+    }
 
     const piece =
         getPositionPiece(
@@ -2596,56 +2022,27 @@ function handlePositionSquareClick(
         );
 
 
-    /* Фигура не выбрана */
-
     if (
-        positionSelectedSquare === null
+        positionSelectedSquare ===
+        null
     ) {
 
         if (!piece) {
             return;
         }
 
-
-        const mistake =
-            positionScreen.currentMistake;
-
-
-        const playerSide =
-            getMistakeSide(
-                mistake
-            );
-
-
-        if (
-            piece.color !==
-            playerSide
-        ) {
-
-            setPositionResult(
-                "neutral",
-                "Это фигура соперника."
-            );
-
-
-            return;
-
-        }
-
-
         positionSelectedSquare =
             squareName;
 
+        setPositionResult(
+            `Выбрана ${squareName}. Выберите клетку назначения.`
+        );
 
         renderPositionBoard();
 
-
         return;
-
     }
 
-
-    /* Нажали ту же клетку */
 
     if (
         positionSelectedSquare ===
@@ -2655,290 +2052,220 @@ function handlePositionSquareClick(
         positionSelectedSquare =
             null;
 
+        setPositionResult(
+            ""
+        );
 
         renderPositionBoard();
 
-
         return;
-
-    }
-
-
-    /* Другая своя фигура */
-
-    if (
-        piece &&
-        piece.color ===
-        getMistakeSide(
-            positionScreen.currentMistake
-        )
-    ) {
-
-        positionSelectedSquare =
-            squareName;
-
-
-        renderPositionBoard();
-
-
-        return;
-
     }
 
 
     const from =
         positionSelectedSquare;
 
-
     const to =
         squareName;
+
+    const movingPiece =
+        getPositionPiece(
+            from
+        );
+
+
+    if (
+        piece &&
+        movingPiece &&
+        piece.color ===
+            movingPiece.color
+    ) {
+
+        positionSelectedSquare =
+            squareName;
+
+        renderPositionBoard();
+
+        return;
+    }
+
+
+    if (
+        !movingPiece
+    ) {
+
+        positionSelectedSquare =
+            null;
+
+        renderPositionBoard();
+
+        return;
+    }
 
 
     if (
         !isPositionMoveLegal(
+            positionBoardState,
             from,
-            to
+            to,
+            false
         )
     ) {
 
         setPositionResult(
-            "wrong",
-            "Такой ход невозможен."
+            "Так сходить нельзя."
         );
 
-
         return;
-
     }
 
+
+    positionUserMove = {
+        from: from,
+        to: to
+    };
 
     makePositionMove(
         from,
         to
     );
 
+    positionSelectedSquare =
+        null;
+
+    setPositionResult(
+        `Ваш ход: ${from}${to}`
+    );
+
+    renderPositionBoard();
 }
 
 
 /* ============================================================
-   РЕЗУЛЬТАТ
+   ТЕКСТ РЕЗУЛЬТАТА ПОЗИЦИИ
 ============================================================ */
 
 function setPositionResult(
-    type,
     text
 ) {
 
-    const result =
+    const element =
         document.getElementById(
             "positionResult"
         );
 
-
-    if (!result) {
-        return;
+    if (element) {
+        element.textContent =
+            text || "";
     }
-
-
-    result.className =
-        "position-result " +
-        type;
-
-
-    result.textContent =
-        text;
-
 }
 
 
 /* ============================================================
-   ПРОВЕРКА ХОДА
+   ПРОВЕРКА ХОДА В ПОЗИЦИИ
 ============================================================ */
 
 function checkPositionMove(
-    playedUci
+    mistake
 ) {
 
-    const mistake =
-        positionScreen.currentMistake;
-
-
-    if (!mistake) {
+    if (
+        !mistake
+    ) {
         return;
     }
 
+    const played =
+        mistake.position_played_uci ??
+        mistake.played_move ??
+        mistake.played_uci;
 
-    const bestMove =
-        mistake.best_move ??
+    if (!played) {
+        return;
+    }
+
+    const best =
         mistake.best_move_uci ??
-        mistake.move_best ??
-        null;
+        mistake.best_move ??
+        mistake.best_uci;
 
-
-    const bestSan =
-        mistake.best_san ??
-        mistake.best_move_san ??
-        mistake.best_move_text ??
-        "—";
-
-
-    if (!bestMove) {
-
-        setPositionResult(
-            "neutral",
-            "Лучший ход для проверки не найден."
-        );
-
-
+    if (!best) {
         return;
-
     }
-
-
-    const normalizedPlayed =
-        String(
-            playedUci
-        ).toLowerCase();
-
-
-    const normalizedBest =
-        String(
-            bestMove
-        )
-        .toLowerCase()
-        .substring(
-            0,
-            4
-        );
-
 
     if (
-        normalizedPlayed.substring(
-            0,
-            4
-        ) === normalizedBest
+        played === best
     ) {
 
         setPositionResult(
-            "correct",
-            `✅ Правильно! ${bestSan} — лучший ход.`
+            "✓ Это лучший ход."
         );
 
+    } else {
 
-        positionBestMoveShown =
-            false;
-
-
-        return;
-
+        setPositionResult(
+            `Ваш ход: ${played}. Лучший ход: ${best}.`
+        );
     }
-
-
-    setPositionResult(
-        "wrong",
-        `❌ Неправильно. Лучший ход: ${bestSan}`
-    );
-
 }
 
 
 /* ============================================================
-   ОТРИСОВКА КООРДИНАТ
+   КООРДИНАТЫ ПОЗИЦИИ
 ============================================================ */
 
 function renderPositionCoordinates() {
 
-    const ranks =
+    const element =
         document.getElementById(
-            "positionRanks"
+            "positionCoordinates"
         );
 
-
-    const files =
-        document.getElementById(
-            "positionFiles"
-        );
-
-
-    if (!ranks || !files) {
+    if (!element) {
         return;
     }
 
+    element.innerHTML = "";
 
-    ranks.innerHTML = "";
+    const files =
+        positionOrientation ===
+        "white"
+            ? FILES
+            : [...FILES].reverse();
 
-    files.innerHTML = "";
+    const ranks =
+        positionOrientation ===
+        "white"
+            ? [
+                8,7,6,5,
+                4,3,2,1
+            ]
+            : [
+                1,2,3,4,
+                5,6,7,8
+            ];
 
+    element.innerHTML = `
+        <div class="position-files">
+            ${files
+                .map(
+                    file =>
+                        `<span>${file}</span>`
+                )
+                .join("")
+            }
+        </div>
 
-    for (
-        let row = 0;
-        row < 8;
-        row++
-    ) {
-
-        const span =
-            document.createElement(
-                "span"
-            );
-
-
-        if (
-            positionOrientation ===
-            "white"
-        ) {
-
-            span.textContent =
-                8 - row;
-
-        } else {
-
-            span.textContent =
-                row + 1;
-
-        }
-
-
-        ranks.appendChild(
-            span
-        );
-
-    }
-
-
-    for (
-        let col = 0;
-        col < 8;
-        col++
-    ) {
-
-        const span =
-            document.createElement(
-                "span"
-            );
-
-
-        if (
-            positionOrientation ===
-            "white"
-        ) {
-
-            span.textContent =
-                FILES[col];
-
-        } else {
-
-            span.textContent =
-                FILES[7 - col];
-
-        }
-
-
-        files.appendChild(
-            span
-        );
-
-    }
-
+        <div class="position-ranks">
+            ${ranks
+                .map(
+                    rank =>
+                        `<span>${rank}</span>`
+                )
+                .join("")
+            }
+        </div>
+    `;
 }
 
 
@@ -2948,26 +2275,40 @@ function renderPositionCoordinates() {
 
 function renderPositionBoard() {
 
-    const positionBoard =
+    const boardElement =
         document.getElementById(
             "positionBoard"
         );
 
-
-    if (!positionBoard) {
+    if (
+        !boardElement ||
+        !positionBoardState
+    ) {
         return;
     }
 
+    boardElement.innerHTML = "";
 
-    positionBoard.innerHTML = "";
+    const boardSize =
+        Math.min(
+            window.innerWidth * 0.92,
+            520
+        );
 
+    boardElement.style.width =
+        `${boardSize}px`;
 
-    positionBoard.style.width =
-        "min(92vw, 520px)";
+    boardElement.style.height =
+        `${boardSize}px`;
 
+    boardElement.style.display =
+        "grid";
 
-    positionBoard.style.height =
-        "min(92vw, 520px)";
+    boardElement.style.gridTemplateColumns =
+        "repeat(8, 1fr)";
+
+    boardElement.style.gridTemplateRows =
+        "repeat(8, 1fr)";
 
 
     for (
@@ -2982,18 +2323,42 @@ function renderPositionBoard() {
             col++
         ) {
 
+            let realRow =
+                row;
+
+            let realCol =
+                col;
+
+            if (
+                positionOrientation ===
+                "black"
+            ) {
+
+                realRow =
+                    7 - row;
+
+                realCol =
+                    7 - col;
+            }
+
+
+            const squareName =
+                FILES[realCol] +
+                (8 - realRow);
+
+
             const square =
                 document.createElement(
-                    "div"
+                    "button"
                 );
 
+            square.type =
+                "button";
 
             square.classList.add(
                 "position-square"
             );
 
-
-            /* Цвет клетки */
 
             if (
                 (row + col) % 2 === 0
@@ -3008,22 +2373,12 @@ function renderPositionBoard() {
                 square.classList.add(
                     "position-dark"
                 );
-
             }
-
-
-            const squareName =
-                getPositionSquareName(
-                    row,
-                    col
-                );
 
 
             square.dataset.square =
                 squareName;
 
-
-            /* Выбранная клетка */
 
             if (
                 positionSelectedSquare ===
@@ -3033,175 +2388,108 @@ function renderPositionBoard() {
                 square.classList.add(
                     "position-selected"
                 );
-
             }
-
-
-            /* =================================================
-               ПОКАЗ ЛУЧШЕГО ХОДА
-            ================================================= */
-
-            const mistake =
-                positionScreen.currentMistake;
-
-
-            const bestMove =
-                mistake?.best_move ??
-                mistake?.best_move_uci ??
-                mistake?.move_best ??
-                null;
 
 
             if (
                 positionBestMoveShown &&
-                bestMove
+                positionScreen &&
+                positionScreen.bestMove
             ) {
 
-                const from =
-                    bestMove.substring(
-                        0,
-                        2
-                    );
-
-
-                const to =
-                    bestMove.substring(
-                        2,
-                        4
-                    );
-
+                const bestMove =
+                    positionScreen.bestMove;
 
                 if (
-                    squareName === from
+                    bestMove.from ===
+                        squareName
                 ) {
 
                     square.classList.add(
-                        "position-best-from"
+                        "best-move-from"
                     );
-
                 }
 
-
                 if (
-                    squareName === to
+                    bestMove.to ===
+                        squareName
                 ) {
 
                     square.classList.add(
-                        "position-best-to"
+                        "best-move-to"
                     );
-
                 }
-
             }
 
-
-            /* =================================================
-               ПОКАЗ ПОСЛЕДНЕГО ХОДА
-            ================================================= */
 
             if (
                 positionUserMove
             ) {
 
                 if (
-                    squareName ===
-                    positionUserMove.from
+                    positionUserMove.from ===
+                        squareName ||
+                    positionUserMove.to ===
+                        squareName
                 ) {
 
                     square.classList.add(
-                        "position-user-from"
+                        "user-move"
                     );
-
                 }
-
-
-                if (
-                    squareName ===
-                    positionUserMove.to
-                ) {
-
-                    square.classList.add(
-                        "position-user-to"
-                    );
-
-                }
-
             }
 
 
-            /* =================================================
-               ФИГУРА
-            ================================================= */
-
             const piece =
-                getPositionPiece(
-                    squareName
-                );
+                positionBoardState[
+                    realRow
+                ][
+                    realCol
+                ];
 
 
             if (piece) {
 
-                const image =
+                const pieceElement =
                     document.createElement(
                         "img"
                     );
 
-
-                image.classList.add(
-                    "piece-image"
+                pieceElement.classList.add(
+                    "position-piece"
                 );
 
+                pieceElement.src =
+                    `pieces/${piece.color}/${piece.type}.svg?v=3`;
 
-                image.src =
-                    `pieces/${piece.color}/${piece.type.charAt(0).toUpperCase() + piece.type.slice(1)}.svg?v=2`;
-
-
-                image.alt =
+                pieceElement.alt =
                     `${piece.color} ${piece.type}`;
 
-
-                image.draggable =
+                pieceElement.draggable =
                     false;
 
-
-                image.style.pointerEvents =
-                    "none";
-
-
                 square.appendChild(
-                    image
+                    pieceElement
                 );
-
             }
 
 
-            /* =================================================
-               КЛИК
-            ================================================= */
-
             square.addEventListener(
                 "click",
-                () => {
-
+                () =>
                     handlePositionSquareClick(
                         squareName
-                    );
-
-                }
+                    )
             );
 
 
-            positionBoard.appendChild(
+            boardElement.appendChild(
                 square
             );
-
         }
-
     }
 
-
     renderPositionCoordinates();
-
 }
 
 
@@ -3215,87 +2503,129 @@ function formatPositionEvaluation(
 
     if (
         value === null ||
-        value === undefined
+        value === undefined ||
+        value === ""
     ) {
-
         return "—";
-
     }
-
 
     const number =
         Number(value);
 
-
     if (
-        !Number.isFinite(number)
+        Number.isNaN(number)
     ) {
-
-        return "—";
-
+        return String(value);
     }
 
-
-    const pawns =
-        number / 100;
-
-
     if (
-        pawns > 0
+        Math.abs(number) >= 100
     ) {
 
-        return `+${pawns.toFixed(2)}`;
-
+        return (
+            number / 100
+        ).toFixed(2);
     }
 
-
-    return pawns.toFixed(2);
-
+    return number.toFixed(2);
 }
 
 
 /* ============================================================
-   ОБНОВИТЬ ОЦЕНКУ
+   ОЦЕНКА ПОЗИЦИИ
 ============================================================ */
 
 function updatePositionEvaluation(
-    value,
-    afterMove = false
+    mistake
 ) {
-
-    const label =
-        document.getElementById(
-            "positionEvaluationLabel"
-        );
-
 
     const element =
         document.getElementById(
-            "positionEvaluationValue"
+            "positionInfo"
         );
 
-
-    if (
-        !label ||
-        !element
-    ) {
-
+    if (!element) {
         return;
-
     }
 
+    const before =
+        mistake.evaluation_before ??
+        mistake.before_score;
 
-    label.textContent =
-        afterMove
-            ? "Оценка после хода:"
-            : "Оценка позиции:";
+    const after =
+        mistake.evaluation_after ??
+        mistake.after_score;
+
+    const loss =
+        mistake.loss ??
+        mistake.evaluation_loss;
 
 
-    element.textContent =
-        formatPositionEvaluation(
-            value
-        );
+    element.innerHTML = `
 
+        <div>
+            <strong>
+                Сыграно:
+            </strong>
+
+            ${
+                mistake.played_move_san ??
+                mistake.played_san ??
+                mistake.played_move ??
+                "—"
+            }
+        </div>
+
+
+        <div>
+            <strong>
+                Лучший ход:
+            </strong>
+
+            ${
+                mistake.best_move_san ??
+                mistake.best_san ??
+                mistake.best_move ??
+                "—"
+            }
+        </div>
+
+
+        <div>
+            <strong>
+                Оценка до:
+            </strong>
+
+            ${formatPositionEvaluation(
+                before
+            )}
+        </div>
+
+
+        <div>
+            <strong>
+                Оценка после:
+            </strong>
+
+            ${formatPositionEvaluation(
+                after
+            )}
+        </div>
+
+
+        <div>
+            <strong>
+                Потеря:
+            </strong>
+
+            ${
+                loss !== null &&
+                loss !== undefined
+                    ? loss
+                    : "—"
+            }
+        </div>
+    `;
 }
 
 
@@ -3307,256 +2637,127 @@ function showMistakePosition(
     mistake
 ) {
 
-    createPositionScreen();
+    if (!mistake) {
+        return;
+    }
 
+    createPositionScreen();
 
     positionScreen.currentMistake =
         mistake;
-
 
     positionOrientation =
         getMistakeSide(
             mistake
         );
 
-
     positionSelectedSquare =
         null;
-
 
     positionBestMoveShown =
         false;
 
-
     positionUserMove =
         null;
 
+    positionScreen.bestMove =
+        null;
 
-    analysisScreen.classList.add(
-        "hidden"
-    );
 
+    /* Очень важно:
+       скрываем ВСЕ остальные экраны */
+
+    if (menuScreen) {
+        menuScreen.classList.add(
+            "hidden"
+        );
+    }
+
+    if (gameScreen) {
+        gameScreen.classList.add(
+            "hidden"
+        );
+    }
+
+    if (analysisScreen) {
+        analysisScreen.classList.add(
+            "hidden"
+        );
+    }
+
+    if (mistakesScreen) {
+        mistakesScreen.classList.add(
+            "hidden"
+        );
+    }
 
     positionScreen.classList.remove(
         "hidden"
     );
 
 
-    const positionInfo =
+    const fen =
+        mistake.position_fen ??
+        mistake.fen;
+
+
+    if (!fen) {
+
         document.getElementById(
-            "positionInfo"
-        );
-
-
-    const bestMoveInfo =
-        document.getElementById(
-            "bestMoveInfo"
-        );
-
-
-    const positionResult =
-        document.getElementById(
-            "positionResult"
-        );
-
-
-    /* ========================================================
-       ИНФОРМАЦИЯ ОБ ОШИБКЕ
-    ======================================================== */
-
-    const moveNumber =
-        mistake.move_number ??
-        mistake.move ??
-        "?";
-
-
-    const playedSan =
-        mistake.position_played_san ??
-        mistake.played_move_san ??
-        mistake.played_san ??
-        mistake.move_san ??
-        "—";
-
-
-    const loss =
-        mistake.loss ??
-        mistake.evaluation_loss ??
-        null;
-
-
-    /* ========================================================
-       ОЦЕНКА ДО РЕАЛЬНОГО ХОДА
-    ======================================================== */
-
-    const positionEvaluationBefore =
-        mistake.position_evaluation_before ??
-        mistake.position_evaluation ??
-        mistake.before_score ??
-        null;
-
-
-    /* ========================================================
-       ОЦЕНКА ПОСЛЕ РЕАЛЬНОГО ОШИБОЧНОГО ХОДА
-    ======================================================== */
-
-    const positionEvaluationAfter =
-        mistake.position_evaluation_after ??
-        mistake.after_score ??
-        null;
-
-
-    console.log(
-        "Оценка ошибки:",
-        {
-            before:
-                positionEvaluationBefore,
-
-            after:
-                positionEvaluationAfter,
-
-            mistake:
-                mistake
-        }
-    );
-
-
-    /* ========================================================
-       ВЫВОД ИНФОРМАЦИИ
-    ======================================================== */
-
-    positionInfo.innerHTML = `
-
-        <div>
-            <strong>
-                Ход ${moveNumber}
-            </strong>
-        </div>
-
-
-        <div>
-            Сыграно:
-
-            <strong>
-                ${playedSan}
-            </strong>
-        </div>
-
-
-        ${
-            positionEvaluationBefore !== null
-            ?
-            `
-            <div>
-                <span id="positionEvaluationLabel">
-                    Оценка до хода:
-                </span>
-
-                <strong id="positionEvaluationValue">
-                    ${formatPositionEvaluation(
-                        positionEvaluationBefore
-                    )}
-                </strong>
+            "positionBoard"
+        ).innerHTML = `
+            <div class="position-error">
+                Позиция для этой ошибки
+                не найдена.
             </div>
-            `
-            :
-            ""
-        }
-
-
-        ${
-            positionEvaluationAfter !== null
-            ?
-            `
-            <div>
-                Оценка после хода:
-
-                <strong>
-                    ${formatPositionEvaluation(
-                        positionEvaluationAfter
-                    )}
-                </strong>
-            </div>
-            `
-            :
-            ""
-        }
-
-
-        ${
-            loss !== null
-            ?
-            `
-            <div>
-                Потеря:
-
-                <strong>
-                    ${loss}
-                </strong>
-            </div>
-            `
-            :
-            ""
-        }
-
-    `;
-
-
-    bestMoveInfo.innerHTML =
-        "";
-
-
-    positionResult.className =
-        "position-result neutral";
-
-
-    positionResult.textContent =
-        "Выберите фигуру и попробуйте найти лучший ход.";
-
-
-    /* ========================================================
-       FEN
-    ======================================================== */
-
-    if (
-        !mistake.position_fen
-    ) {
-
-        document
-            .getElementById(
-                "positionBoard"
-            )
-            .innerHTML = `
-
-                <div class="position-error">
-
-                    Позиция для этой ошибки
-                    не найдена.
-
-                </div>
-
-            `;
-
+        `;
 
         return;
-
     }
 
 
     positionBoardState =
         fenToBoard(
-            mistake.position_fen
+            fen
         );
 
 
     positionCastlingRights =
-        String(
-            mistake.position_fen
-        )
-        .split(" ")[2] || "-";
+        String(fen)
+            .split(" ")[2] ||
+        "-";
+
+
+    updatePositionEvaluation(
+        mistake
+    );
+
+
+    const info =
+        document.getElementById(
+            "positionBestMoveInfo"
+        );
+
+    if (info) {
+
+        const bestMove =
+            mistake.best_move_uci ??
+            mistake.best_move ??
+            mistake.best_uci;
+
+        info.textContent =
+            bestMove
+                ? `Лучший ход: ${bestMove}`
+                : "Лучший ход не указан.";
+    }
+
+
+    setPositionResult(
+        "Попробуйте найти лучший ход."
+    );
 
 
     renderPositionBoard();
-
 }
 
 
@@ -3568,170 +2769,209 @@ function showBestMove(
     mistake
 ) {
 
+    if (!mistake) {
+        return;
+    }
+
     const bestMove =
-        mistake.best_move ??
         mistake.best_move_uci ??
-        mistake.move_best ??
-        null;
-
-
-    const bestSan =
-        mistake.best_san ??
-        mistake.best_move_san ??
-        mistake.best_move_text ??
-        "—";
-
-
-    const bestMoveInfo =
-        document.getElementById(
-            "bestMoveInfo"
-        );
+        mistake.best_move ??
+        mistake.best_uci;
 
 
     if (!bestMove) {
 
-        bestMoveInfo.innerHTML = `
-
-            <div>
-                Лучший ход не найден.
-            </div>
-
-        `;
-
+        setPositionResult(
+            "Лучший ход для этой ошибки не найден."
+        );
 
         return;
+    }
 
+
+    if (
+        String(bestMove).length < 4
+    ) {
+
+        setPositionResult(
+            `Некорректный лучший ход: ${bestMove}`
+        );
+
+        return;
     }
 
 
     const from =
-        bestMove.substring(
-            0,
-            2
-        );
-
+        String(bestMove)
+            .substring(
+                0,
+                2
+            );
 
     const to =
-        bestMove.substring(
-            2,
-            4
-        );
+        String(bestMove)
+            .substring(
+                2,
+                4
+            );
 
 
-    bestMoveInfo.innerHTML = `
-
-        <div>
-
-            Лучший ход:
-
-            <strong>
-                ${bestSan}
-            </strong>
-
-        </div>
-
-    `;
+    positionScreen.bestMove = {
+        from: from,
+        to: to
+    };
 
 
     positionBestMoveShown =
         true;
 
 
-    positionUserMove =
-        null;
+    setPositionResult(
+        `Лучший ход: ${bestMove}`
+    );
 
 
-    positionSelectedSquare =
-        null;
+    const info =
+        document.getElementById(
+            "positionBestMoveInfo"
+        );
+
+    if (info) {
+
+        info.innerHTML =
+            `
+            <strong>
+                Лучший ход:
+            </strong>
+            ${bestMove}
+            `;
+    }
 
 
     renderPositionBoard();
-
 }
 
+
 /* ============================================================
-ЗАГРУЗКА «МОИХ ОШИБОК»
+   НАВИГАЦИЯ МЕЖДУ ОШИБКАМИ
+============================================================ */
+
+function navigateMistake(
+    direction
+) {
+
+    let mistakes = [];
+
+
+    if (
+        currentMistakeSource ===
+        "mistakes"
+    ) {
+
+        mistakes =
+            myMistakesData;
+
+    } else if (
+        currentAnalysisData &&
+        Array.isArray(
+            currentAnalysisData.mistakes
+        )
+    ) {
+
+        mistakes =
+            currentAnalysisData.mistakes;
+    }
+
+
+    if (
+        !mistakes.length
+    ) {
+        return;
+    }
+
+
+    const current =
+        positionScreen
+            ?.currentMistake;
+
+
+    let currentIndex =
+        mistakes.indexOf(
+            current
+        );
+
+
+    if (
+        currentIndex < 0
+    ) {
+
+        currentIndex = 0;
+    }
+
+
+    let newIndex =
+        currentIndex +
+        direction;
+
+
+    if (
+        newIndex < 0
+    ) {
+
+        newIndex =
+            mistakes.length - 1;
+    }
+
+
+    if (
+        newIndex >=
+        mistakes.length
+    ) {
+
+        newIndex = 0;
+    }
+
+
+    showMistakePosition(
+        mistakes[newIndex]
+    );
+}
+
+
+/* ============================================================
+   ЗАГРУЗКА МОИХ ОШИБОК
 ============================================================ */
 
 async function loadMyMistakes() {
 
+    if (!mistakesScreen) {
+        return;
+    }
+
+
     mistakesScreen.innerHTML = `
-        <div class="screen-content">
-
-            <h2>
-                Мои ошибки
-            </h2>
-
-            <div class="analysis-message">
-                ⏳ Загружаем ошибки...
-            </div>
-
+        <div class="loading">
+            ⏳ Загружаем ваши ошибки...
         </div>
     `;
 
 
     try {
 
-        const telegramUser =
-            tg?.initDataUnsafe?.user
-                ? {
-                    id:
-                        tg.initDataUnsafe.user.id,
-
-                    username:
-                        tg.initDataUnsafe.user.username || null,
-
-                    first_name:
-                        tg.initDataUnsafe.user.first_name || null
-                }
-                : null;
+        const user =
+            getTelegramUser();
 
 
-        if (!telegramUser) {
+        if (!user) {
 
             mistakesScreen.innerHTML = `
-                <div class="screen-content">
-
-                    <h2>
-                        Мои ошибки
-                    </h2>
-
-                    <div class="analysis-empty">
-
-                        Не удалось получить
-                        пользователя Telegram.
-
-                    </div>
-
-                    <button
-                        id="backFromMistakesButton"
-                        class="button secondary"
-                    >
-                        ← Назад
-                    </button>
-
+                <div class="analysis-empty">
+                    Telegram пользователь
+                    не определён.
                 </div>
             `;
 
-
-            document
-                .getElementById(
-                    "backFromMistakesButton"
-                )
-                .addEventListener(
-                    "click",
-                    () => {
-
-                        showScreen(
-                            menuScreen
-                        );
-
-                    }
-                );
-
-
             return;
-
         }
 
 
@@ -3746,12 +2986,11 @@ async function loadMyMistakes() {
                             "application/json"
                     },
 
-                    body: JSON.stringify({
-
-                        telegram_user:
-                            telegramUser
-
-                    })
+                    body:
+                        JSON.stringify({
+                            telegram_user:
+                                user
+                        })
                 }
             );
 
@@ -3761,7 +3000,7 @@ async function loadMyMistakes() {
 
 
         console.log(
-            "Мои ошибки:",
+            "МОИ ОШИБКИ:",
             data
         );
 
@@ -3771,43 +3010,53 @@ async function loadMyMistakes() {
             !data.ok
         ) {
 
-            throw new Error(
-                data.error ||
-                "Не удалось загрузить ошибки."
-            );
+            mistakesScreen.innerHTML = `
+                <div class="analysis-empty">
+                    ${
+                        data.error ||
+                        "Не удалось загрузить ошибки."
+                    }
+                </div>
+            `;
 
+            return;
         }
 
 
         myMistakesData =
-            (data.mistakes || []).map(mistake => ({
-                ...mistake,
+            (
+                data.mistakes ||
+                []
+            ).map(
+                mistake => ({
 
-                // FEN позиции перед ошибочным ходом
-                position_fen:
-                    mistake.position_fen ??
-                    mistake.fen,
+                    ...mistake,
 
-                // Ход пользователя
-                position_played_uci:
-                    mistake.position_played_uci ??
-                    mistake.played_move,
+                    position_fen:
+                        mistake.position_fen ??
+                        mistake.fen,
 
-                // Лучший ход
-                best_move_uci:
-                    mistake.best_move_uci ??
-                    mistake.best_move,
+                    position_played_uci:
+                        mistake.position_played_uci ??
+                        mistake.played_move,
 
-                // Сторона, которая должна ходить в позиции.
-                // Именно она совершила ошибку.
-                user_side:
-                    mistake.user_side ??
-                    (
-                        String(mistake.fen || "").split(" ")[1] === "b"
-                            ? "black"
-                            : "white"
-                    )
-            }));
+                    best_move_uci:
+                        mistake.best_move_uci ??
+                        mistake.best_move,
+
+                    user_side:
+                        mistake.user_side ??
+                        (
+                            String(
+                                mistake.fen ||
+                                ""
+                            ).split(" ")[1] ===
+                            "b"
+                                ? "black"
+                                : "white"
+                        )
+                })
+            );
 
 
         renderMyMistakes();
@@ -3816,69 +3065,58 @@ async function loadMyMistakes() {
     } catch (error) {
 
         console.error(
-            "Ошибка загрузки ошибок:",
+            "Ошибка загрузки моих ошибок:",
             error
         );
 
 
         mistakesScreen.innerHTML = `
-            <div class="screen-content">
-
-                <h2>
-                    Мои ошибки
-                </h2>
-
-                <div class="analysis-empty">
-
-                    ❌ Не удалось загрузить ошибки.
-
-                </div>
-
-                <button
-                    id="backFromMistakesButton"
-                    class="button secondary"
-                >
-                    ← Назад
-                </button>
-
+            <div class="analysis-empty">
+                Ошибка соединения
+                с сервером.
             </div>
         `;
-
-
-        document
-            .getElementById(
-                "backFromMistakesButton"
-            )
-            .addEventListener(
-                "click",
-                () => {
-
-                    showScreen(
-                        menuScreen
-                    );
-
-                }
-            );
-
     }
-
 }
 
 
 /* ============================================================
-ОТОБРАЖЕНИЕ «МОИХ ОШИБОК»
+   РЕНДЕР МОИХ ОШИБОК
 ============================================================ */
 
 function renderMyMistakes() {
 
-    let html = `
+    if (!mistakesScreen) {
+        return;
+    }
 
-        <div class="screen-content">
+
+    let html = "";
+
+
+    html += `
+        <div class="mistakes-header">
 
             <h2>
                 Мои ошибки
             </h2>
 
+            <p>
+                Найдено ошибок:
+                <strong>
+                    ${myMistakesData.length}
+                </strong>
+            </p>
+
+            <button
+                type="button"
+                id="backFromMistakesButtonInner"
+                class="menu-button"
+            >
+                ← Назад
+            </button>
+
+        </div>
     `;
 
 
@@ -3887,62 +3125,48 @@ function renderMyMistakes() {
     ) {
 
         html += `
-
             <div class="analysis-empty">
 
-                Ошибок пока нет.
+                <strong>
+                    Ошибок пока нет.
+                </strong>
+
+                <p>
+                    Сначала проанализируйте
+                    несколько партий.
+                </p>
 
             </div>
-
-            <button
-                id="backFromMistakesButton"
-                class="button secondary"
-            >
-                ← Назад
-            </button>
-
         `;
-
-        html += `</div>`;
 
         mistakesScreen.innerHTML =
             html;
 
 
-        document
-            .getElementById(
-                "backFromMistakesButton"
-            )
-            .addEventListener(
+        const back =
+            document.getElementById(
+                "backFromMistakesButtonInner"
+            );
+
+        if (back) {
+
+            back.addEventListener(
                 "click",
                 () => {
 
                     showScreen(
                         menuScreen
                     );
-
                 }
             );
-
+        }
 
         return;
-
     }
 
 
     html += `
-
         <div class="mistakes-list">
-
-            <div class="mistakes-count">
-
-                Найдено ошибок:
-                <strong>
-                    ${myMistakesData.length}
-                </strong>
-
-            </div>
-
     `;
 
 
@@ -3954,92 +3178,72 @@ function renderMyMistakes() {
 
             const moveNumber =
                 mistake.move_number ??
+                mistake.move ??
                 "—";
 
 
-            const playedMove =
-                mistake.played_move ||
+            const played =
+                mistake.played_move_san ??
+                mistake.played_san ??
+                mistake.played_move ??
                 "—";
 
 
-            const bestMove =
-                mistake.best_move ||
+            const best =
+                mistake.best_move_san ??
+                mistake.best_san ??
+                mistake.best_move ??
                 "—";
 
 
             const loss =
-                mistake.loss;
+                mistake.loss ??
+                "—";
 
 
-            const solved =
-                mistake.solved;
+            const explanation =
+                mistake.explanation ??
+                "Объяснение отсутствует.";
 
 
             html += `
-
                 <div
                     class="mistake-card"
                 >
 
                     <div>
-
                         <strong>
                             Ход ${moveNumber}
                         </strong>
-
                     </div>
 
 
                     <div>
-
                         Сыграно:
-
                         <strong>
-                            ${playedMove}
+                            ${played}
                         </strong>
-
                     </div>
 
 
                     <div>
-
                         Лучший ход:
-
                         <strong>
-                            ${bestMove}
+                            ${best}
                         </strong>
-
                     </div>
 
 
-                    ${
-                        loss !== null &&
-                        loss !== undefined
-                        ?
-                        `
-                        <div>
-
-                            Потеря:
-
-                            <strong>
-                                ${loss}
-                            </strong>
-
-                        </div>
-                        `
-                        :
-                        ""
-                    }
-
-
                     <div>
+                        Потеря:
+                        <strong>
+                            ${loss}
+                        </strong>
+                    </div>
 
-                        ${
-                            solved
-                                ? "✅ Решено"
-                                : "❌ Не решено"
-                        }
 
+                    <div class="mistake-explanation">
+                        ${explanation}
                     </div>
 
 
@@ -4052,27 +3256,13 @@ function renderMyMistakes() {
                     </button>
 
                 </div>
-
             `;
-
         }
     );
 
 
     html += `
-
         </div>
-
-
-        <button
-            id="backFromMistakesButton"
-            class="button secondary"
-        >
-            ← Назад
-        </button>
-
-    </div>
-
     `;
 
 
@@ -4080,29 +3270,25 @@ function renderMyMistakes() {
         html;
 
 
-    /* ========================================================
-       НАЗАД
-    ======================================================== */
+    const back =
+        document.getElementById(
+            "backFromMistakesButtonInner"
+        );
 
-    document
-        .getElementById(
-            "backFromMistakesButton"
-        )
-        .addEventListener(
+
+    if (back) {
+
+        back.addEventListener(
             "click",
             () => {
 
                 showScreen(
                     menuScreen
                 );
-
             }
         );
+    }
 
-
-    /* ========================================================
-       ПОКАЗ ПОЗИЦИИ
-    ======================================================== */
 
     const buttons =
         mistakesScreen.querySelectorAll(
@@ -4125,12 +3311,25 @@ function renderMyMistakes() {
 
 
                     const mistake =
-                        myMistakesData[index];
+                        myMistakesData[
+                            index
+                        ];
 
 
                     if (!mistake) {
+
+                        alert(
+                            "Ошибка: позиция не найдена."
+                        );
+
                         return;
                     }
+
+
+                    console.log(
+                        "ОТКРЫВАЕМ ОШИБКУ:",
+                        mistake
+                    );
 
 
                     currentMistakeSource =
@@ -4140,631 +3339,477 @@ function renderMyMistakes() {
                     showMistakePosition(
                         mistake
                     );
-
                 }
             );
-
         }
     );
-
-}
-
-/* ============================================================
-ПЕРЕКЛЮЧЕНИЕ ЭКРАНОВ
-============================================================ */
-
-function showScreen(
-    screen
-) {
-
-    menuScreen.classList.add(
-        "hidden"
-    );
-
-
-    gameScreen.classList.add(
-        "hidden"
-    );
-
-
-    analysisScreen.classList.add(
-        "hidden"
-    );
-
-
-    mistakesScreen.classList.add(
-        "hidden"
-    );
-
-
-    if (positionScreen) {
-
-        positionScreen.classList.add(
-            "hidden"
-        );
-
-    }
-
-
-    screen.classList.remove(
-        "hidden"
-    );
-
 }
 
 
 /* ============================================================
-МЕНЮ → ИГРА
+   АНАЛИЗ PGN
 ============================================================ */
 
-playButton.addEventListener(
-    "click",
-    () => {
+if (analyzeButton) {
 
-        showScreen(
-            gameScreen
-        );
+    analyzeButton.addEventListener(
+        "click",
+        async () => {
 
+            const pgn =
+                pgnInput
+                    ?.value
+                    ?.trim() ||
+                "";
 
-        loadGame();
 
-    }
-);
+            if (!pgn) {
 
+                if (analysisMessage) {
 
-/* ============================================================
-МЕНЮ → АНАЛИЗ
-============================================================ */
+                    analysisMessage.textContent =
+                        "Сначала вставьте PGN партии.";
+                }
 
-analysisButton.addEventListener(
-    "click",
-    () => {
+                if (analysisResult) {
 
-        showScreen(
-            analysisScreen
-        );
-
-
-        analysisMessage.textContent =
-            "Вставьте PGN партии.";
-
-    }
-);
-
-
-/* ============================================================
-МЕНЮ → МОИ ОШИБКИ
-============================================================ */
-
-mistakesButton.addEventListener(
-    "click",
-    () => {
-
-        showScreen(
-            mistakesScreen
-        );
-
-
-        loadMyMistakes();
-
-    }
-);
-
-
-/* ============================================================
-ИГРА → МЕНЮ
-============================================================ */
-
-backFromGameButton.addEventListener(
-    "click",
-    () => {
-
-        showScreen(
-            menuScreen
-        );
-
-    }
-);
-
-
-/* ============================================================
-АНАЛИЗ → МЕНЮ
-============================================================ */
-
-backFromAnalysisButton.addEventListener(
-    "click",
-    () => {
-
-        showScreen(
-            menuScreen
-        );
-
-    }
-);
-
-
-/* ============================================================
-ОШИБКИ → МЕНЮ
-============================================================ */
-
-backFromMistakesButton.addEventListener(
-    "click",
-    () => {
-
-        showScreen(
-            menuScreen
-        );
-
-    }
-);
-
-
-/* ============================================================
-АНАЛИЗ PGN
-============================================================ */
-
-analyzeButton.addEventListener(
-    "click",
-    async () => {
-
-        const pgn =
-            pgnInput.value.trim();
-
-
-        if (!pgn) {
-
-            analysisMessage.textContent =
-                "Сначала вставьте PGN партии.";
-
-
-            analysisResult.classList.add(
-                "hidden"
-            );
-
-
-            return;
-
-        }
-
-
-        analysisMessage.textContent =
-            "⏳ Анализируем партию...";
-
-
-        analysisResult.classList.add(
-            "hidden"
-        );
-
-
-        try {
-
-            console.log(
-                "========== TELEGRAM DEBUG =========="
-            );
-
-            console.log(
-                "tg =",
-                tg
-            );
-
-            console.log(
-                "initData =",
-                tg?.initData
-            );
-
-            console.log(
-                "initDataUnsafe =",
-                tg?.initDataUnsafe
-            );
-
-            console.log(
-                "telegram user =",
-                tg?.initDataUnsafe?.user
-            );
-
-            console.log(
-                "===================================="
-            );
-
-            const response =
-                await fetch(
-                    "/analyze",
-                    {
-                        method: "POST",
-
-                        headers: {
-                            "Content-Type":
-                                "application/json"
-                        },
-
-                        body: JSON.stringify({
-
-                            pgn: pgn,
-
-                            telegram_user:
-                                tg?.initDataUnsafe?.user
-                                    ? {
-                                        id:
-                                            tg.initDataUnsafe.user.id,
-
-                                        username:
-                                            tg.initDataUnsafe.user.username || null,
-
-                                        first_name:
-                                            tg.initDataUnsafe.user.first_name || null
-                                    }
-                                    : null
-
-                        })
-                    }
-                );
-
-
-            const data =
-                await response.json();
-
-
-            console.log(
-                "Результат анализа:",
-                data
-            );
-
-
-            if (
-                !response.ok ||
-                !data.success
-            ) {
-
-                analysisMessage.textContent =
-                    data.error ||
-                    "Не удалось проанализировать партию.";
-
+                    analysisResult.classList.add(
+                        "hidden"
+                    );
+                }
 
                 return;
-
             }
 
 
-            /* ==================================================
-               СОХРАНЯЕМ РЕЗУЛЬТАТ
-            ================================================== */
+            if (analysisMessage) {
 
-            currentAnalysisData =
-                data;
+                analysisMessage.textContent =
+                    "⏳ Анализируем партию...";
+            }
 
 
-            /* ==================================================
-               ОСНОВНАЯ ИНФОРМАЦИЯ
-            ================================================== */
+            if (analysisResult) {
 
-            let html = "";
-
-
-            html += `
-
-                <div class="analysis-summary">
-
-                    <h3>
-                        Результат анализа
-                    </h3>
-
-
-                    <p>
-
-                        <strong>
-                            Белые:
-                        </strong>
-
-                        ${data.white || "—"}
-
-                    </p>
-
-
-                    <p>
-
-                        <strong>
-                            Чёрные:
-                        </strong>
-
-                        ${data.black || "—"}
-
-                    </p>
-
-
-                    <p>
-
-                        <strong>
-                            Результат:
-                        </strong>
-
-                        ${data.result || "—"}
-
-                    </p>
-
-
-                    <p>
-
-                        <strong>
-                            Точность:
-                        </strong>
-
-                        ${data.accuracy ?? "—"}
-
-                    </p>
-
-                </div>
-
-            `;
-
-
-            /* ==================================================
-               ОШИБКИ
-            ================================================== */
-
-            if (
-                !data.mistakes ||
-                data.mistakes.length === 0
-            ) {
-
-                html += `
-
-                    <div class="analysis-empty">
-
-                        <strong>
-                            Ошибок не найдено.
-                        </strong>
-
-                    </div>
-
-                `;
-
-            } else {
-
-                html += `
-
-                    <div class="mistakes-list">
-
-                        <h3>
-                            Найденные ошибки:
-                        </h3>
-
-                `;
-
-
-                data.mistakes.forEach(
-                    (
-                        mistake,
-                        index
-                    ) => {
-
-                        const moveNumber =
-                            mistake.move_number ??
-                            mistake.move ??
-                            (
-                                index + 1
-                            );
-
-
-                        const playedSan =
-                            mistake.position_played_san ??
-                            mistake.played_move_san ??
-                            mistake.played_san ??
-                            mistake.move_san ??
-                            "—";
-
-
-                        const loss =
-                            mistake.loss ??
-                            mistake.evaluation_loss ??
-                            null;
-
-
-                        html += `
-
-                            <div
-                                class="mistake-card"
-                            >
-
-                                <div>
-
-                                    <strong>
-                                        Ход ${moveNumber}
-                                    </strong>
-
-                                </div>
-
-
-                                <div>
-
-                                    Сыграно:
-
-                                    <strong>
-                                        ${playedSan}
-                                    </strong>
-
-                                </div>
-
-
-                                ${
-                                    loss !== null
-                                    ?
-                                    `
-                                    <div>
-
-                                        Потеря:
-
-                                        <strong>
-                                            ${loss}
-                                        </strong>
-
-                                    </div>
-                                    `
-                                    :
-                                    ""
-                                }
-
-
-                                <button
-                                    type="button"
-                                    class="show-position-button"
-                                    data-mistake-index="${index}"
-                                >
-
-                                    Показать позицию
-
-                                </button>
-
-                            </div>
-
-                        `;
-
-                    }
+                analysisResult.classList.add(
+                    "hidden"
                 );
-
-
-                html += `
-
-                    </div>
-
-                `;
-
             }
 
 
-            /* ==================================================
-               СТАТИСТИКА
-            ================================================== */
+            try {
 
-            if (
-                data.statistics
-            ) {
-
-                html += `
-
-                    <div
-                        class="analysis-statistics"
-                    >
-
-                        <h3>
-                            Статистика
-                        </h3>
+                const user =
+                    getTelegramUser();
 
 
-                        <pre>
-${JSON.stringify(
-    data.statistics,
-    null,
-    2
-)}
-                        </pre>
+                const response =
+                    await fetch(
+                        "/analyze",
+                        {
+                            method: "POST",
 
-                    </div>
+                            headers: {
+                                "Content-Type":
+                                    "application/json"
+                            },
 
-                `;
+                            body:
+                                JSON.stringify({
 
-            }
+                                    pgn:
+                                        pgn,
 
+                                    telegram_user:
+                                        user
 
-            analysisResult.innerHTML =
-                html;
-
-
-            analysisResult.classList.remove(
-                "hidden"
-            );
-
-
-            /* ==================================================
-               КНОПКИ «ПОКАЗАТЬ ПОЗИЦИЮ»
-            ================================================== */
-
-            const positionButtons =
-                analysisResult.querySelectorAll(
-                    ".show-position-button"
-                );
-
-
-            positionButtons.forEach(
-                (button) => {
-
-                    button.addEventListener(
-                        "click",
-                        () => {
-
-                            const index =
-                                Number(
-                                    button.dataset
-                                        .mistakeIndex
-                                );
-
-
-                            if (
-                                !currentAnalysisData ||
-                                !currentAnalysisData.mistakes
-                            ) {
-
-                                return;
-
-                            }
-
-
-                            const mistake =
-                                currentAnalysisData
-                                    .mistakes[index];
-
-
-                            if (!mistake) {
-
-                                return;
-
-                            }
-
-                            currentMistakeSource =
-                                "analysis";
-
-                            showMistakePosition(
-                                mistake
-                            );
-
+                                })
                         }
                     );
 
+
+                const data =
+                    await response.json();
+
+
+                console.log(
+                    "Результат анализа:",
+                    data
+                );
+
+
+                if (
+                    !response.ok ||
+                    !data.success
+                ) {
+
+                    if (analysisMessage) {
+
+                        analysisMessage.textContent =
+                            data.error ||
+                            "Не удалось проанализировать партию.";
+                    }
+
+                    return;
                 }
-            );
 
 
-            analysisMessage.textContent =
-                "✅ Анализ завершён.";
+                currentAnalysisData =
+                    data;
 
 
-        } catch (error) {
-
-            console.error(
-                "Ошибка анализа:",
-                error
-            );
+                currentMistakeSource =
+                    "analysis";
 
 
-            analysisMessage.textContent =
-                "Ошибка соединения с сервером.";
+                let html = "";
 
+
+                /* ------------------------------------------------
+                   ОСНОВНАЯ ИНФОРМАЦИЯ
+                ------------------------------------------------ */
+
+                html += `
+                    <div
+                        class="analysis-summary"
+                    >
+
+                        <h3>
+                            Результат анализа
+                        </h3>
+
+                        <p>
+                            <strong>
+                                Белые:
+                            </strong>
+                            ${
+                                data.white ||
+                                "—"
+                            }
+                        </p>
+
+                        <p>
+                            <strong>
+                                Чёрные:
+                            </strong>
+                            ${
+                                data.black ||
+                                "—"
+                            }
+                        </p>
+
+                        <p>
+                            <strong>
+                                Результат:
+                            </strong>
+                            ${
+                                data.result ||
+                                "—"
+                            }
+                        </p>
+
+                        <p>
+                            <strong>
+                                Точность:
+                            </strong>
+                            ${
+                                data.accuracy ??
+                                "—"
+                            }
+                        </p>
+
+                    </div>
+                `;
+
+
+                /* ------------------------------------------------
+                   ОШИБКИ
+                ------------------------------------------------ */
+
+                if (
+                    !data.mistakes ||
+                    data.mistakes.length === 0
+                ) {
+
+                    html += `
+                        <div
+                            class="analysis-empty"
+                        >
+
+                            <strong>
+                                Ошибок не найдено.
+                            </strong>
+
+                        </div>
+                    `;
+
+                } else {
+
+                    html += `
+                        <div
+                            class="mistakes-list"
+                        >
+
+                            <h3>
+                                Найденные ошибки:
+                            </h3>
+                    `;
+
+
+                    data.mistakes.forEach(
+                        (
+                            mistake,
+                            index
+                        ) => {
+
+                            const moveNumber =
+                                mistake.move_number ??
+                                mistake.move ??
+                                (
+                                    index + 1
+                                );
+
+
+                            const playedSan =
+                                mistake.played_move_san ??
+                                mistake.played_san ??
+                                mistake.move_san ??
+                                "—";
+
+
+                            const bestSan =
+                                mistake.best_move_san ??
+                                mistake.best_san ??
+                                "—";
+
+
+                            const loss =
+                                mistake.loss ??
+                                mistake.evaluation_loss ??
+                                null;
+
+
+                            const explanation =
+                                mistake.explanation ??
+                                "";
+
+
+                            html += `
+                                <div
+                                    class="mistake-card"
+                                >
+
+                                    <div>
+                                        <strong>
+                                            Ход ${moveNumber}
+                                        </strong>
+                                    </div>
+
+                                    <div>
+                                        Сыграно:
+                                        <strong>
+                                            ${playedSan}
+                                        </strong>
+                                    </div>
+
+                                    <div>
+                                        Лучший ход:
+                                        <strong>
+                                            ${bestSan}
+                                        </strong>
+                                    </div>
+
+                                    ${
+                                        loss !== null
+                                            ? `
+                                                <div>
+                                                    Потеря:
+                                                    <strong>
+                                                        ${loss}
+                                                    </strong>
+                                                </div>
+                                            `
+                                            : ""
+                                    }
+
+                                    ${
+                                        explanation
+                                            ? `
+                                                <div
+                                                    class="mistake-explanation"
+                                                >
+                                                    ${explanation}
+                                                </div>
+                                            `
+                                            : ""
+                                    }
+
+                                    <button
+                                        type="button"
+                                        class="show-analysis-mistake-button"
+                                        data-analysis-mistake-index="${index}"
+                                    >
+                                        Показать позицию
+                                    </button>
+
+                                </div>
+                            `;
+                        }
+                    );
+
+
+                    html += `
+                        </div>
+                    `;
+                }
+
+
+                /* ------------------------------------------------
+                   СТАТИСТИКА
+                ------------------------------------------------ */
+
+                if (
+                    data.statistics
+                ) {
+
+                    html += `
+                        <div
+                            class="analysis-statistics"
+                        >
+
+                            <h3>
+                                Статистика
+                            </h3>
+
+                            <pre>${JSON.stringify(
+                                data.statistics,
+                                null,
+                                2
+                            )}</pre>
+
+                        </div>
+                    `;
+                }
+
+
+                if (analysisResult) {
+
+                    analysisResult.innerHTML =
+                        html;
+
+                    analysisResult.classList.remove(
+                        "hidden"
+                    );
+                }
+
+
+                /* ------------------------------------------------
+                   КНОПКИ ПОЗИЦИЙ
+                ------------------------------------------------ */
+
+                const analysisMistakeButtons =
+                    analysisResult
+                        ?.querySelectorAll(
+                            ".show-analysis-mistake-button"
+                        );
+
+
+                if (
+                    analysisMistakeButtons
+                ) {
+
+                    analysisMistakeButtons.forEach(
+                        button => {
+
+                            button.addEventListener(
+                                "click",
+                                () => {
+
+                                    const index =
+                                        Number(
+                                            button.dataset
+                                                .analysisMistakeIndex
+                                        );
+
+
+                                    const mistake =
+                                        data.mistakes[
+                                            index
+                                        ];
+
+
+                                    if (
+                                        !mistake
+                                    ) {
+                                        return;
+                                    }
+
+
+                                    currentMistakeSource =
+                                        "analysis";
+
+
+                                    showMistakePosition(
+                                        mistake
+                                    );
+                                }
+                            );
+                        }
+                    );
+                }
+
+
+                if (analysisMessage) {
+
+                    analysisMessage.textContent =
+                        "✅ Анализ завершён.";
+                }
+
+
+            } catch (error) {
+
+                console.error(
+                    "Ошибка анализа:",
+                    error
+                );
+
+
+                if (analysisMessage) {
+
+                    analysisMessage.textContent =
+                        "Ошибка соединения с сервером.";
+                }
+            }
         }
+    );
+}
 
+
+/* ============================================================
+   ИЗМЕНЕНИЕ РАЗМЕРА ДОСКИ ПОЗИЦИИ
+============================================================ */
+
+window.addEventListener(
+    "resize",
+    () => {
+
+        if (
+            positionScreen &&
+            !positionScreen.classList.contains(
+                "hidden"
+            ) &&
+            positionBoardState
+        ) {
+
+            renderPositionBoard();
+        }
     }
-
 );
 
 
 /* ============================================================
-ЗАПУСК
+   ЗАПУСК
 ============================================================ */
-
-/*
-Игру специально НЕ загружаем при запуске.
-
-Она загрузится только после нажатия
-«Играть».
-*/
 
 showScreen(
     menuScreen
