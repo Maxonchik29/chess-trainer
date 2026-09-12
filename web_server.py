@@ -139,7 +139,11 @@ def save_analysis_to_database(
     # ПОДКЛЮЧАЕМСЯ К SUPABASE
     # --------------------------------------------------------
 
+    print("DB: ПЕРЕД ПОДКЛЮЧЕНИЕМ К POSTGRES", flush=True)
+
     conn = get_db_connection()
+
+    print("DB: ПОДКЛЮЧЕНИЕ К POSTGRES ПОЛУЧЕНО", flush=True)
 
     try:
 
@@ -1188,7 +1192,7 @@ def analyze_pgn():
             "========== DB BLOCK VERSION 2026-09-12 ==========",
             flush=True
         )
-        
+
         saved_to_database = False
 
         try:
