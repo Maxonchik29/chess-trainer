@@ -41,9 +41,10 @@ telegramDebug.textContent =
     "WebApp: " + (tg ? "YES" : "NO") + "\n" +
     "initData: " + (tg?.initData ? "YES" : "NO") + "\n" +
     "initDataUnsafe: " + (tg?.initDataUnsafe ? "YES" : "NO") + "\n" +
-    "USER: " + (telegramUser ? "YES" : "NO") + "\n" +
-    "USER ID: " + (telegramUser?.id ?? "НЕТ") + "\n" +
-    "USERNAME: " + (telegramUser?.username ?? "НЕТ");
+    "USER: " + (tg?.initDataUnsafe?.user ? "YES" : "NO") + "\n" +
+    "USER ID: " + (tg?.initDataUnsafe?.user?.id ?? "НЕТ") + "\n\n" +
+    "FULL initDataUnsafe:\n" +
+    JSON.stringify(tg?.initDataUnsafe, null, 2);
 
 document.body.appendChild(telegramDebug);
 
