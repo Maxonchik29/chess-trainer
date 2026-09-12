@@ -2759,7 +2759,7 @@ def analyze_game(
         flush=True
     )
 
-    return (
+    result = (
         mistakes,
         scores,
         accuracy,
@@ -2767,3 +2767,10 @@ def analyze_game(
         phase_statistics,
         user_color
     )
+
+    print(
+        "========== DEBUG P: RESULT СОЗДАН ==========",
+        flush=True
+    )
+
+    return result
