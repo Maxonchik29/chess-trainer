@@ -14,6 +14,14 @@ if (tg) {
 
 }
 
+console.log("========== TELEGRAM WEBAPP DEBUG ==========");
+console.log("Telegram =", window.Telegram);
+console.log("tg =", tg);
+console.log("tg.initData =", tg?.initData);
+console.log("tg.initDataUnsafe =", tg?.initDataUnsafe);
+console.log("tg.initDataUnsafe.user =", tg?.initDataUnsafe?.user);
+console.log("============================================");
+
 
 /* ============================================================
 ЭКРАНЫ
@@ -3782,6 +3790,34 @@ analyzeButton.addEventListener(
 
 
         try {
+
+            console.log(
+                "========== TELEGRAM DEBUG =========="
+            );
+
+            console.log(
+                "tg =",
+                tg
+            );
+
+            console.log(
+                "initData =",
+                tg?.initData
+            );
+
+            console.log(
+                "initDataUnsafe =",
+                tg?.initDataUnsafe
+            );
+
+            console.log(
+                "telegram user =",
+                tg?.initDataUnsafe?.user
+            );
+
+            console.log(
+                "===================================="
+            );
 
             const response =
                 await fetch(
