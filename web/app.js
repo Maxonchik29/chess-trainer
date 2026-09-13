@@ -3832,10 +3832,26 @@ async function loadMyMistakes() {
 
 
         if (myMistakesData.length === 0) {
+
             renderMyMistakes();
+
         } else {
+
             currentMistakeSource = "mistakes";
-            showMistakePosition(myMistakesData[0]);
+
+            /*
+            * Сначала создаём нормальный список ошибок.
+            * Он будет скрыт при открытии позиции,
+            * но останется готовым для кнопки "Назад".
+            */
+            renderMyMistakes();
+
+            /*
+            * Затем открываем первую ошибку.
+            */
+            showMistakePosition(
+                myMistakesData[0]
+            );
         }
 
 
