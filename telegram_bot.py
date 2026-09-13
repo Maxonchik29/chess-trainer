@@ -109,64 +109,40 @@ def update_bot_user(
     count_start=False,
     count_game=False
 ):
-
-    # --------------------------------------------------------
-    # Проверяем пользователя
-    # --------------------------------------------------------
-
     if not telegram_user:
-
         return False
 
-    telegram_id = telegram_user.get(
-        "id"
-    )
+    telegram_id = telegram_user.get("id")
+    if not telegram_id:
+        return False
 
-    telegram_id = safe_int(
-        telegram_id
-    )
-
+    telegram_id = safe_int(telegram_id)
     if telegram_id is None:
-
         return False
 
-    username = telegram_user.get(
-        "username"
-    )
-
-    first_name = telegram_user.get(
-        "first_name"
-    )
+    username = telegram_user.get("username")
+    first_name = telegram_user.get("first_name")
 
     conn = None
 
     try:
-
         conn = get_db_connection()
 
         with conn:
-
             with conn.cursor() as cur:
 
-                # ====================================================
-                # СОЗДАЁМ ПОЛЬЗОВАТЕЛЯ
-                # ИЛИ ОБНОВЛЯЕМ ЕГО
-                # ====================================================
+                # =====================================================
+                # СОЗДАЁМ ПОЛЬЗОВАТЕЛЯ, ЕСЛИ ЕГО ЕЩЁ НЕТ
+                # =====================================================
 
                 cur.execute(
                     """
-                    INSERT INTO public.bot_users
-                    (
+                    INSERT INTO public.bot_users (
                         telegram_id,
                         username,
-                        first_name,
-                        start_count,
-                        games_count
+                        first_name
                     )
-                    VALUES
-                    (
-                        %s,
-                        %s,
+                    VALUES (
                         %s,
                         %s,
                         %s
@@ -180,77 +156,50 @@ def update_bot_user(
                     (
                         telegram_id,
                         username,
-                        first_name,
-                        1 if count_start else 0,
-                        1 if count_game else 0
+                        first_name
                     )
                 )
 
-                # ====================================================
-                # ДОПОЛНИТЕЛЬНЫЕ СЧЁТЧИКИ
-                # ====================================================
+                # =====================================================
+                # УВЕЛИЧИВАЕМ СЧЁТЧИКИ
+                # =====================================================
 
-                updates = []
+                updates = [
+                    "last_seen = NOW()"
+                ]
 
                 if count_start:
-
                     updates.append(
                         "start_count = start_count + 1"
                     )
 
                 if count_game:
-
                     updates.append(
                         "games_count = games_count + 1"
                     )
 
-                if updates:
+                cur.execute(
+                    f"""
+                    UPDATE public.bot_users
+                    SET
+                        {", ".join(updates)}
+                    WHERE telegram_id = %s
+                    """,
+                    (telegram_id,)
+                )
 
-                    query = f"""
-                        UPDATE public.bot_users
-                        SET
-                            last_seen = NOW(),
-                            {", ".join(updates)}
-                        WHERE telegram_id = %s
-                    """
-
-                    cur.execute(
-                        query,
-                        (
-                            telegram_id,
-                        )
-                    )
-
-                else:
-
-                    cur.execute(
-                        """
-                        UPDATE public.bot_users
-                        SET last_seen = NOW()
-                        WHERE telegram_id = %s
-                        """,
-                        (
-                            telegram_id,
-                        )
-                    )
-
-        return True
+                return True
 
     except Exception as error:
-
         print(
             "BOT STATS ERROR:",
             repr(error)
         )
-
         return False
 
     finally:
-
         if conn:
-
             conn.close()
-
 
 # ============================================================
 # ПРОВЕРКА АДМИНИСТРАТОРА
