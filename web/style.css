@@ -1035,3 +1035,9 @@ and (max-height: 600px) {
     font-size: 11px;
     line-height: 1;
 }
+
+/* Отступ между шахматной доской и кнопками */
+
+#positionBoardWrapper {
+    margin-bottom: 35px;
+}

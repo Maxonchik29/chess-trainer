@@ -2740,20 +2740,6 @@ function updatePositionEvaluation(
 
         <div>
             <strong>
-                Лучший ход:
-            </strong>
-
-            ${
-                mistake.best_move_san ??
-                mistake.best_san ??
-                mistake.best_move ??
-                "—"
-            }
-        </div>
-
-
-        <div>
-            <strong>
                 Оценка до:
             </strong>
 
@@ -2788,7 +2774,6 @@ function updatePositionEvaluation(
         </div>
     `;
 }
-
 
 /* ============================================================
    ПОКАЗ ПОЗИЦИИ ОШИБКИ
@@ -3359,12 +3344,6 @@ function renderMyMistakes() {
                 mistake.loss ??
                 "—";
 
-
-            const explanation =
-                mistake.explanation ??
-                "Объяснение отсутствует.";
-
-
             html += `
                 <div
                     class="mistake-card"
@@ -3399,12 +3378,6 @@ function renderMyMistakes() {
                             ${loss}
                         </strong>
                     </div>
-
-
-                    <div class="mistake-explanation">
-                        ${explanation}
-                    </div>
-
 
                     <button
                         type="button"
@@ -3747,12 +3720,6 @@ if (analyzeButton) {
                                 mistake.evaluation_loss ??
                                 null;
 
-
-                            const explanation =
-                                mistake.explanation ??
-                                "";
-
-
                             html += `
                                 <div
                                     class="mistake-card"
@@ -3786,18 +3753,6 @@ if (analyzeButton) {
                                                     <strong>
                                                         ${loss}
                                                     </strong>
-                                                </div>
-                                            `
-                                            : ""
-                                    }
-
-                                    ${
-                                        explanation
-                                            ? `
-                                                <div
-                                                    class="mistake-explanation"
-                                                >
-                                                    ${explanation}
                                                 </div>
                                             `
                                             : ""
