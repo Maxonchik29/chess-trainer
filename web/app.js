@@ -438,7 +438,7 @@ function renderBoard() {
                 );
 
                 pieceElement.src =
-                    `pieces/${piece.color}/${piece.type}.svg?v=4`;
+                    `pieces/${piece.color}/${piece.type.charAt(0).toUpperCase() + piece.type.slice(1)}.svg?v=5`;
 
                 pieceElement.onerror = () => {
                     console.error(
@@ -2467,7 +2467,7 @@ function renderPositionBoard() {
                 );
 
                 pieceElement.src =
-                    `pieces/${piece.color}/${piece.type}.svg?v=4`;
+                    `pieces/${piece.color}/${piece.type.charAt(0).toUpperCase() + piece.type.slice(1)}.svg?v=5`;
 
                 pieceElement.onerror = () => {
                     console.error(
