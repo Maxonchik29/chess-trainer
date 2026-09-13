@@ -916,6 +916,49 @@ def reset_game():
             game.get_status()
     })
 
+# ============================================================
+# ПОЛУЧИТЬ PGN ТЕКУЩЕЙ ПАРТИИ
+# ============================================================
+
+@app.route(
+    "/game_pgn",
+    methods=["GET"]
+)
+def get_game_pgn():
+
+    try:
+
+        pgn = game.get_pgn()
+
+        return jsonify({
+
+            "success": True,
+
+            "pgn": pgn,
+
+            "result":
+                game.get_result(),
+
+            "game_over":
+                game.is_game_over()
+
+        })
+
+    except Exception as error:
+
+        print(
+            "ОШИБКА /game_pgn:",
+            repr(error)
+        )
+
+        return jsonify({
+
+            "success": False,
+
+            "error":
+                "Не удалось получить PGN."
+
+        }), 500
 
 # ============================================================
 # АНАЛИЗ PGN

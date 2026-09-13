@@ -704,6 +704,8 @@ async function makeMove(uciMove) {
             setMessage(
                 `Партия закончена: ${data.status}`
             );
+
+            showGameAnalysisButton();
         }
 
     } catch (error) {
@@ -715,6 +717,288 @@ async function makeMove(uciMove) {
 
         setMessage(
             "Ошибка соединения с сервером."
+        );
+    }
+}
+
+/* ============================================================
+   КНОПКА АНАЛИЗА ЗАКОНЧЕННОЙ ПАРТИИ
+============================================================ */
+
+function showGameAnalysisButton() {
+
+    if (
+        document.getElementById(
+            "gameAnalysisButton"
+        )
+    ) {
+        return;
+    }
+
+    const button =
+        document.createElement(
+            "button"
+        );
+
+    button.id =
+        "gameAnalysisButton";
+
+    button.textContent =
+        "📊 Начать анализ";
+
+    button.className =
+        "main-button";
+
+    button.addEventListener(
+        "click",
+        analyzeFinishedGame
+    );
+
+    if (messageElement) {
+
+        messageElement.parentNode.insertBefore(
+            button,
+            messageElement.nextSibling
+        );
+    }
+}
+
+
+/* ============================================================
+   АНАЛИЗ ЗАКОНЧЕННОЙ ПАРТИИ
+============================================================ */
+
+async function analyzeFinishedGame() {
+
+    const button =
+        document.getElementById(
+            "gameAnalysisButton"
+        );
+
+    if (button) {
+
+        button.disabled =
+            true;
+
+        button.textContent =
+            "⏳ Анализируем...";
+    }
+
+    setMessage(
+        "⏳ Анализируем партию Stockfish..."
+    );
+
+    try {
+
+        /* ----------------------------------------------------
+           ПОЛУЧАЕМ PGN ЗАКОНЧЕННОЙ ПАРТИИ
+        ---------------------------------------------------- */
+
+        const pgnResponse =
+            await fetch(
+                "/game_pgn"
+            );
+
+        const pgnData =
+            await pgnResponse.json();
+
+        if (
+            !pgnResponse.ok ||
+            !pgnData.success
+        ) {
+
+            throw new Error(
+                pgnData.error ||
+                "Не удалось получить PGN."
+            );
+        }
+
+
+        const pgn =
+            pgnData.pgn;
+
+
+        if (
+            !pgn ||
+            !pgn.trim()
+        ) {
+
+            throw new Error(
+                "PGN партии пустой."
+            );
+        }
+
+
+        /* ----------------------------------------------------
+           ПОЛУЧАЕМ TELEGRAM USER
+        ---------------------------------------------------- */
+
+        const user =
+            getTelegramUser();
+
+
+        /* ----------------------------------------------------
+           ОТПРАВЛЯЕМ PGN В СУЩЕСТВУЮЩИЙ АНАЛИЗ
+        ---------------------------------------------------- */
+
+        const response =
+            await fetch(
+                "/analyze",
+                {
+                    method: "POST",
+
+                    headers: {
+                        "Content-Type":
+                            "application/json"
+                    },
+
+                    body:
+                        JSON.stringify({
+
+                            pgn:
+                                pgn,
+
+                            telegram_user:
+                                user
+
+                        })
+                }
+            );
+
+
+        const data =
+            await response.json();
+
+
+        if (
+            !response.ok ||
+            !data.success
+        ) {
+
+            throw new Error(
+                data.error ||
+                "Ошибка анализа."
+            );
+        }
+
+
+        /* ----------------------------------------------------
+           СОХРАНЯЕМ РЕЗУЛЬТАТ
+        ---------------------------------------------------- */
+
+        currentAnalysisData =
+            data;
+
+        currentMistakeSource =
+            "analysis";
+
+
+        const mistakes =
+            Array.isArray(
+                data.mistakes
+            )
+                ? data.mistakes
+                : [];
+
+
+        /* ----------------------------------------------------
+           УБИРАЕМ КНОПКУ "НАЧАТЬ АНАЛИЗ"
+        ---------------------------------------------------- */
+
+        if (button) {
+            button.remove();
+        }
+
+
+        /* ----------------------------------------------------
+           ПОКАЗЫВАЕМ РЕЗУЛЬТАТ
+        ---------------------------------------------------- */
+
+        setMessage(
+            `✅ Анализ завершён. Найдено ошибок: ${mistakes.length}`
+        );
+
+
+        /* ----------------------------------------------------
+           ПОКАЗЫВАЕМ КНОПКУ "МОИ ОШИБКИ"
+        ---------------------------------------------------- */
+
+        showGameMistakesButton();
+
+
+    } catch (error) {
+
+        console.error(
+            "Ошибка анализа партии:",
+            error
+        );
+
+
+        setMessage(
+            `❌ Ошибка анализа: ${error.message}`
+        );
+
+
+        if (button) {
+
+            button.disabled =
+                false;
+
+            button.textContent =
+                "📊 Начать анализ";
+        }
+    }
+}
+
+
+/* ============================================================
+   КНОПКА "МОИ ОШИБКИ" ПОСЛЕ АНАЛИЗА
+============================================================ */
+
+function showGameMistakesButton() {
+
+    if (
+        document.getElementById(
+            "gameMistakesButton"
+        )
+    ) {
+        return;
+    }
+
+
+    const button =
+        document.createElement(
+            "button"
+        );
+
+
+    button.id =
+        "gameMistakesButton";
+
+
+    button.textContent =
+        "♟ Мои ошибки";
+
+
+    button.className =
+        "main-button";
+
+
+    button.addEventListener(
+        "click",
+        async () => {
+
+            await loadMyMistakes();
+
+        }
+    );
+
+
+    if (messageElement) {
+
+        messageElement.parentNode.insertBefore(
+            button,
+            messageElement.nextSibling
         );
     }
 }
