@@ -1620,6 +1620,142 @@ def get_mistakes():
 
         conn.close()
 
+# ============================================================
+# УДАЛИТЬ МОЮ ОШИБКУ
+# ============================================================
+
+@app.route(
+    "/mistakes/<int:mistake_id>",
+    methods=["DELETE"]
+)
+def delete_mistake(mistake_id):
+
+    data = request.get_json(
+        silent=True
+    ) or {}
+
+    telegram_user = data.get(
+        "telegram_user"
+    )
+
+    if not telegram_user:
+
+        return jsonify({
+            "ok": False,
+            "error":
+                "Telegram пользователь не передан."
+        }), 400
+
+    telegram_id = telegram_user.get(
+        "id"
+    )
+
+    if not telegram_id:
+
+        return jsonify({
+            "ok": False,
+            "error":
+                "Telegram ID не передан."
+        }), 400
+
+    telegram_id = safe_int(
+        telegram_id
+    )
+
+    if telegram_id is None:
+
+        return jsonify({
+            "ok": False,
+            "error":
+                "Некорректный Telegram ID."
+        }), 400
+
+    conn = None
+
+    try:
+
+        conn = get_db_connection()
+
+        with conn:
+
+            with conn.cursor() as cur:
+
+                # ====================================================
+                # УДАЛЯЕМ ТОЛЬКО ОШИБКУ ТЕКУЩЕГО ПОЛЬЗОВАТЕЛЯ
+                # ====================================================
+
+                cur.execute(
+                    """
+                    DELETE FROM public.mistakes
+                    WHERE id = %s
+                    AND user_id = (
+                        SELECT id
+                        FROM public.users
+                        WHERE telegram_id = %s
+                    )
+                    """,
+                    (
+                        mistake_id,
+                        telegram_id
+                    )
+                )
+
+                deleted = cur.rowcount
+
+        # ========================================================
+        # ОШИБКА НЕ НАЙДЕНА
+        # ========================================================
+
+        if deleted == 0:
+
+            return jsonify({
+                "ok": False,
+                "error":
+                    "Ошибка не найдена."
+            }), 404
+
+        # ========================================================
+        # УСПЕШНО
+        # ========================================================
+
+        print(
+            "DB: Ошибка удалена.",
+            "mistake_id =",
+            mistake_id,
+            "telegram_id =",
+            telegram_id
+        )
+
+        return jsonify({
+
+            "ok": True,
+
+            "deleted_id":
+                mistake_id
+
+        })
+
+    except Exception as error:
+
+        print(
+            "ОШИБКА УДАЛЕНИЯ ОШИБКИ:",
+            repr(error)
+        )
+
+        return jsonify({
+
+            "ok": False,
+
+            "error":
+                "Ошибка базы данных."
+
+        }), 500
+
+    finally:
+
+        if conn:
+
+            conn.close()
 
 # ============================================================
 # ЗАПУСК
