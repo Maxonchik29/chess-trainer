@@ -31,6 +31,15 @@ const menuScreen =
 const gameScreen =
     document.getElementById("gameScreen");
 
+const sideSelection =
+    document.getElementById("sideSelection");
+
+const playWhiteButton =
+    document.getElementById("playWhiteButton");
+
+const playBlackButton =
+    document.getElementById("playBlackButton");
+
 const analysisScreen =
     document.getElementById("analysisScreen");
 
@@ -355,17 +364,44 @@ function renderBoard() {
 
     boardElement.innerHTML = "";
 
+    // ============================================================
+    // ОРИЕНТАЦИЯ ДОСКИ
+    // ============================================================
+
+    const rows =
+        playerColor === "black"
+            ? [0, 1, 2, 3, 4, 5, 6, 7]
+            : [7, 6, 5, 4, 3, 2, 1, 0];
+
+    const cols =
+        playerColor === "black"
+            ? [7, 6, 5, 4, 3, 2, 1, 0]
+            : [0, 1, 2, 3, 4, 5, 6, 7];
+
+
+    // ============================================================
+    // СОЗДАЁМ ДОСКУ
+    // ============================================================
+
     for (
-        let row = 0;
-        row < 8;
-        row++
+        let displayRow = 0;
+        displayRow < 8;
+        displayRow++
     ) {
 
+        const row =
+            rows[displayRow];
+
+
         for (
-            let col = 0;
-            col < 8;
-            col++
+            let displayCol = 0;
+            displayCol < 8;
+            displayCol++
         ) {
+
+            const col =
+                cols[displayCol];
+
 
             const square =
                 document.createElement(
@@ -377,6 +413,11 @@ function renderBoard() {
             square.classList.add(
                 "square"
             );
+
+
+            // ====================================================
+            // ЦВЕТ КЛЕТКИ
+            // ====================================================
 
             if (
                 (row + col) % 2 === 0
@@ -393,12 +434,22 @@ function renderBoard() {
                 );
             }
 
+
+            // ====================================================
+            // НАЗВАНИЕ КЛЕТКИ
+            // ====================================================
+
             const squareName =
                 FILES[col] +
                 (8 - row);
 
             square.dataset.square =
                 squareName;
+
+
+            // ====================================================
+            // ПОСЛЕДНИЙ ХОД
+            // ====================================================
 
             if (
                 lastMove &&
@@ -415,6 +466,11 @@ function renderBoard() {
                 );
             }
 
+
+            // ====================================================
+            // ВЫБРАННАЯ КЛЕТКА
+            // ====================================================
+
             if (
                 selectedSquare ===
                 squareName
@@ -424,6 +480,11 @@ function renderBoard() {
                     "selected"
                 );
             }
+
+
+            // ====================================================
+            // ФИГУРА
+            // ====================================================
 
             const piece =
                 board[row]?.[col];
@@ -443,10 +504,12 @@ function renderBoard() {
                     `pieces/${piece.color}/${piece.type.charAt(0).toUpperCase() + piece.type.slice(1)}.svg?v=5`;
 
                 pieceElement.onerror = () => {
+
                     console.error(
                         "Не удалось загрузить фигуру:",
                         pieceElement.src
                     );
+
                 };
 
                 pieceElement.alt =
@@ -460,6 +523,11 @@ function renderBoard() {
                 );
             }
 
+
+            // ====================================================
+            // КЛИК ПО КЛЕТКЕ
+            // ====================================================
+
             square.addEventListener(
                 "click",
                 () =>
@@ -472,6 +540,95 @@ function renderBoard() {
                 square
             );
         }
+    }
+
+
+    // ============================================================
+    // ПОВОРАЧИВАЕМ ЦИФРЫ И БУКВЫ
+    // ============================================================
+
+    const rankLabels =
+        document.querySelector(
+            "#gameScreen .rank-labels"
+        );
+
+    const fileLabels =
+        document.querySelector(
+            "#gameScreen .file-labels"
+        );
+
+
+    if (rankLabels) {
+
+        rankLabels.innerHTML = "";
+
+        const ranks =
+            playerColor === "black"
+                ? [1, 2, 3, 4, 5, 6, 7, 8]
+                : [8, 7, 6, 5, 4, 3, 2, 1];
+
+        ranks.forEach(
+            rank => {
+
+                const span =
+                    document.createElement(
+                        "span"
+                    );
+
+                span.textContent =
+                    rank;
+
+                rankLabels.appendChild(
+                    span
+                );
+            }
+        );
+    }
+
+
+    if (fileLabels) {
+
+        fileLabels.innerHTML = "";
+
+        const files =
+            playerColor === "black"
+                ? [
+                    "h",
+                    "g",
+                    "f",
+                    "e",
+                    "d",
+                    "c",
+                    "b",
+                    "a"
+                ]
+                : [
+                    "a",
+                    "b",
+                    "c",
+                    "d",
+                    "e",
+                    "f",
+                    "g",
+                    "h"
+                ];
+
+        files.forEach(
+            file => {
+
+                const span =
+                    document.createElement(
+                        "span"
+                    );
+
+                span.textContent =
+                    file;
+
+                fileLabels.appendChild(
+                    span
+                );
+            }
+        );
     }
 }
 
@@ -1279,10 +1436,183 @@ if (playButton) {
                 gameScreen
             );
 
-            loadGame();
+            // Показываем выбор стороны
+            sideSelection.classList.remove(
+                "hidden"
+            );
+
+            // Скрываем игровую часть
+            document.querySelector(
+                "#gameScreen main"
+            ).classList.add(
+                "hidden"
+            );
+
+            document.querySelector(
+                "#gameScreen .info"
+            ).classList.add(
+                "hidden"
+            );
+
+            document.querySelector(
+                "#gameScreen .buttons"
+            ).classList.add(
+                "hidden"
+            );
+
+            turnText.textContent =
+                "Выберите сторону";
         }
     );
 }
+
+playWhiteButton.addEventListener(
+    "click",
+    () => {
+        startGame("white");
+    }
+);
+
+
+playBlackButton.addEventListener(
+    "click",
+    () => {
+        startGame("black");
+    }
+);
+
+async function startGame(color) {
+
+    playerColor = color;
+
+    selectedSquare = null;
+    lastMove = null;
+    gameOver = false;
+
+    try {
+
+        const response = await fetch(
+            "/reset",
+            {
+                method: "POST",
+
+                headers: {
+                    "Content-Type":
+                        "application/json"
+                },
+
+                body: JSON.stringify({
+                    player_color: color
+                })
+            }
+        );
+
+        const data =
+            await response.json();
+
+        if (!data.success) {
+
+            setMessage(
+                data.error ||
+                "Не удалось начать игру."
+            );
+
+            return;
+        }
+
+        // ---------------------------------------------
+        // СКРЫВАЕМ ВЫБОР СТОРОНЫ
+        // ---------------------------------------------
+
+        sideSelection.classList.add(
+            "hidden"
+        );
+
+        document.querySelector(
+            "#gameScreen main"
+        ).classList.remove("hidden");
+
+        document.querySelector(
+            "#gameScreen .info"
+        ).classList.remove("hidden");
+
+        document.querySelector(
+            "#gameScreen .buttons"
+        ).classList.remove("hidden");
+
+        // ---------------------------------------------
+        // ЗАПИСЫВАЕМ ЦВЕТ ИГРОКА
+        // ---------------------------------------------
+
+        playerColor =
+            data.player_color ||
+            color;
+
+        // ---------------------------------------------
+        // ЗАГРУЖАЕМ FEN
+        // ---------------------------------------------
+
+        board =
+            fenToBoard(data.fen);
+
+        // ---------------------------------------------
+        // СБРАСЫВАЕМ СОСТОЯНИЕ
+        // ---------------------------------------------
+
+        selectedSquare = null;
+        lastMove = null;
+        gameOver =
+            data.game_over;
+
+        // ---------------------------------------------
+        // РИСУЕМ ДОСКУ
+        // ---------------------------------------------
+
+        renderBoard();
+
+        // ---------------------------------------------
+        // ТЕКСТ ХОДА
+        // ---------------------------------------------
+
+        if (data.game_over) {
+
+            setMessage(
+                `Партия закончена: ${data.status}`
+            );
+
+        } else if (data.player_turn) {
+
+            turnText.textContent =
+                "Ваш ход";
+
+            setMessage(
+                "Ваш ход"
+            );
+
+        } else {
+
+            turnText.textContent =
+                "Ход компьютера";
+
+            setMessage(
+                "Ход компьютера"
+            );
+        }
+
+    } catch (error) {
+
+        console.error(
+            "Ошибка запуска игры:",
+            error
+        );
+
+        setMessage(
+            "Ошибка соединения с сервером."
+        );
+    }
+}
+
+
 
 
 /* ============================================================

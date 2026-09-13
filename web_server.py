@@ -669,7 +669,12 @@ def get_game():
             game.is_game_over(),
 
         "status":
-            game.get_status()
+            game.get_status(),
+
+        "player_color":
+            "white"
+            if game.player_color == chess.WHITE
+            else "black"
     })
 
 
@@ -894,27 +899,121 @@ def make_move():
 )
 def reset_game():
 
-    game.reset()
+    global game
 
-    return jsonify({
+    try:
 
-        "success": True,
+        data = request.get_json(
+            silent=True
+        ) or {}
 
-        "fen":
-            game.get_fen(),
+        player_color = data.get(
+            "player_color",
+            "white"
+        )
 
-        "legal_moves":
-            game.get_legal_moves(),
+        # ====================================================
+        # ОПРЕДЕЛЯЕМ СТОРОНУ ИГРОКА
+        # ====================================================
 
-        "player_turn":
-            game.is_player_turn(),
+        if player_color == "black":
 
-        "game_over":
-            game.is_game_over(),
+            color = chess.BLACK
 
-        "status":
-            game.get_status()
-    })
+        else:
+
+            color = chess.WHITE
+
+        # ====================================================
+        # ЗАКРЫВАЕМ СТАРЫЙ STOCKFISH
+        # ====================================================
+
+        try:
+
+            game.close()
+
+        except Exception as error:
+
+            print(
+                "Не удалось закрыть старую игру:",
+                repr(error)
+            )
+
+        # ====================================================
+        # СОЗДАЁМ НОВУЮ ИГРУ
+        # ====================================================
+
+        game = ChessGame(
+            player_color=color
+        )
+
+        # ====================================================
+        # ЕСЛИ ИГРОК ЧЁРНЫМИ —
+        # КОМПЬЮТЕР ДЕЛАЕТ ПЕРВЫЙ ХОД
+        # ====================================================
+
+        computer_result = None
+
+        if color == chess.BLACK:
+
+            computer_result = (
+                game.make_computer_move()
+            )
+
+        # ====================================================
+        # ОТВЕТ
+        # ====================================================
+
+        return jsonify({
+
+            "success":
+                True,
+
+            "fen":
+                game.get_fen(),
+
+            "legal_moves":
+                game.get_legal_moves(),
+
+            "player_turn":
+                game.is_player_turn(),
+
+            "game_over":
+                game.is_game_over(),
+
+            "status":
+                game.get_status(),
+
+            "player_color":
+                player_color,
+
+            "computer_move":
+                computer_result["move"].uci()
+                if computer_result
+                else None,
+
+            "computer_san":
+                computer_result["san"]
+                if computer_result
+                else None
+        })
+
+    except Exception as error:
+
+        print(
+            "ОШИБКА /reset:",
+            repr(error)
+        )
+
+        return jsonify({
+
+            "success":
+                False,
+
+            "error":
+                str(error)
+
+        }), 500
 
 # ============================================================
 # ПОЛУЧИТЬ PGN ТЕКУЩЕЙ ПАРТИИ

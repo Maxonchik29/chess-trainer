@@ -347,10 +347,18 @@ class ChessGame:
 
         game.headers["Event"] = "Chess Trainer"
         game.headers["Site"] = "Telegram Mini App"
-        game.headers["White"] = "Maximka2912"
-        game.headers["Black"] = "Stockfish"
-        game.headers["Result"] = self.board.result()
 
+        if self.player_color == chess.WHITE:
+
+            game.headers["White"] = "Maximka2912"
+            game.headers["Black"] = "Stockfish"
+
+        else:
+
+            game.headers["White"] = "Stockfish"
+            game.headers["Black"] = "Maximka2912"
+
+        game.headers["Result"] = self.board.result()
         # ----------------------------------------------------
         # Воспроизводим историю
         # ----------------------------------------------------
