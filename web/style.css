@@ -1041,3 +1041,17 @@ and (max-height: 600px) {
 #positionBoardWrapper {
     margin-bottom: 35px;
 }
+
+/* ============================================================
+   ПОДСВЕТКА ЛУЧШЕГО ХОДА
+============================================================ */
+
+.position-square.best-move-from {
+    background: #f6e58d !important;
+    box-shadow: inset 0 0 0 4px #e67e22;
+}
+
+.position-square.best-move-to {
+    background: #7bed9f !important;
+    box-shadow: inset 0 0 0 4px #27ae60;
+}
