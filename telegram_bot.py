@@ -3,13 +3,12 @@ import logging
 import os
 
 import chess
+import psycopg2
 
 from telegram import (
     Update,
     InlineKeyboardButton,
     InlineKeyboardMarkup,
-    ReplyKeyboardMarkup,
-    KeyboardButton,
     WebAppInfo,
 )
 
@@ -40,11 +39,352 @@ WEB_APP_URL = "https://chess-trainer-3cni.onrender.com"
 
 
 # ============================================================
+# АДМИНИСТРАТОР
+# ============================================================
+
+# В Render нужно будет добавить:
+#
+# ADMIN_TELEGRAM_ID = твой Telegram ID
+#
+# Например:
+#
+# ADMIN_TELEGRAM_ID=123456789
+#
+# Если переменная не задана, /stats будет недоступна.
+
+ADMIN_TELEGRAM_ID = os.environ.get(
+    "ADMIN_TELEGRAM_ID"
+)
+
+
+# ============================================================
+# БАЗА ДАННЫХ
+# ============================================================
+
+def get_db_connection():
+
+    database_url = os.environ.get(
+        "DATABASE_URL"
+    )
+
+    if not database_url:
+
+        raise RuntimeError(
+            "DATABASE_URL не задан."
+        )
+
+    return psycopg2.connect(
+        database_url
+    )
+
+
+# ============================================================
+# БЕЗОПАСНОЕ ПРЕОБРАЗОВАНИЕ В INT
+# ============================================================
+
+def safe_int(value):
+
+    if value is None:
+
+        return None
+
+    try:
+
+        return int(value)
+
+    except (
+        TypeError,
+        ValueError
+    ):
+
+        return None
+
+
+# ============================================================
+# СТАТИСТИКА TELEGRAM-ПОЛЬЗОВАТЕЛЯ
+# ============================================================
+
+def update_bot_user(
+    telegram_user,
+    count_start=False,
+    count_game=False
+):
+
+    # --------------------------------------------------------
+    # Проверяем пользователя
+    # --------------------------------------------------------
+
+    if not telegram_user:
+
+        return False
+
+    telegram_id = telegram_user.get(
+        "id"
+    )
+
+    telegram_id = safe_int(
+        telegram_id
+    )
+
+    if telegram_id is None:
+
+        return False
+
+    username = telegram_user.get(
+        "username"
+    )
+
+    first_name = telegram_user.get(
+        "first_name"
+    )
+
+    conn = None
+
+    try:
+
+        conn = get_db_connection()
+
+        with conn:
+
+            with conn.cursor() as cur:
+
+                # ====================================================
+                # СОЗДАЁМ ПОЛЬЗОВАТЕЛЯ
+                # ИЛИ ОБНОВЛЯЕМ ЕГО
+                # ====================================================
+
+                cur.execute(
+                    """
+                    INSERT INTO public.bot_users
+                    (
+                        telegram_id,
+                        username,
+                        first_name,
+                        start_count,
+                        games_count
+                    )
+                    VALUES
+                    (
+                        %s,
+                        %s,
+                        %s,
+                        %s,
+                        %s
+                    )
+                    ON CONFLICT (telegram_id)
+                    DO UPDATE SET
+                        username = EXCLUDED.username,
+                        first_name = EXCLUDED.first_name,
+                        last_seen = NOW()
+                    """,
+                    (
+                        telegram_id,
+                        username,
+                        first_name,
+                        1 if count_start else 0,
+                        1 if count_game else 0
+                    )
+                )
+
+                # ====================================================
+                # ДОПОЛНИТЕЛЬНЫЕ СЧЁТЧИКИ
+                # ====================================================
+
+                updates = []
+
+                if count_start:
+
+                    updates.append(
+                        "start_count = start_count + 1"
+                    )
+
+                if count_game:
+
+                    updates.append(
+                        "games_count = games_count + 1"
+                    )
+
+                if updates:
+
+                    query = f"""
+                        UPDATE public.bot_users
+                        SET
+                            last_seen = NOW(),
+                            {", ".join(updates)}
+                        WHERE telegram_id = %s
+                    """
+
+                    cur.execute(
+                        query,
+                        (
+                            telegram_id,
+                        )
+                    )
+
+                else:
+
+                    cur.execute(
+                        """
+                        UPDATE public.bot_users
+                        SET last_seen = NOW()
+                        WHERE telegram_id = %s
+                        """,
+                        (
+                            telegram_id,
+                        )
+                    )
+
+        return True
+
+    except Exception as error:
+
+        print(
+            "BOT STATS ERROR:",
+            repr(error)
+        )
+
+        return False
+
+    finally:
+
+        if conn:
+
+            conn.close()
+
+
+# ============================================================
+# ПРОВЕРКА АДМИНИСТРАТОРА
+# ============================================================
+
+def is_admin(user_id):
+
+    if not ADMIN_TELEGRAM_ID:
+
+        return False
+
+    admin_id = safe_int(
+        ADMIN_TELEGRAM_ID
+    )
+
+    if admin_id is None:
+
+        return False
+
+    return int(user_id) == admin_id
+
+
+# ============================================================
+# ПОЛУЧИТЬ СТАТИСТИКУ
+# ============================================================
+
+def get_bot_statistics():
+
+    conn = None
+
+    try:
+
+        conn = get_db_connection()
+
+        with conn:
+
+            with conn.cursor() as cur:
+
+                # ====================================================
+                # ОБЩАЯ СТАТИСТИКА
+                # ====================================================
+
+                cur.execute(
+                    """
+                    SELECT
+                        COUNT(*) AS total_users,
+
+                        COUNT(*) FILTER (
+                            WHERE first_seen >= CURRENT_DATE
+                        ) AS today_users,
+
+                        COUNT(*) FILTER (
+                            WHERE first_seen >= NOW() - INTERVAL '7 days'
+                        ) AS week_users,
+
+                        COUNT(*) FILTER (
+                            WHERE first_seen >= NOW() - INTERVAL '30 days'
+                        ) AS month_users,
+
+                        COALESCE(
+                            SUM(start_count),
+                            0
+                        ) AS total_starts,
+
+                        COALESCE(
+                            SUM(games_count),
+                            0
+                        ) AS total_games,
+
+                        COALESCE(
+                            SUM(analyses_count),
+                            0
+                        ) AS total_analyses,
+
+                        COALESCE(
+                            SUM(mini_app_opens),
+                            0
+                        ) AS total_mini_app_opens
+
+                    FROM public.bot_users
+                    """
+                )
+
+                row = cur.fetchone()
+
+                if not row:
+
+                    return None
+
+                return {
+
+                    "total_users":
+                        row[0],
+
+                    "today_users":
+                        row[1],
+
+                    "week_users":
+                        row[2],
+
+                    "month_users":
+                        row[3],
+
+                    "total_starts":
+                        row[4],
+
+                    "total_games":
+                        row[5],
+
+                    "total_analyses":
+                        row[6],
+
+                    "total_mini_app_opens":
+                        row[7],
+                }
+
+    finally:
+
+        if conn:
+
+            conn.close()
+
+
+# ============================================================
 # ЛОГИ
 # ============================================================
 
 logging.basicConfig(
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    format=(
+        "%(asctime)s - "
+        "%(name)s - "
+        "%(levelname)s - "
+        "%(message)s"
+    ),
     level=logging.INFO,
 )
 
@@ -55,8 +395,7 @@ logging.basicConfig(
 
 games = {}
 
-# Выбранная пользователем фигура.
-# user_id -> chess square
+# user_id -> selected square
 
 
 # ============================================================
@@ -82,6 +421,7 @@ main_keyboard = InlineKeyboardMarkup(
 # ============================================================
 
 PIECE_SYMBOLS = {
+
     "P": "♙",
     "N": "♘",
     "B": "♗",
@@ -102,19 +442,26 @@ PIECE_SYMBOLS = {
 # СОЗДАНИЕ ШАХМАТНОЙ ДОСКИ
 # ============================================================
 
-def create_board_keyboard(game, selected_square=None):
+def create_board_keyboard(
+    game,
+    selected_square=None
+):
 
     board = game.get_board()
 
     keyboard = []
 
-    # Верхние координаты
+    # ========================================================
+    # ВЕРХНИЕ КООРДИНАТЫ
+    # ========================================================
 
     keyboard.append([
+
         InlineKeyboardButton(
             " ",
             callback_data="noop"
         ),
+
         *[
             InlineKeyboardButton(
                 chr(ord("a") + file),
@@ -122,17 +469,25 @@ def create_board_keyboard(game, selected_square=None):
             )
             for file in range(8)
         ],
+
         InlineKeyboardButton(
             " ",
             callback_data="noop"
         ),
     ])
 
-    # Доска
+    # ========================================================
+    # ДОСКА
+    # ========================================================
 
-    for rank in range(7, -1, -1):
+    for rank in range(
+        7,
+        -1,
+        -1
+    ):
 
         row = [
+
             InlineKeyboardButton(
                 str(rank + 1),
                 callback_data="noop"
@@ -164,13 +519,17 @@ def create_board_keyboard(game, selected_square=None):
                     piece.symbol()
                 ]
 
+            # ------------------------------------------------
             # Выбранная клетка
+            # ------------------------------------------------
 
             if selected_square == square:
 
                 text = "🟨" + text
 
+            # ------------------------------------------------
             # Callback
+            # ------------------------------------------------
 
             if selected_square is not None:
 
@@ -187,30 +546,40 @@ def create_board_keyboard(game, selected_square=None):
                 )
 
             row.append(
+
                 InlineKeyboardButton(
                     text,
                     callback_data=callback_data
                 )
             )
 
+        # ----------------------------------------------------
         # Номер горизонтали справа
+        # ----------------------------------------------------
 
         row.append(
+
             InlineKeyboardButton(
                 str(rank + 1),
                 callback_data="noop"
             )
         )
 
-        keyboard.append(row)
+        keyboard.append(
+            row
+        )
 
-    # Нижние координаты
+    # ========================================================
+    # НИЖНИЕ КООРДИНАТЫ
+    # ========================================================
 
     keyboard.append([
+
         InlineKeyboardButton(
             " ",
             callback_data="noop"
         ),
+
         *[
             InlineKeyboardButton(
                 chr(ord("a") + file),
@@ -218,15 +587,19 @@ def create_board_keyboard(game, selected_square=None):
             )
             for file in range(8)
         ],
+
         InlineKeyboardButton(
             " ",
             callback_data="noop"
         ),
     ])
 
-    # Новая партия
+    # ========================================================
+    # НОВАЯ ПАРТИЯ
+    # ========================================================
 
     keyboard.append([
+
         InlineKeyboardButton(
             "🔄 Новая партия",
             callback_data="new_game"
@@ -247,7 +620,9 @@ def board_message(
     extra_text=""
 ):
 
-    text = "♟ Chess Trainer\n\n"
+    text = (
+        "♟ Chess Trainer\n\n"
+    )
 
     if extra_text:
 
@@ -274,12 +649,133 @@ async def start(
     context: ContextTypes.DEFAULT_TYPE
 ):
 
+    user = update.effective_user
+
+    # ========================================================
+    # СТАТИСТИКА
+    # ========================================================
+
+    if user:
+
+        update_bot_user(
+            {
+                "id": user.id,
+                "username": user.username,
+                "first_name": user.first_name,
+            },
+            count_start=True
+        )
+
+    # ========================================================
+    # ПРИВЕТСТВИЕ
+    # ========================================================
+
     await update.message.reply_text(
+
         "♟ Chess Trainer\n\n"
         "Добро пожаловать!\n\n"
         "Нажми «♟ Играть с компьютером», "
         "чтобы начать партию.",
+
         reply_markup=main_keyboard,
+    )
+
+
+# ============================================================
+# /stats
+# ============================================================
+
+async def stats(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
+):
+
+    user = update.effective_user
+
+    if user is None:
+
+        return
+
+    # ========================================================
+    # ПРОВЕРКА АДМИНИСТРАТОРА
+    # ========================================================
+
+    if not is_admin(
+        user.id
+    ):
+
+        await update.message.reply_text(
+            "⛔ Команда недоступна."
+        )
+
+        return
+
+    # ========================================================
+    # ПОЛУЧАЕМ СТАТИСТИКУ
+    # ========================================================
+
+    try:
+
+        statistics = (
+            get_bot_statistics()
+        )
+
+    except Exception as error:
+
+        print(
+            "STATS ERROR:",
+            repr(error)
+        )
+
+        await update.message.reply_text(
+            "❌ Не удалось получить статистику."
+        )
+
+        return
+
+    if not statistics:
+
+        await update.message.reply_text(
+            "Статистика пока недоступна."
+        )
+
+        return
+
+    # ========================================================
+    # ФОРМИРУЕМ ОТВЕТ
+    # ========================================================
+
+    text = (
+
+        "📊 Статистика Chess Trainer\n\n"
+
+        f"👥 Всего пользователей: "
+        f"{statistics['total_users']}\n"
+
+        f"🆕 Новых сегодня: "
+        f"{statistics['today_users']}\n"
+
+        f"📅 Новых за 7 дней: "
+        f"{statistics['week_users']}\n"
+
+        f"🗓 Новых за 30 дней: "
+        f"{statistics['month_users']}\n\n"
+
+        f"▶️ Запусков /start: "
+        f"{statistics['total_starts']}\n"
+
+        f"♟ Начатых партий: "
+        f"{statistics['total_games']}\n"
+
+        f"📊 Анализов PGN: "
+        f"{statistics['total_analyses']}\n"
+
+        f"📱 Открытий Mini App: "
+        f"{statistics['total_mini_app_opens']}"
+    )
+
+    await update.message.reply_text(
+        text
     )
 
 
@@ -294,19 +790,34 @@ async def new_game(
 
     user_id = update.effective_user.id
 
-    # --------------------------------------------------------
-    # Закрываем старую игру
-    # --------------------------------------------------------
+    # ========================================================
+    # СТАТИСТИКА
+    # ========================================================
 
-    old_game = games.get(user_id)
+    update_bot_user(
+        {
+            "id": update.effective_user.id,
+            "username": update.effective_user.username,
+            "first_name": update.effective_user.first_name,
+        },
+        count_game=True
+    )
+
+    # ========================================================
+    # ЗАКРЫВАЕМ СТАРУЮ ИГРУ
+    # ========================================================
+
+    old_game = games.get(
+        user_id
+    )
 
     if old_game is not None:
 
         old_game.close()
 
-    # --------------------------------------------------------
-    # Создаём новую игру
-    # --------------------------------------------------------
+    # ========================================================
+    # СОЗДАЁМ НОВУЮ ИГРУ
+    # ========================================================
 
     game = ChessGame(
         player_color=chess.WHITE
@@ -314,20 +825,26 @@ async def new_game(
 
     games[user_id] = game
 
-    # Сбрасываем выбранную фигуру
+    # ========================================================
+    # СБРАСЫВАЕМ ВЫБРАННУЮ ФИГУРУ
+    # ========================================================
 
     context.user_data.pop(
         "selected_square",
         None
     )
 
-    # --------------------------------------------------------
-    # Показываем доску
-    # --------------------------------------------------------
+    # ========================================================
+    # ПОКАЗЫВАЕМ ДОСКУ
+    # ========================================================
 
     await update.message.reply_text(
+
         board_message(game),
-        reply_markup=create_board_keyboard(game)
+
+        reply_markup=create_board_keyboard(
+            game
+        )
     )
 
 
@@ -340,11 +857,13 @@ async def handle_text(
     context: ContextTypes.DEFAULT_TYPE
 ):
 
-    text = update.message.text.strip()
+    text = (
+        update.message.text.strip()
+    )
 
-    # --------------------------------------------------------
-    # Новая игра
-    # --------------------------------------------------------
+    # ========================================================
+    # НОВАЯ ИГРА
+    # ========================================================
 
     if text == "♟ Играть с компьютером":
 
@@ -355,11 +874,12 @@ async def handle_text(
 
         return
 
-    # --------------------------------------------------------
-    # Если пользователь пишет обычный текст
-    # --------------------------------------------------------
+    # ========================================================
+    # ОБЫЧНЫЙ ТЕКСТ
+    # ========================================================
 
     await update.message.reply_text(
+
         "Используй шахматную доску.\n\n"
         "Нажми сначала на свою фигуру, "
         "затем нажми на клетку назначения."
@@ -414,9 +934,26 @@ async def handle_square(
 
         games[user_id] = game
 
+        # ----------------------------------------------------
+        # СТАТИСТИКА
+        # ----------------------------------------------------
+
+        update_bot_user(
+            {
+                "id": query.from_user.id,
+                "username": query.from_user.username,
+                "first_name": query.from_user.first_name,
+            },
+            count_game=True
+        )
+
         await query.edit_message_text(
+
             board_message(game),
-            reply_markup=create_board_keyboard(game)
+
+            reply_markup=create_board_keyboard(
+                game
+            )
         )
 
         return
@@ -425,12 +962,16 @@ async def handle_square(
     # ПЕРВЫЙ КЛИК — SELECT
     # ========================================================
 
-    if query.data.startswith("select:"):
+    if query.data.startswith(
+        "select:"
+    ):
 
-        square_name = query.data.split(
-            ":",
-            1
-        )[1]
+        square_name = (
+            query.data.split(
+                ":",
+                1
+            )[1]
+        )
 
         square = chess.parse_square(
             square_name
@@ -438,7 +979,9 @@ async def handle_square(
 
         board = game.get_board()
 
+        # ----------------------------------------------------
         # Проверяем ход игрока
+        # ----------------------------------------------------
 
         if not game.is_player_turn():
 
@@ -449,7 +992,9 @@ async def handle_square(
 
             return
 
+        # ----------------------------------------------------
         # Проверяем фигуру
+        # ----------------------------------------------------
 
         piece = board.piece_at(
             square
@@ -472,19 +1017,26 @@ async def handle_square(
 
             return
 
+        # ----------------------------------------------------
         # Показываем выбранную клетку
+        # ----------------------------------------------------
 
         await query.answer(
+
             f"Выбрана клетка {square_name}.\n"
             "Теперь выбери клетку назначения."
         )
 
         await query.edit_message_text(
+
             board_message(
+
                 game,
+
                 f"Выбрана: {square_name}\n"
                 "Выбери клетку назначения."
             ),
+
             reply_markup=create_board_keyboard(
                 game,
                 selected_square=square
@@ -497,9 +1049,13 @@ async def handle_square(
     # ВТОРОЙ КЛИК — MOVE
     # ========================================================
 
-    if query.data.startswith("move:"):
+    if query.data.startswith(
+        "move:"
+    ):
 
-        parts = query.data.split(":")
+        parts = query.data.split(
+            ":"
+        )
 
         if len(parts) != 3:
 
@@ -532,7 +1088,7 @@ async def handle_square(
         board = game.get_board()
 
         # ====================================================
-        # Проверяем ход игрока
+        # ПРОВЕРЯЕМ ХОД ИГРОКА
         # ====================================================
 
         if not game.is_player_turn():
@@ -545,7 +1101,7 @@ async def handle_square(
             return
 
         # ====================================================
-        # Та же клетка
+        # ТА ЖЕ КЛЕТКА
         # ====================================================
 
         if from_square == to_square:
@@ -555,14 +1111,18 @@ async def handle_square(
             )
 
             await query.edit_message_text(
+
                 board_message(game),
-                reply_markup=create_board_keyboard(game)
+
+                reply_markup=create_board_keyboard(
+                    game
+                )
             )
 
             return
 
         # ====================================================
-        # Создаём ход
+        # СОЗДАЁМ ХОД
         # ====================================================
 
         uci_move = (
@@ -587,7 +1147,7 @@ async def handle_square(
             return
 
         # ====================================================
-        # Проверяем легальность
+        # ПРОВЕРЯЕМ ЛЕГАЛЬНОСТЬ
         # ====================================================
 
         if move not in board.legal_moves:
@@ -608,11 +1168,15 @@ async def handle_square(
         # ====================================================
 
         await query.edit_message_text(
+
             board_message(
                 game,
                 "⏳ Анализирую ваш ход..."
             ),
-            reply_markup=create_board_keyboard(game)
+
+            reply_markup=create_board_keyboard(
+                game
+            )
         )
 
         # ====================================================
@@ -628,11 +1192,15 @@ async def handle_square(
         except ValueError as error:
 
             await query.edit_message_text(
+
                 board_message(
                     game,
                     f"❌ {error}"
                 ),
-                reply_markup=create_board_keyboard(game)
+
+                reply_markup=create_board_keyboard(
+                    game
+                )
             )
 
             return
@@ -650,6 +1218,7 @@ async def handle_square(
         ]
 
         message = (
+
             f"Ваш ход: {played_san}\n"
             f"Лучше было: {best_san}"
         )
@@ -667,16 +1236,22 @@ async def handle_square(
         if result["game_over"]:
 
             message += (
+
                 "\n\n🏁 Партия закончена.\n"
-                f"Результат: {game.get_result()}"
+                f"Результат: "
+                f"{game.get_result()}"
             )
 
             await query.edit_message_text(
+
                 board_message(
                     game,
                     message
                 ),
-                reply_markup=create_board_keyboard(game)
+
+                reply_markup=create_board_keyboard(
+                    game
+                )
             )
 
             game.close()
@@ -696,11 +1271,15 @@ async def handle_square(
         )
 
         await query.edit_message_text(
+
             board_message(
                 game,
                 message
             ),
-            reply_markup=create_board_keyboard(game)
+
+            reply_markup=create_board_keyboard(
+                game
+            )
         )
 
         computer_result = (
@@ -714,6 +1293,7 @@ async def handle_square(
             )
 
             message = (
+
                 f"Ваш ход: {played_san}\n"
                 f"Лучше было: {best_san}"
             )
@@ -725,27 +1305,34 @@ async def handle_square(
                 )
 
             message += (
+
                 f"\n\n🤖 Компьютер: "
                 f"{computer_san}"
             )
 
         # ====================================================
-        # ИГРА ЗАКОНЧИЛАСЬ ПОСЛЕ ХОДА КОМПЬЮТЕРА
+        # ИГРА ЗАКОНЧИЛАСЬ ПОСЛЕ КОМПЬЮТЕРА
         # ====================================================
 
         if game.is_game_over():
 
             message += (
+
                 "\n\n🏁 Партия закончена.\n"
-                f"Результат: {game.get_result()}"
+                f"Результат: "
+                f"{game.get_result()}"
             )
 
             await query.edit_message_text(
+
                 board_message(
                     game,
                     message
                 ),
-                reply_markup=create_board_keyboard(game)
+
+                reply_markup=create_board_keyboard(
+                    game
+                )
             )
 
             game.close()
@@ -763,11 +1350,15 @@ async def handle_square(
         message += "\n\nВаш ход."
 
         await query.edit_message_text(
+
             board_message(
                 game,
                 message
             ),
-            reply_markup=create_board_keyboard(game)
+
+            reply_markup=create_board_keyboard(
+                game
+            )
         )
 
         return
@@ -800,32 +1391,47 @@ def main():
         .build()
     )
 
-    # --------------------------------------------------------
-    # Команда /start
-    # --------------------------------------------------------
+    # ========================================================
+    # /start
+    # ========================================================
 
     application.add_handler(
+
         CommandHandler(
             "start",
             start
         )
     )
 
-    # --------------------------------------------------------
-    # Нажатия на клетки доски
-    # --------------------------------------------------------
+    # ========================================================
+    # /stats
+    # ========================================================
 
     application.add_handler(
+
+        CommandHandler(
+            "stats",
+            stats
+        )
+    )
+
+    # ========================================================
+    # НАЖАТИЯ НА КЛЕТКИ
+    # ========================================================
+
+    application.add_handler(
+
         CallbackQueryHandler(
             handle_square
         )
     )
 
-    # --------------------------------------------------------
-    # Текстовые сообщения
-    # --------------------------------------------------------
+    # ========================================================
+    # ТЕКСТОВЫЕ СООБЩЕНИЯ
+    # ========================================================
 
     application.add_handler(
+
         MessageHandler(
             filters.TEXT
             & ~filters.COMMAND,
@@ -833,9 +1439,9 @@ def main():
         )
     )
 
-    # --------------------------------------------------------
-    # Запуск
-    # --------------------------------------------------------
+    # ========================================================
+    # ЗАПУСК
+    # ========================================================
 
     print(
         "Telegram-бот запущен..."
@@ -851,4 +1457,3 @@ def main():
 if __name__ == "__main__":
 
     main()
-
