@@ -150,6 +150,8 @@ let positionBestMoveShown = false;
 
 let positionUserMove = null;
 
+let positionLocked = false;
+
 let positionCastlingRights = "-";
 
 
@@ -2008,7 +2010,6 @@ function makePositionMove(
         newBoard;
 }
 
-
 /* ============================================================
    НАЖАТИЕ НА ДОСКУ ПОЗИЦИИ
 ============================================================ */
@@ -2017,9 +2018,11 @@ function handlePositionSquareClick(
     squareName
 ) {
 
-    if (
-        positionBestMoveShown
-    ) {
+    if (positionLocked) {
+        return;
+    }
+
+    if (positionBestMoveShown) {
         return;
     }
 
@@ -2029,12 +2032,35 @@ function handlePositionSquareClick(
         );
 
 
+    /* ========================================================
+       ВЫБОР ФИГУРЫ
+    ======================================================== */
+
     if (
         positionSelectedSquare ===
         null
     ) {
 
         if (!piece) {
+
+            setPositionResult(
+                "Здесь нет фигуры."
+            );
+
+            return;
+        }
+
+        /* Только фигуры пользователя */
+
+        if (
+            piece.color !==
+            positionOrientation
+        ) {
+
+            setPositionResult(
+                "Можно двигать только свои фигуры."
+            );
+
             return;
         }
 
@@ -2050,6 +2076,10 @@ function handlePositionSquareClick(
         return;
     }
 
+
+    /* ========================================================
+       ОТМЕНА ВЫБОРА
+    ======================================================== */
 
     if (
         positionSelectedSquare ===
@@ -2081,15 +2111,23 @@ function handlePositionSquareClick(
         );
 
 
+    /* ========================================================
+       ВЫБРАЛИ ДРУГУЮ СВОЮ ФИГУРУ
+    ======================================================== */
+
     if (
         piece &&
         movingPiece &&
         piece.color ===
-            movingPiece.color
+            positionOrientation
     ) {
 
         positionSelectedSquare =
             squareName;
+
+        setPositionResult(
+            `Выбрана ${squareName}.`
+        );
 
         renderPositionBoard();
 
@@ -2097,9 +2135,7 @@ function handlePositionSquareClick(
     }
 
 
-    if (
-        !movingPiece
-    ) {
+    if (!movingPiece) {
 
         positionSelectedSquare =
             null;
@@ -2109,6 +2145,10 @@ function handlePositionSquareClick(
         return;
     }
 
+
+    /* ========================================================
+       ПРОВЕРЯЕМ, ВООБЩЕ ДОПУСТИМ ЛИ ХОД
+    ======================================================== */
 
     if (
         !isPositionMoveLegal(
@@ -2120,12 +2160,51 @@ function handlePositionSquareClick(
     ) {
 
         setPositionResult(
-            "Так сходить нельзя."
+            "✗ Так сходить нельзя."
         );
 
         return;
     }
 
+
+    /* ========================================================
+       СОХРАНЯЕМ СТАРУЮ ПОЗИЦИЮ
+    ======================================================== */
+
+    const oldBoard =
+        clonePositionBoard(
+            positionBoardState
+        );
+
+
+    /* ========================================================
+       ПОЛУЧАЕМ ЛУЧШИЙ ХОД
+    ======================================================== */
+
+    const mistake =
+        positionScreen?.currentMistake;
+
+    const bestMove =
+        mistake?.best_move_uci ??
+        mistake?.best_move ??
+        mistake?.best_uci;
+
+
+    const playedMove =
+        String(from + to)
+            .toLowerCase();
+
+    const normalizedBestMove =
+        bestMove
+            ? String(bestMove)
+                .substring(0, 4)
+                .toLowerCase()
+            : null;
+
+
+    /* ========================================================
+       СНАЧАЛА ВИЗУАЛЬНО ДЕЛАЕМ ХОД
+    ======================================================== */
 
     positionUserMove = {
         from: from,
@@ -2140,13 +2219,75 @@ function handlePositionSquareClick(
     positionSelectedSquare =
         null;
 
-    setPositionResult(
-        `Ваш ход: ${from}${to}`
-    );
-
     renderPositionBoard();
-}
 
+
+    /* ========================================================
+       НЕБОЛЬШАЯ ЗАДЕРЖКА
+       Чтобы пользователь увидел свой ход
+    ======================================================== */
+
+    setTimeout(
+        () => {
+
+            /* ==================================================
+               НЕПРАВИЛЬНЫЙ ХОД
+            ================================================== */
+
+            if (
+                !normalizedBestMove ||
+                playedMove !==
+                    normalizedBestMove
+            ) {
+
+                setPositionResult(
+                    "✗ Неверный ход. Попробуйте ещё раз."
+                );
+
+
+                /*
+                 * Возвращаем исходную позицию
+                 */
+
+                positionBoardState =
+                    oldBoard;
+
+                positionUserMove =
+                    null;
+
+
+                renderPositionBoard();
+
+
+                return;
+            }
+
+
+            /* ==================================================
+               ПРАВИЛЬНЫЙ ХОД
+            ================================================== */
+
+            setPositionResult(
+                "✓ Правильно! Это лучший ход."
+            );
+
+
+            /*
+             * Оставляем новую позицию
+             * и блокируем доску.
+             */
+
+            positionLocked =
+                true;
+
+
+            renderPositionBoard();
+
+        },
+
+        450
+    );
+}
 
 /* ============================================================
    ТЕКСТ РЕЗУЛЬТАТА ПОЗИЦИИ
@@ -2673,6 +2814,9 @@ function showMistakePosition(
 
     positionUserMove =
         null;
+
+    positionLocked =
+        false;
 
     positionScreen.bestMove =
         null;
