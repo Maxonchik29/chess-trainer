@@ -2904,15 +2904,7 @@ function showMistakePosition(
 
     if (info) {
 
-        const bestMove =
-            mistake.best_move_uci ??
-            mistake.best_move ??
-            mistake.best_uci;
-
-        info.textContent =
-            bestMove
-                ? `Лучший ход: ${bestMove}`
-                : "Лучший ход не указан.";
+        info.textContent = "";
     }
 
 
@@ -2990,10 +2982,13 @@ function showBestMove(
         true;
 
 
+    /* Не показываем текст над доской */
     setPositionResult(
-        `Лучший ход: ${bestMove}`
+        ""
     );
 
+
+    /* Показываем лучший ход только под доской */
 
     const info =
         document.getElementById(
