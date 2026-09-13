@@ -1132,7 +1132,7 @@ function createPositionScreen() {
                 ← Назад
             </button>
 
-            <h2>
+            <h2 id="positionTitle">
                 Позиция ошибки
             </h2>
 
@@ -1187,8 +1187,15 @@ function createPositionScreen() {
                 💡 Показать лучший ход
             </button>
 
-        </div>
+            <button
+                type="button"
+                id="deleteMistakeButton"
+                class="menu-button delete-mistake-button"
+            >
+                🗑 Удалить эту ошибку
+            </button>
 
+        </div>
 
         <div
             class="mistake-navigation"
@@ -1271,6 +1278,17 @@ function createPositionScreen() {
             }
         );
 
+    document
+        .getElementById(
+            "deleteMistakeButton"
+        )
+        .addEventListener(
+            "click",
+            () => {
+
+                deleteCurrentMistake();
+            }
+        );
 
     document
         .getElementById(
@@ -2791,6 +2809,48 @@ function showMistakePosition(
 
     positionScreen.currentMistake =
         mistake;
+    
+    const positionTitle =
+        document.getElementById(
+            "positionTitle"
+        );
+
+    if (positionTitle) {
+
+        let mistakes = [];
+
+        if (currentMistakeSource === "mistakes") {
+            mistakes = myMistakesData;
+        } else if (
+            currentAnalysisData &&
+            Array.isArray(currentAnalysisData.mistakes)
+        ) {
+            mistakes = currentAnalysisData.mistakes;
+        }
+
+        const index =
+            mistakes.indexOf(mistake);
+
+        if (index >= 0) {
+
+            positionTitle.textContent =
+                `Ошибка ${index + 1} из ${mistakes.length}`;
+
+        } else {
+
+            positionTitle.textContent =
+                "Позиция ошибки";
+        }
+    }
+
+    positionScreen.currentMistakeIndex =
+        currentMistakeSource === "mistakes"
+            ? myMistakesData.indexOf(mistake)
+            : (
+                currentAnalysisData?.mistakes
+                    ? currentAnalysisData.mistakes.indexOf(mistake)
+                    : 0
+            );
 
     positionOrientation =
         getMistakeSide(
@@ -2995,6 +3055,259 @@ function showBestMove(
     renderPositionBoard();
 }
 
+/* ============================================================
+   УДАЛЕНИЕ ТЕКУЩЕЙ ОШИБКИ
+============================================================ */
+
+async function deleteCurrentMistake() {
+
+    const mistake =
+        positionScreen?.currentMistake;
+
+    if (!mistake) {
+        return;
+    }
+
+    const mistakeId =
+        mistake.id ??
+        mistake.mistake_id;
+
+    if (!mistakeId) {
+
+        setPositionResult(
+            "Не удалось определить ID ошибки."
+        );
+
+        console.error(
+            "У ошибки отсутствует id:",
+            mistake
+        );
+
+        return;
+    }
+
+
+    const user =
+        getTelegramUser();
+
+    if (!user) {
+
+        setPositionResult(
+            "Telegram пользователь не определён."
+        );
+
+        return;
+    }
+
+
+    const confirmed =
+        window.confirm(
+            "Удалить эту ошибку?"
+        );
+
+    if (!confirmed) {
+        return;
+    }
+
+
+    const deleteButton =
+        document.getElementById(
+            "deleteMistakeButton"
+        );
+
+
+    if (deleteButton) {
+
+        deleteButton.disabled =
+            true;
+
+        deleteButton.textContent =
+            "⏳ Удаляем...";
+    }
+
+
+    /*
+     * Запоминаем позицию текущей ошибки
+     * ДО удаления.
+     */
+
+    const currentIndex =
+        myMistakesData.indexOf(
+            mistake
+        );
+
+
+    try {
+
+        const response =
+            await fetch(
+                `/mistakes/${mistakeId}`,
+                {
+                    method: "DELETE",
+
+                    headers: {
+                        "Content-Type":
+                            "application/json"
+                    },
+
+                    body:
+                        JSON.stringify({
+                            telegram_user:
+                                user
+                        })
+                }
+            );
+
+
+        const data =
+            await response.json();
+
+
+        if (
+            !response.ok ||
+            !data.ok
+        ) {
+
+            throw new Error(
+                data.error ||
+                "Не удалось удалить ошибку."
+            );
+        }
+
+
+        /*
+         * Удаляем ошибку из локального массива
+         */
+
+        myMistakesData =
+            myMistakesData.filter(
+                item =>
+                    String(
+                        item.id ??
+                        item.mistake_id
+                    ) !==
+                    String(mistakeId)
+            );
+
+
+        /*
+         * Если ошибок больше нет
+         */
+
+        if (
+            myMistakesData.length === 0
+        ) {
+
+            positionScreen.classList.add(
+                "hidden"
+            );
+
+            mistakesScreen.classList.remove(
+                "hidden"
+            );
+
+
+            mistakesScreen.innerHTML = `
+
+                <div class="analysis-empty">
+
+                    <h2>
+                        Мои ошибки
+                    </h2>
+
+                    <strong>
+                        Ошибок больше нет.
+                    </strong>
+
+                    <p>
+                        Все ошибки удалены.
+                    </p>
+
+                    <button
+                        type="button"
+                        id="backAfterDeleteButton"
+                        class="menu-button"
+                    >
+                        ← Назад
+                    </button>
+
+                </div>
+
+            `;
+
+
+            document
+                .getElementById(
+                    "backAfterDeleteButton"
+                )
+                ?.addEventListener(
+                    "click",
+                    () => {
+
+                        showScreen(
+                            menuScreen
+                        );
+                    }
+                );
+
+
+            return;
+        }
+
+
+        /*
+         * После удаления открываем следующую
+         * ошибку.
+         *
+         * Если удалили последнюю,
+         * открываем предыдущую.
+         */
+
+        const nextIndex =
+            Math.min(
+                Math.max(
+                    currentIndex,
+                    0
+                ),
+                myMistakesData.length - 1
+            );
+
+
+        currentMistakeSource =
+            "mistakes";
+
+
+        showMistakePosition(
+            myMistakesData[
+                nextIndex
+            ]
+        );
+
+
+    } catch (error) {
+
+        console.error(
+            "Ошибка удаления:",
+            error
+        );
+
+
+        setPositionResult(
+            error.message ||
+            "Не удалось удалить ошибку."
+        );
+
+
+        if (deleteButton) {
+
+            deleteButton.disabled =
+                false;
+
+            deleteButton.textContent =
+                "🗑 Удалить эту ошибку";
+        }
+    }
+}
 
 /* ============================================================
    НАВИГАЦИЯ МЕЖДУ ОШИБКАМИ
@@ -3203,7 +3516,12 @@ async function loadMyMistakes() {
             );
 
 
-        renderMyMistakes();
+        if (myMistakesData.length === 0) {
+            renderMyMistakes();
+        } else {
+            currentMistakeSource = "mistakes";
+            showMistakePosition(myMistakesData[0]);
+        }
 
 
     } catch (error) {
