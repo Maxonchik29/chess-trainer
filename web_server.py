@@ -1,4 +1,3 @@
-
 from flask import Flask, request, jsonify, send_from_directory
 
 import chess
@@ -56,6 +55,7 @@ def safe_int(value):
         return None
 
     try:
+
         return int(value)
 
     except (TypeError, ValueError):
@@ -79,6 +79,7 @@ def safe_text(value):
     if hasattr(value, "uci"):
 
         try:
+
             return value.uci()
 
         except Exception:
@@ -94,6 +95,149 @@ def safe_text(value):
     except Exception:
 
         return str(value)
+
+
+# ============================================================
+# СТАТИСТИКА TELEGRAM-БОТА
+# ============================================================
+
+def update_bot_user(
+    telegram_user,
+    count_analysis=False,
+    count_game=False,
+    count_mini_app=False
+):
+
+    # --------------------------------------------------------
+    # ПРОВЕРЯЕМ TELEGRAM USER
+    # --------------------------------------------------------
+
+    if not telegram_user:
+
+        return False
+
+    telegram_id = telegram_user.get(
+        "id"
+    )
+
+    if not telegram_id:
+
+        return False
+
+    telegram_id = safe_int(
+        telegram_id
+    )
+
+    if telegram_id is None:
+
+        return False
+
+    username = telegram_user.get(
+        "username"
+    )
+
+    first_name = telegram_user.get(
+        "first_name"
+    )
+
+    conn = None
+
+    try:
+
+        conn = get_db_connection()
+
+        with conn:
+
+            with conn.cursor() as cur:
+
+                # ====================================================
+                # СОЗДАЁМ ПОЛЬЗОВАТЕЛЯ, ЕСЛИ ЕГО ЕЩЁ НЕТ
+                # ====================================================
+
+                cur.execute(
+                    """
+                    INSERT INTO public.bot_users
+                    (
+                        telegram_id,
+                        username,
+                        first_name
+                    )
+                    VALUES
+                    (
+                        %s,
+                        %s,
+                        %s
+                    )
+                    ON CONFLICT (telegram_id)
+                    DO UPDATE SET
+                        username = EXCLUDED.username,
+                        first_name = EXCLUDED.first_name,
+                        last_seen = NOW()
+                    """,
+                    (
+                        telegram_id,
+                        username,
+                        first_name
+                    )
+                )
+
+                # ====================================================
+                # ОБНОВЛЯЕМ СЧЁТЧИКИ
+                # ====================================================
+
+                updates = []
+
+                if count_analysis:
+
+                    updates.append(
+                        "analyses_count = analyses_count + 1"
+                    )
+
+                if count_game:
+
+                    updates.append(
+                        "games_count = games_count + 1"
+                    )
+
+                if count_mini_app:
+
+                    updates.append(
+                        "mini_app_opens = mini_app_opens + 1"
+                    )
+
+                if updates:
+
+                    query = f"""
+                        UPDATE public.bot_users
+                        SET
+                            last_seen = NOW(),
+                            {", ".join(updates)}
+                        WHERE telegram_id = %s
+                    """
+
+                    cur.execute(
+                        query,
+                        (
+                            telegram_id,
+                        )
+                    )
+
+                return True
+
+    except Exception as error:
+
+        print(
+            "BOT STATS ERROR:",
+            repr(error)
+        )
+
+        return False
+
+    finally:
+
+        if conn:
+
+            conn.close()
 
 
 # ============================================================
@@ -463,6 +607,41 @@ def index():
         "web",
         "index.html"
     )
+
+
+# ============================================================
+# АКТИВНОСТЬ TELEGRAM MINI APP
+# ============================================================
+
+@app.route(
+    "/track_activity",
+    methods=["POST"]
+)
+def track_activity():
+
+    data = request.get_json(
+        silent=True
+    ) or {}
+
+    telegram_user = data.get(
+        "telegram_user"
+    )
+
+    if not telegram_user:
+
+        return jsonify({
+            "success": False,
+            "error": "Telegram user не передан."
+        }), 400
+
+    success = update_bot_user(
+        telegram_user,
+        count_mini_app=True
+    )
+
+    return jsonify({
+        "success": success
+    })
 
 
 # ============================================================
@@ -1158,6 +1337,17 @@ def analyze_pgn():
             )
 
         # ====================================================
+        # УВЕЛИЧИВАЕМ СЧЁТЧИК АНАЛИЗОВ
+        # ====================================================
+
+        if saved_to_database:
+
+            update_bot_user(
+                telegram_user,
+                count_analysis=True
+            )
+
+        # ====================================================
         # ФОРМИРУЕМ ОТВЕТ
         # ====================================================
 
@@ -1272,25 +1462,42 @@ def analyze_pgn():
         }), 500
 
 
-@app.route("/mistakes", methods=["POST"])
+# ============================================================
+# ПОЛУЧИТЬ МОИ ОШИБКИ
+# ============================================================
+
+@app.route(
+    "/mistakes",
+    methods=["POST"]
+)
 def get_mistakes():
 
-    data = request.get_json(silent=True) or {}
+    data = request.get_json(
+        silent=True
+    ) or {}
 
-    telegram_user = data.get("telegram_user")
+    telegram_user = data.get(
+        "telegram_user"
+    )
 
     if not telegram_user:
+
         return jsonify({
             "ok": False,
-            "error": "Telegram user не передан."
+            "error":
+                "Telegram user не передан."
         }), 400
 
-    telegram_id = telegram_user.get("id")
+    telegram_id = telegram_user.get(
+        "id"
+    )
 
     if not telegram_id:
+
         return jsonify({
             "ok": False,
-            "error": "Telegram ID не передан."
+            "error":
+                "Telegram ID не передан."
         }), 400
 
     conn = get_db_connection()
@@ -1326,7 +1533,9 @@ def get_mistakes():
                     ORDER BY m.id DESC
                     """,
                     (
-                        safe_int(telegram_id),
+                        safe_int(
+                            telegram_id
+                        ),
                     )
                 )
 
@@ -1337,25 +1546,58 @@ def get_mistakes():
                 for row in rows:
 
                     mistakes.append({
-                        "id": row[0],
-                        "game_id": row[1],
-                        "move_number": row[2],
-                        "fen": row[3],
-                        "played_move": row[4],
-                        "best_move": row[5],
-                        "evaluation_before": row[6],
-                        "evaluation_after": row[7],
-                        "loss": row[8],
-                        "explanation": row[9],
-                        "solved": row[10],
-                        "pgn": row[11],
-                        "result": row[12]
+
+                        "id":
+                            row[0],
+
+                        "game_id":
+                            row[1],
+
+                        "move_number":
+                            row[2],
+
+                        "fen":
+                            row[3],
+
+                        "played_move":
+                            row[4],
+
+                        "best_move":
+                            row[5],
+
+                        "evaluation_before":
+                            row[6],
+
+                        "evaluation_after":
+                            row[7],
+
+                        "loss":
+                            row[8],
+
+                        "explanation":
+                            row[9],
+
+                        "solved":
+                            row[10],
+
+                        "pgn":
+                            row[11],
+
+                        "result":
+                            row[12]
+
                     })
 
                 return jsonify({
+
                     "ok": True,
-                    "mistakes": mistakes,
-                    "count": len(mistakes)
+
+                    "mistakes":
+                        mistakes,
+
+                    "count":
+                        len(mistakes)
+
                 })
 
     except Exception as error:
@@ -1366,13 +1608,18 @@ def get_mistakes():
         )
 
         return jsonify({
+
             "ok": False,
-            "error": str(error)
+
+            "error":
+                str(error)
+
         }), 500
 
     finally:
 
         conn.close()
+
 
 # ============================================================
 # ЗАПУСК
