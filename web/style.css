@@ -961,60 +961,87 @@ and (max-height: 600px) {
 
 
 /* ============================================================
-   КООРДИНАТЫ ДОСКИ
+   КООРДИНАТЫ ШАХМАТНОЙ ДОСКИ
    ============================================================ */
 
-.position-board-container {
-    display: flex;
-    justify-content: center;
-    align-items: center;
+.position-board-wrapper {
+    position: relative;
+    width: fit-content;
+    height: fit-content;
+    margin: 0 auto;
 }
 
-.position-ranks {
-    width: 20px;
-    height: min(92vw, 520px);
-    display: grid;
-    grid-template-rows: repeat(8, 1fr);
-    align-items: center;
-    text-align: center;
-    font-size: 12px;
-    font-weight: 600;
-    opacity: 0.65;
-}
-
-.position-files {
-    width: min(92vw, 520px);
-    margin-left: 20px;
-    display: grid;
-    grid-template-columns: repeat(8, 1fr);
-    text-align: center;
-    font-size: 12px;
-    font-weight: 600;
-    opacity: 0.65;
-    margin-top: 3px;
+.position-board {
+    position: relative;
 }
 
 .position-coordinates {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 10;
 }
 
 
 /* ============================================================
-   МОБИЛЬНЫЕ
+   БУКВЫ a-h
    ============================================================ */
 
-@media (max-width: 380px) {
+.position-files {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
 
-    .position-ranks {
-        width: 17px;
-        height: calc(100vw - 30px);
-    }
+    height: 18px;
 
-    .position-files {
-        width: calc(100vw - 30px);
-        margin-left: 17px;
-    }
+    display: grid;
+    grid-template-columns: repeat(8, 1fr);
 
+    pointer-events: none;
+}
+
+.position-files span {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    font-size: 11px;
+    line-height: 1;
+
+    pointer-events: none;
+}
+
+
+/* ============================================================
+   ЦИФРЫ 1-8
+   ============================================================ */
+
+.position-ranks {
+    position: absolute;
+
+    left: 0;
+    top: 0;
+    bottom: 0;
+
+    width: 18px;
+
+    display: grid;
+    grid-template-rows: repeat(8, 1fr);
+
+    pointer-events: none;
+}
+
+.position-ranks span {
+    display: flex;
+
+    align-items: center;
+    justify-content: center;
+
+    font-size: 11px;
+    line-height: 1;
+
+    pointer-events: none;
 }
