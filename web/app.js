@@ -1151,16 +1151,22 @@ function createPositionScreen() {
         ></div>
 
 
-        <div
-            id="positionBoard"
-            class="position-board"
-        ></div>
+       <div
+            id="positionBoardWrapper"
+            class="position-board-wrapper"
+        >
 
+            <div
+                id="positionBoard"
+                class="position-board"
+            ></div>
 
-        <div
-            id="positionCoordinates"
-            class="position-coordinates"
-        ></div>
+            <div
+                id="positionCoordinates"
+                class="position-coordinates"
+            ></div>
+
+        </div>
 
 
         <div
