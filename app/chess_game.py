@@ -1,5 +1,4 @@
 import os
-import shutil
 
 import chess
 import chess.engine
@@ -7,11 +6,10 @@ import chess.engine
 
 ENGINE_DEPTH = 12
 
-
 if os.name == "nt":
     ENGINE_PATH = "engine/stockfish.exe"
 else:
-    ENGINE_PATH = shutil.which("stockfish") or "stockfish"
+    ENGINE_PATH = "/usr/games/stockfish"
 
 # ============================================================
 # ДЕБЮТНЫЕ ЛИНИИ
