@@ -362,7 +362,70 @@ function renderBoard() {
         return;
     }
 
+    // ============================================================
+    // СОХРАНЯЕМ СТАРУЮ ФИГУРУ ДЛЯ АНИМАЦИИ
+    // ============================================================
+
+    let animationPiece = null;
+    let animationFrom = null;
+    let animationTo = null;
+
+    if (
+        lastMove &&
+        lastMove.from &&
+        lastMove.to
+    ) {
+
+        const moveKey =
+            `${lastMove.from}-${lastMove.to}`;
+
+        // Не проигрываем одну и ту же анимацию
+        // при каждом повторном renderBoard()
+
+        if (
+            renderBoard.lastAnimatedMoveKey !==
+            moveKey
+        ) {
+
+            const oldSquare =
+                boardElement.querySelector(
+                    `.square[data-square="${lastMove.from}"]`
+                );
+
+            if (oldSquare) {
+
+                const oldPiece =
+                    oldSquare.querySelector(
+                        ".piece-image"
+                    );
+
+                if (oldPiece) {
+
+                    animationPiece =
+                        oldPiece.cloneNode(true);
+
+                    animationFrom =
+                        oldSquare;
+
+                    animationTo =
+                        boardElement.querySelector(
+                            `.square[data-square="${lastMove.to}"]`
+                        );
+                }
+            }
+
+            renderBoard.lastAnimatedMoveKey =
+                moveKey;
+        }
+    }
+
+
+    // ============================================================
+    // ОЧИЩАЕМ ДОСКУ
+    // ============================================================
+
     boardElement.innerHTML = "";
+
 
     // ============================================================
     // ОРИЕНТАЦИЯ ДОСКИ
@@ -377,6 +440,7 @@ function renderBoard() {
         playerColor === "black"
             ? [7, 6, 5, 4, 3, 2, 1, 0]
             : [0, 1, 2, 3, 4, 5, 6, 7];
+
 
     // ============================================================
     // СОЗДАЁМ ДОСКУ
@@ -517,6 +581,23 @@ function renderBoard() {
                 pieceElement.draggable =
                     false;
 
+
+                // =================================================
+                // СКРЫВАЕМ НОВУЮ ФИГУРУ НА ВРЕМЯ АНИМАЦИИ
+                // =================================================
+
+                if (
+                    animationTo &&
+                    squareName ===
+                        lastMove.to
+                ) {
+
+                    pieceElement.classList.add(
+                        "piece-animation-target"
+                    );
+                }
+
+
                 square.appendChild(
                     pieceElement
                 );
@@ -524,7 +605,7 @@ function renderBoard() {
 
 
             // ====================================================
-            // КЛИК ПО КЛЕТКЕ
+            // КЛИК
             // ====================================================
 
             square.addEventListener(
@@ -543,7 +624,158 @@ function renderBoard() {
 
 
     // ============================================================
-    // ПОВОРАЧИВАЕМ ЦИФРЫ И БУКВЫ
+    // ЗАПУСКАЕМ НАСТОЯЩУЮ АНИМАЦИЮ
+    // ============================================================
+
+    if (
+        animationPiece &&
+        animationFrom &&
+        animationTo
+    ) {
+
+        // Получаем координаты клеток
+        // уже после создания новой доски
+
+        const newFromSquare =
+            boardElement.querySelector(
+                `.square[data-square="${lastMove.from}"]`
+            );
+
+        const newToSquare =
+            boardElement.querySelector(
+                `.square[data-square="${lastMove.to}"]`
+            );
+
+
+        if (
+            newFromSquare &&
+            newToSquare
+        ) {
+
+            const boardRect =
+                boardElement.getBoundingClientRect();
+
+            const fromRect =
+                newFromSquare.getBoundingClientRect();
+
+            const toRect =
+                newToSquare.getBoundingClientRect();
+
+
+            // ====================================================
+            // ПОДГОТАВЛИВАЕМ КОПИЮ ФИГУРЫ
+            // ====================================================
+
+            animationPiece.classList.add(
+                "piece-moving"
+            );
+
+            animationPiece.style.position =
+                "absolute";
+
+            animationPiece.style.width =
+                `${fromRect.width * 0.82}px`;
+
+            animationPiece.style.height =
+                `${fromRect.height * 0.82}px`;
+
+            animationPiece.style.left =
+                `${fromRect.left - boardRect.left + fromRect.width * 0.09}px`;
+
+            animationPiece.style.top =
+                `${fromRect.top - boardRect.top + fromRect.height * 0.09}px`;
+
+            animationPiece.style.zIndex =
+                "100";
+
+            animationPiece.style.pointerEvents =
+                "none";
+
+
+            boardElement.appendChild(
+                animationPiece
+            );
+
+
+            // ====================================================
+            // РАССЧИТЫВАЕМ ДВИЖЕНИЕ
+            // ====================================================
+
+            const deltaX =
+                toRect.left -
+                fromRect.left;
+
+            const deltaY =
+                toRect.top -
+                fromRect.top;
+
+
+            // ====================================================
+            // ЗАПУСК АНИМАЦИИ
+            // ====================================================
+
+            const animation =
+                animationPiece.animate(
+                    [
+                        {
+                            transform:
+                                "translate(0px, 0px)"
+                        },
+                        {
+                            transform:
+                                `translate(${deltaX}px, ${deltaY}px)`
+                        }
+                    ],
+                    {
+                        duration: 220,
+                        easing:
+                            "cubic-bezier(0.22, 0.61, 0.36, 1)",
+                        fill: "forwards"
+                    }
+                );
+
+
+            // ====================================================
+            // ПОСЛЕ АНИМАЦИИ
+            // ====================================================
+
+            animation.finished
+                .then(
+                    () => {
+
+                        animationPiece.remove();
+
+                        const target =
+                            boardElement.querySelector(
+                                `.square[data-square="${lastMove.to}"] .piece-animation-target`
+                            );
+
+                        if (target) {
+
+                            target.classList.remove(
+                                "piece-animation-target"
+                            );
+                        }
+                    }
+                )
+                .catch(
+                    () => {
+
+                        if (
+                            animationPiece &&
+                            animationPiece.parentNode
+                        ) {
+
+                            animationPiece.remove();
+                        }
+                    }
+                );
+        }
+    }
+
+
+    // ============================================================
+    // ЦИФРЫ
     // ============================================================
 
     const rankLabels =
@@ -551,20 +783,14 @@ function renderBoard() {
             "#gameScreen .rank-labels"
         );
 
-    const fileLabels =
-        document.querySelector(
-            "#gameScreen .file-labels"
-        );
-
-
     if (rankLabels) {
 
         rankLabels.innerHTML = "";
 
         const ranks =
             playerColor === "black"
-                ? [8, 7, 6, 5, 4, 3, 2, 1]
-                : [1, 2, 3, 4, 5, 6, 7, 8];
+                ? [1, 2, 3, 4, 5, 6, 7, 8]
+                : [8, 7, 6, 5, 4, 3, 2, 1];
 
         ranks.forEach(
             rank => {
@@ -584,6 +810,15 @@ function renderBoard() {
         );
     }
 
+
+    // ============================================================
+    // БУКВЫ
+    // ============================================================
+
+    const fileLabels =
+        document.querySelector(
+            "#gameScreen .file-labels"
+        );
 
     if (fileLabels) {
 
@@ -630,7 +865,6 @@ function renderBoard() {
         );
     }
 }
-
 
 /* ============================================================
    НАЖАТИЕ НА КЛЕТКУ
@@ -785,6 +1019,11 @@ async function makeMove(uciMove) {
         const data =
             await response.json();
 
+
+        // ========================================================
+        // ОШИБКА
+        // ========================================================
+
         if (
             !response.ok ||
             !data.success
@@ -800,16 +1039,19 @@ async function makeMove(uciMove) {
             return;
         }
 
-        board =
-            fenToBoard(
-                data.fen
-            );
+
+        // ========================================================
+        // СОХРАНЯЕМ ХОД ИГРОКА
+        // ========================================================
+
+        let playerMove = null;
 
         if (
             data.played_move
         ) {
 
-            lastMove = {
+            playerMove = {
+
                 from:
                     data.played_move.substring(
                         0,
@@ -822,11 +1064,185 @@ async function makeMove(uciMove) {
                         4
                     )
             };
-
-        } else {
-
-            lastMove = null;
         }
+
+
+        // ========================================================
+        // СОХРАНЯЕМ ХОД КОМПЬЮТЕРА
+        // ========================================================
+
+        let computerMove = null;
+
+        if (
+            data.computer_move
+        ) {
+
+            computerMove = {
+
+                from:
+                    data.computer_move.substring(
+                        0,
+                        2
+                    ),
+
+                to:
+                    data.computer_move.substring(
+                        2,
+                        4
+                    )
+            };
+        }
+
+
+        // ========================================================
+        // СОХРАНЯЕМ ФИНАЛЬНУЮ ПОЗИЦИЮ
+        // ========================================================
+
+        const finalBoard =
+            fenToBoard(
+                data.fen
+            );
+
+
+        // ========================================================
+        // СНАЧАЛА ПОКАЗЫВАЕМ ХОД ИГРОКА
+        // ========================================================
+
+        if (
+            playerMove
+        ) {
+
+            lastMove =
+                playerMove;
+
+            /*
+             * Важный момент:
+             *
+             * Сервер уже вернул FEN после хода
+             * компьютера.
+             *
+             * Поэтому временно откатываем позицию
+             * на один ход назад через текущую
+             * локальную доску.
+             */
+
+            board =
+                JSON.parse(
+                    JSON.stringify(board)
+                );
+
+            applyLocalMove(
+                board,
+                playerMove
+            );
+
+            renderBoard();
+
+
+            // ====================================================
+            // ЖДЁМ ОКОНЧАНИЯ АНИМАЦИИ ИГРОКА
+            // ====================================================
+
+            await sleep(
+                240
+            );
+        }
+
+
+        // ========================================================
+        // ЕСЛИ ИГРА ЗАКОНЧИЛАСЬ ПОСЛЕ ХОДА ИГРОКА
+        // ========================================================
+
+        if (
+            !computerMove
+        ) {
+
+            board =
+                finalBoard;
+
+            lastMove =
+                playerMove;
+
+            playerTurn =
+                Boolean(
+                    data.player_turn
+                );
+
+            gameOver =
+                Boolean(
+                    data.game_over
+                );
+
+            renderBoard();
+
+
+            if (data.is_best) {
+
+                setMessage(
+                    `Отлично! ${data.played_san} — лучший ход.`
+                );
+
+            } else {
+
+                setMessage(
+                    `Вы сыграли ${data.played_san}. Лучший ход: ${data.best_san}`
+                );
+            }
+
+
+            updateTurnText();
+
+
+            if (gameOver) {
+
+                setMessage(
+                    `Партия закончена: ${data.status}`
+                );
+
+                showGameAnalysisButton();
+            }
+
+            return;
+        }
+
+
+        // ========================================================
+        // ПОКАЗЫВАЕМ ХОД КОМПЬЮТЕРА
+        // ========================================================
+
+        lastMove =
+            computerMove;
+
+
+        /*
+         * Сейчас board находится после хода игрока.
+         *
+         * Накладываем ход компьютера локально.
+         */
+
+        applyLocalMove(
+            board,
+            computerMove
+        );
+
+        renderBoard();
+
+
+        // ========================================================
+        // ЖДЁМ ОКОНЧАНИЯ АНИМАЦИИ КОМПЬЮТЕРА
+        // ========================================================
+
+        await sleep(
+            240
+        );
+
+
+        // ========================================================
+        // УСТАНАВЛИВАЕМ НАСТОЯЩУЮ ПОЗИЦИЮ СЕРВЕРА
+        // ========================================================
+
+        board =
+            finalBoard;
 
         playerTurn =
             Boolean(
@@ -838,7 +1254,13 @@ async function makeMove(uciMove) {
                 data.game_over
             );
 
+
         renderBoard();
+
+
+        // ========================================================
+        // СООБЩЕНИЕ
+        // ========================================================
 
         if (data.is_best) {
 
@@ -853,7 +1275,13 @@ async function makeMove(uciMove) {
             );
         }
 
+
         updateTurnText();
+
+
+        // ========================================================
+        // КОНЕЦ ИГРЫ
+        // ========================================================
 
         if (gameOver) {
 
@@ -875,6 +1303,88 @@ async function makeMove(uciMove) {
             "Ошибка соединения с сервером."
         );
     }
+}
+
+function sleep(ms) {
+
+    return new Promise(
+        resolve =>
+            setTimeout(
+                resolve,
+                ms
+            )
+    );
+}
+
+
+function applyLocalMove(
+    currentBoard,
+    move
+) {
+
+    if (
+        !move ||
+        !move.from ||
+        !move.to
+    ) {
+        return;
+    }
+
+
+    const fromCol =
+        FILES.indexOf(
+            move.from[0]
+        );
+
+    const fromRow =
+        8 -
+        Number(
+            move.from[1]
+        );
+
+
+    const toCol =
+        FILES.indexOf(
+            move.to[0]
+        );
+
+    const toRow =
+        8 -
+        Number(
+            move.to[1]
+        );
+
+
+    if (
+        fromCol < 0 ||
+        toCol < 0 ||
+        fromRow < 0 ||
+        fromRow > 7 ||
+        toRow < 0 ||
+        toRow > 7
+    ) {
+        return;
+    }
+
+
+    const piece =
+        currentBoard[fromRow]?.[fromCol];
+
+
+    if (!piece) {
+        return;
+    }
+
+
+    // ============================================================
+    // ПЕРЕМЕЩАЕМ ФИГУРУ
+    // ============================================================
+
+    currentBoard[toRow][toCol] =
+        piece;
+
+    currentBoard[fromRow][fromCol] =
+        null;
 }
 
 /* ============================================================
