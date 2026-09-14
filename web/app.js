@@ -4181,39 +4181,25 @@ function renderPositionBoard() {
    ФОРМАТ ОЦЕНКИ
 ============================================================ */
 
-function formatPositionEvaluation(
-    value
-) {
-
-    if (
-        value === null ||
-        value === undefined ||
-        value === ""
-    ) {
+function formatPositionEvaluation(value) {
+    if (value === null || value === undefined) {
         return "—";
     }
 
-    const number =
-        Number(value);
+    const number = Number(value);
 
-    if (
-        Number.isNaN(number)
-    ) {
-        return String(value);
+    if (!Number.isFinite(number)) {
+        return "—";
     }
 
-    if (
-        Math.abs(number) >= 100
-    ) {
+    const pawns = number / 100;
 
-        return (
-            number / 100
-        ).toFixed(2);
+    if (pawns > 0) {
+        return "+" + pawns.toFixed(2);
     }
 
-    return number.toFixed(2);
+    return pawns.toFixed(2);
 }
-
 
 /* ============================================================
    ОЦЕНКА ПОЗИЦИИ
