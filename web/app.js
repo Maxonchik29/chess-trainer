@@ -249,6 +249,9 @@ let positionUserMove = null;
 
 let positionWrongMove = false;
 
+/* Реальный ошибочный ход из партии */
+let positionMistakeMove = null;
+
 let positionLocked = false;
 
 let positionCastlingRights = "-";
@@ -4033,6 +4036,28 @@ function renderPositionBoard() {
                 );
             }
 
+            /* ========================================================
+            РЕАЛЬНЫЙ ОШИБОЧНЫЙ ХОД ИЗ ПАРТИИ
+            ======================================================== */
+
+            if (
+                positionMistakeMove &&
+                !positionBestMoveShown
+            ) {
+
+                if (
+                    positionMistakeMove.from ===
+                        squareName ||
+                    positionMistakeMove.to ===
+                        squareName
+                ) {
+
+                    square.classList.add(
+                        "mistake-move"
+                    );
+                }
+            }
+
 
             if (
                 positionBestMoveShown &&
@@ -4348,6 +4373,44 @@ function showMistakePosition(
 
     positionWrongMove =
         false;
+
+    /* ========================================================
+    РЕАЛЬНЫЙ ОШИБОЧНЫЙ ХОД ИЗ ПАРТИИ
+    ======================================================== */
+
+    positionMistakeMove = null;
+
+    const playedMoveUci =
+        mistake.position_played_uci ??
+        mistake.played_move_uci ??
+        mistake.played_move ??
+        mistake.played_uci;
+
+    if (
+        playedMoveUci &&
+        String(playedMoveUci).length >= 4
+    ) {
+
+        const normalizedPlayedMove =
+            String(playedMoveUci)
+                .substring(0, 4)
+                .toLowerCase();
+
+        positionMistakeMove = {
+
+            from:
+                normalizedPlayedMove.substring(
+                    0,
+                    2
+                ),
+
+            to:
+                normalizedPlayedMove.substring(
+                    2,
+                    4
+                )
+        };
+    }
 
     positionLocked =
         false;
