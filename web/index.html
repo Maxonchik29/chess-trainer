@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 
 <html lang="ru">
+
 <head>
     <meta charset="UTF-8">
 
@@ -114,108 +115,138 @@
          ВЫБОР СТОРОНЫ
          ================================================= -->
 
-    <div id="sideSelection" class="side-selection">
-
-    <div class="side-selection-title">
-        За кого играть?
-    </div>
-
-    <div class="side-selection-buttons">
-
-        <button
-            id="playWhiteButton"
-            class="side-button"
-            type="button"
-        >
-            <span class="side-button-piece">♔</span>
-            <span>Белыми</span>
-        </button>
-
-        <button
-            id="playBlackButton"
-            class="side-button"
-            type="button"
-        >
-            <span class="side-button-piece">♚</span>
-            <span>Чёрными</span>
-        </button>
-
-    </div>
-
-</div>
-
-
-<!-- =====================================================
-     ВЫБОР ДЕБЮТА
-===================================================== -->
-
-<div
-    id="openingSelection"
-    class="side-selection hidden"
->
-
-    <div class="side-selection-title">
-        Какой дебют играет компьютер?
-    </div>
-
-    <div class="opening-buttons">
-
-        <button
-            type="button"
-            class="opening-button"
-            data-opening="none"
-        >
-            <strong>Без дебюта</strong>
-            <span>Обычная игра Stockfish</span>
-        </button>
-
-        <button
-            type="button"
-            class="opening-button"
-            data-opening="french"
-        >
-            <strong>Французская защита</strong>
-            <span>1.e4 e6</span>
-        </button>
-
-        <button
-            type="button"
-            class="opening-button"
-            data-opening="old_indian"
-        >
-            <strong>Староиндийская защита</strong>
-            <span>1.d4 Nf6 2.c4 d6</span>
-        </button>
-
-        <button
-            type="button"
-            class="opening-button"
-            data-opening="kings_indian"
-        >
-            <strong>Королевско-индийская защита</strong>
-            <span>1.d4 Nf6 2.c4 g6</span>
-        </button>
-
-        <button
-            type="button"
-            class="opening-button"
-            data-opening="sicilian"
-        >
-            <strong>Сицилианская защита</strong>
-            <span>1.e4 c5</span>
-        </button>
-
-    </div>
-
-    <button
-        type="button"
-        id="backToSideSelectionButton"
-        class="menu-button opening-back-button"
+    <div
+        id="sideSelection"
+        class="side-selection"
     >
-        ← Назад
-    </button>
 
-</div>
+        <div class="side-selection-title">
+            За кого играть?
+        </div>
+
+        <div class="side-selection-buttons">
+
+            <button
+                id="playWhiteButton"
+                class="side-button"
+                type="button"
+            >
+                <span class="side-button-piece">♔</span>
+                <span>Белыми</span>
+            </button>
+
+
+            <button
+                id="playBlackButton"
+                class="side-button"
+                type="button"
+            >
+                <span class="side-button-piece">♚</span>
+                <span>Чёрными</span>
+            </button>
+
+        </div>
+
+    </div>
+
+
+    <!-- =================================================
+         ВЫБОР ДЕБЮТА
+         ================================================= -->
+
+    <div
+        id="openingSelection"
+        class="side-selection hidden"
+    >
+
+        <div class="side-selection-title">
+            Какой дебют играет компьютер?
+        </div>
+
+
+        <div class="opening-buttons">
+
+            <button
+                type="button"
+                class="opening-button"
+                data-opening="none"
+            >
+                <strong>Без дебюта</strong>
+                <span>Обычная игра Stockfish</span>
+            </button>
+
+
+            <button
+                type="button"
+                class="opening-button"
+                data-opening="french"
+            >
+                <strong>Французская защита</strong>
+                <span>1.e4 e6</span>
+            </button>
+
+
+            <button
+                type="button"
+                class="opening-button"
+                data-opening="old_indian"
+            >
+                <strong>Староиндийская защита</strong>
+                <span>1.d4 Nf6 2.c4 d6</span>
+            </button>
+
+
+            <button
+                type="button"
+                class="opening-button"
+                data-opening="kings_indian"
+            >
+                <strong>Королевско-индийская защита</strong>
+                <span>1.d4 Nf6 2.c4 g6</span>
+            </button>
+
+
+            <button
+                type="button"
+                class="opening-button"
+                data-opening="sicilian"
+            >
+                <strong>Сицилианская защита</strong>
+                <span>1.e4 c5</span>
+            </button>
+
+
+            <button
+                type="button"
+                class="opening-button"
+                data-opening="queens_gambit"
+            >
+                <strong>Ферзевый гамбит</strong>
+                <span>1.d4 d5 2.c4 e6</span>
+            </button>
+
+
+            <button
+                type="button"
+                class="opening-button"
+                data-opening="catalan"
+            >
+                <strong>Каталонское начало</strong>
+                <span>1.d4 Nf6 2.c4 e6 3.g3 d5</span>
+            </button>
+
+        </div>
+
+
+        <button
+            type="button"
+            id="backToSideSelectionButton"
+            class="menu-button opening-back-button"
+        >
+            ← Назад
+        </button>
+
+    </div>
 
 
     <!-- =================================================
@@ -309,6 +340,7 @@
 
 </section>
 
+
 <!-- =====================================================
      ЭКРАН АНАЛИЗА
      ===================================================== -->
@@ -343,13 +375,13 @@
         <textarea
             id="pgnInput"
             class="pgn-input"
-            placeholder="[Event &quot;Live Chess&quot;]
+            placeholder='[Event "Live Chess"]
 ```
 
 [White "Player"]
 [Black "Opponent"]
 
-1. e4 e5 2. Nf3 Nc6 ..."
+1. e4 e5 2. Nf3 Nc6 ...'
    ></textarea>
 
    ```
@@ -374,9 +406,7 @@
     <div
         id="analysisResult"
         class="analysis-result hidden"
-    >
-
-    </div>
+    ></div>
    ```
 
     </section>
@@ -434,4 +464,5 @@
 <script src="/app.js" defer></script>
 
 </body>
+
 </html>

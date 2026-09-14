@@ -1001,6 +1001,8 @@ def reset_game():
             "sicilian",
             "old_indian",
             "kings_indian",
+            "queens_gambit",
+            "catalan",
         }
 
         if opening not in allowed_openings:

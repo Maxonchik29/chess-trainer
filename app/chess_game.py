@@ -18,16 +18,19 @@ else:
 OPENING_LINES = {
     "none": [],
 
+    # 1.e4 e6
     "french": [
         "e2e4",
         "e7e6",
     ],
 
+    # 1.e4 c5
     "sicilian": [
         "e2e4",
         "c7c5",
     ],
 
+    # 1.d4 Nf6 2.c4 d6
     "old_indian": [
         "d2d4",
         "g8f6",
@@ -35,11 +38,30 @@ OPENING_LINES = {
         "d7d6",
     ],
 
+    # 1.d4 Nf6 2.c4 g6
     "kings_indian": [
         "d2d4",
         "g8f6",
         "c2c4",
         "g7g6",
+    ],
+
+    # 1.d4 d5 2.c4 e6
+    "queens_gambit": [
+        "d2d4",
+        "d7d5",
+        "c2c4",
+        "e7e6",
+    ],
+
+    # 1.d4 Nf6 2.c4 e6 3.g3 d5
+    "catalan": [
+        "d2d4",
+        "g8f6",
+        "c2c4",
+        "e7e6",
+        "g2g3",
+        "d7d5",
     ],
 }
 
