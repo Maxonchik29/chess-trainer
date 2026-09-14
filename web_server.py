@@ -691,18 +691,14 @@ def make_move():
     data = request.get_json()
 
     if not data:
-
         return jsonify({
             "success": False,
             "error": "Нет данных."
         }), 400
 
-    uci_move = data.get(
-        "move"
-    )
+    uci_move = data.get("move")
 
     if not uci_move:
-
         return jsonify({
             "success": False,
             "error": "Не указан ход."
@@ -714,46 +710,111 @@ def make_move():
         # ХОД ИГРОКА
         # ====================================================
 
-        player_result = (
-            game.make_player_move(
-                uci_move
+        player_result = game.make_player_move(
+            uci_move
+        )
+
+        if not player_result.get("success"):
+            return jsonify({
+                "success": False,
+                "error": player_result.get(
+                    "error",
+                    "Неверный ход."
+                )
+            }), 400
+
+        # ====================================================
+        # ДАННЫЕ ХОДА ИГРОКА
+        # ====================================================
+
+        played_move = player_result.get(
+            "played_move"
+        )
+
+        if played_move is None:
+            played_move = uci_move
+
+        if hasattr(
+            played_move,
+            "uci"
+        ):
+            played_move_uci = (
+                played_move.uci()
             )
+        else:
+            played_move_uci = (
+                played_move
+            )
+
+        played_san = player_result.get(
+            "san"
+        )
+
+        if played_san is None:
+            played_san = ""
+
+        # ====================================================
+        # ЛУЧШИЙ ХОД
+        # ====================================================
+
+        best_move = player_result.get(
+            "best_move"
+        )
+
+        if best_move is not None:
+
+            if hasattr(
+                best_move,
+                "uci"
+            ):
+                best_move_uci = (
+                    best_move.uci()
+                )
+            else:
+                best_move_uci = (
+                    best_move
+                )
+
+        else:
+            best_move_uci = None
+
+        # ====================================================
+        # ПРОВЕРЯЕМ, БЫЛ ЛИ ХОД ЛУЧШИМ
+        # ====================================================
+
+        is_best = (
+            best_move_uci is not None
+            and played_move_uci
+            == best_move_uci
         )
 
         # ====================================================
         # ЕСЛИ ИГРА ЗАКОНЧИЛАСЬ
         # ====================================================
 
-        if player_result["game_over"]:
+        if player_result.get(
+            "game_over",
+            False
+        ):
 
             return jsonify({
 
                 "success": True,
 
                 "played_move":
-                    player_result[
-                        "played_move"
-                    ].uci(),
+                    played_move_uci,
 
                 "played_san":
-                    player_result[
-                        "played_san"
-                    ],
+                    played_san,
 
                 "best_move":
-                    player_result[
-                        "best_move"
-                    ].uci(),
+                    best_move_uci,
 
                 "best_san":
-                    player_result[
-                        "best_san"
-                    ],
+                    None,
 
                 "is_best":
-                    player_result[
-                        "is_best"
-                    ],
+                    is_best,
 
                 "computer_move":
                     None,
@@ -786,7 +847,36 @@ def make_move():
         )
 
         # ====================================================
-        # ОТВЕТ
+        # ХОД КОМПЬЮТЕРА
+        # ====================================================
+
+        computer_move = None
+        computer_san = None
+
+        if computer_result:
+
+            computer_move = (
+                computer_result.get(
+                    "move"
+                )
+            )
+
+            if hasattr(
+                computer_move,
+                "uci"
+            ):
+                computer_move = (
+                    computer_move.uci()
+                )
+
+            computer_san = (
+                computer_result.get(
+                    "san"
+                )
+            )
+
+        # ====================================================
+        # ФИНАЛЬНЫЙ ОТВЕТ
         # ====================================================
 
         return jsonify({
@@ -798,51 +888,33 @@ def make_move():
             # ------------------------------------------------
 
             "played_move":
-                player_result[
-                    "played_move"
-                ].uci(),
+                played_move_uci,
 
             "played_san":
-                player_result[
-                    "played_san"
-                ],
+                played_san,
 
             # ------------------------------------------------
             # ЛУЧШИЙ ХОД
             # ------------------------------------------------
 
             "best_move":
-                player_result[
-                    "best_move"
-                ].uci(),
+                best_move_uci,
 
             "best_san":
-                player_result[
-                    "best_san"
-                ],
+                None,
 
             "is_best":
-                player_result[
-                    "is_best"
-                ],
+                is_best,
 
             # ------------------------------------------------
             # ХОД КОМПЬЮТЕРА
             # ------------------------------------------------
 
             "computer_move":
-                computer_result[
-                    "move"
-                ].uci()
-                if computer_result
-                else None,
+                computer_move,
 
             "computer_san":
-                computer_result[
-                    "san"
-                ]
-                if computer_result
-                else None,
+                computer_san,
 
             # ------------------------------------------------
             # НОВАЯ ПОЗИЦИЯ
@@ -887,53 +959,66 @@ def make_move():
                 "Внутренняя ошибка сервера."
 
         }), 500
-
-
+    
 # ============================================================
 # НОВАЯ ПАРТИЯ
 # ============================================================
 
-@app.route(
-    "/reset",
-    methods=["POST"]
-)
+@app.route("/reset", methods=["POST"])
 def reset_game():
-
     global game
 
     try:
+        data = request.get_json(silent=True) or {}
 
-        data = request.get_json(
-            silent=True
-        ) or {}
+        # ====================================================
+        # СТОРОНА ИГРОКА
+        # ====================================================
 
         player_color = data.get(
             "player_color",
             "white"
         )
 
-        # ====================================================
-        # ОПРЕДЕЛЯЕМ СТОРОНУ ИГРОКА
-        # ====================================================
-
         if player_color == "black":
-
             color = chess.BLACK
-
         else:
-
             color = chess.WHITE
 
         # ====================================================
-        # ЗАКРЫВАЕМ СТАРЫЙ STOCKFISH
+        # ВЫБРАННЫЙ ДЕБЮТ
+        # ====================================================
+
+        opening = data.get(
+            "opening",
+            "none"
+        )
+
+        # Защита от неизвестного значения
+        allowed_openings = {
+            "none",
+            "french",
+            "sicilian",
+            "old_indian",
+            "kings_indian",
+        }
+
+        if opening not in allowed_openings:
+            opening = "none"
+
+        print(
+            "Новая партия:",
+            "player_color =", player_color,
+            "opening =", opening
+        )
+
+        # ====================================================
+        # ЗАКРЫВАЕМ СТАРУЮ ИГРУ
         # ====================================================
 
         try:
-
             game.close()
-
         except Exception as error:
-
             print(
                 "Не удалось закрыть старую игру:",
                 repr(error)
@@ -944,15 +1029,16 @@ def reset_game():
         # ====================================================
 
         game = ChessGame(
-            player_color=color
+            player_color=color,
+            opening=opening
         )
+
+        computer_result = None
 
         # ====================================================
         # ЕСЛИ ИГРОК ЧЁРНЫМИ —
         # КОМПЬЮТЕР ДЕЛАЕТ ПЕРВЫЙ ХОД
         # ====================================================
-
-        computer_result = None
 
         if color == chess.BLACK:
 
@@ -965,37 +1051,25 @@ def reset_game():
         # ====================================================
 
         return jsonify({
-
-            "success":
-                True,
-
-            "fen":
-                game.get_fen(),
-
-            "legal_moves":
-                game.get_legal_moves(),
-
-            "player_turn":
-                game.is_player_turn(),
-
-            "game_over":
-                game.is_game_over(),
-
-            "status":
-                game.get_status(),
-
-            "player_color":
-                player_color,
-
-            "computer_move":
-                computer_result["move"].uci()
-                if computer_result
-                else None,
-
-            "computer_san":
-                computer_result["san"]
+            "success": True,
+            "fen": game.get_fen(),
+            "legal_moves": game.get_legal_moves(),
+            "player_turn": game.is_player_turn(),
+            "game_over": game.is_game_over(),
+            "status": game.get_status(),
+            "player_color": player_color,
+            "opening": game.opening,
+            "opening_active": game.opening_active,
+            "computer_move": (
+                computer_result.get("move")
                 if computer_result
                 else None
+            ),
+            "computer_san": (
+                computer_result.get("san")
+                if computer_result
+                else None
+            ),
         })
 
     except Exception as error:
@@ -1006,13 +1080,8 @@ def reset_game():
         )
 
         return jsonify({
-
-            "success":
-                False,
-
-            "error":
-                str(error)
-
+            "success": False,
+            "error": str(error)
         }), 500
 
 # ============================================================

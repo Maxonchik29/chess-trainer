@@ -1,28 +1,51 @@
-import os
+
 import chess
 import chess.engine
-import chess.pgn
-import io
 
 
 # ============================================================
-# НАСТРОЙКИ STOCKFISH
+# НАСТРОЙКИ
 # ============================================================
 
-if os.name == "nt":
-    ENGINE_PATH = os.path.join(
-        "engine",
-        "stockfish.exe"
-    )
-else:
-    ENGINE_PATH = "/usr/games/stockfish"
-
-
+ENGINE_PATH = "engine/stockfish.exe"
 ENGINE_DEPTH = 12
 
 
 # ============================================================
-# ИГРОВАЯ ЛОГИКА
+# ДЕБЮТНЫЕ ЛИНИИ
+# ============================================================
+
+OPENING_LINES = {
+    "none": [],
+
+    "french": [
+        "e2e4",
+        "e7e6",
+    ],
+
+    "sicilian": [
+        "e2e4",
+        "c7c5",
+    ],
+
+    "old_indian": [
+        "d2d4",
+        "g8f6",
+        "c2c4",
+        "d7d6",
+    ],
+
+    "kings_indian": [
+        "d2d4",
+        "g8f6",
+        "c2c4",
+        "g7g6",
+    ],
+}
+
+
+# ============================================================
+# ШАХМАТНАЯ ИГРА
 # ============================================================
 
 class ChessGame:
@@ -30,41 +53,41 @@ class ChessGame:
     def __init__(
         self,
         player_color=chess.WHITE,
-        depth=ENGINE_DEPTH
+        depth=ENGINE_DEPTH,
+        opening="none"
     ):
-        """
-        Создаёт новую шахматную партию.
-        """
-
-        self.board = chess.Board()
-
         self.player_color = player_color
-
         self.depth = depth
 
-        self.engine = None
+        if opening not in OPENING_LINES:
+            opening = "none"
 
-        # ====================================================
-        # ИСТОРИЯ ХОДОВ
-        # ====================================================
+        self.opening = opening
+        self.opening_line = OPENING_LINES[opening]
+        self.opening_active = opening != "none"
 
+        self.board = chess.Board()
         self.move_history = []
-
-        # ----------------------------------------------------
-        # Проверяем наличие Stockfish
-        # ----------------------------------------------------
-
-        if not os.path.exists(ENGINE_PATH):
-            raise FileNotFoundError(
-                f"Stockfish не найден:\n{ENGINE_PATH}"
-            )
-
-        # ----------------------------------------------------
-        # Запускаем Stockfish
-        # ----------------------------------------------------
 
         self.engine = chess.engine.SimpleEngine.popen_uci(
             ENGINE_PATH
+        )
+
+    # ========================================================
+    # СБРОС ПАРТИИ
+    # ========================================================
+
+    def reset(self):
+        self.board = chess.Board()
+        self.move_history = []
+
+        self.opening_line = OPENING_LINES.get(
+            self.opening,
+            []
+        )
+
+        self.opening_active = (
+            self.opening != "none"
         )
 
     # ========================================================
@@ -72,33 +95,140 @@ class ChessGame:
     # ========================================================
 
     def close(self):
-
-        if self.engine is not None:
-
+        if self.engine:
             try:
                 self.engine.quit()
-
             except Exception:
                 pass
 
             self.engine = None
 
     # ========================================================
-    # НОВАЯ ПАРТИЯ
+    # FEN
     # ========================================================
 
-    def reset(self):
-        """
-        Начинает новую партию.
-        """
+    def get_fen(self):
+        return self.board.fen()
 
-        self.board.reset()
+    # ========================================================
+    # ЛЕГАЛЬНЫЕ ХОДЫ
+    # ========================================================
 
-        # ----------------------------------------------------
-        # ОЧИЩАЕМ ИСТОРИЮ
-        # ----------------------------------------------------
+    def get_legal_moves(self):
+        return [
+            move.uci()
+            for move in self.board.legal_moves
+        ]
 
-        self.move_history = []
+    # ========================================================
+    # ЧЕЙ ХОД
+    # ========================================================
+
+    def is_player_turn(self):
+        return (
+            self.board.turn == self.player_color
+        )
+
+    # ========================================================
+    # КОНЕЦ ПАРТИИ
+    # ========================================================
+
+    def is_game_over(self):
+        return self.board.is_game_over()
+
+    # ========================================================
+    # СТАТУС
+    # ========================================================
+
+    def get_status(self):
+
+        if self.board.is_checkmate():
+
+            if self.board.turn == self.player_color:
+                return "Вы проиграли"
+            else:
+                return "Вы победили"
+
+        if self.board.is_stalemate():
+            return "Пат"
+
+        if self.board.is_insufficient_material():
+            return "Ничья: недостаточно материала"
+
+        if self.board.is_fifty_moves():
+            return "Ничья: правило 50 ходов"
+
+        if self.board.is_repetition():
+            return "Ничья: троекратное повторение"
+
+        if self.board.is_game_over():
+            return "Партия закончена"
+
+        return "Партия продолжается"
+
+    # ========================================================
+    # ПРОВЕРКА ДЕБЮТНОЙ ЛИНИИ
+    # ========================================================
+
+    def _get_opening_move(self):
+
+        if not self.opening_active:
+            return None
+
+        move_number = len(self.move_history)
+
+        # Вся линия уже закончилась
+        if move_number >= len(self.opening_line):
+            self.opening_active = False
+            return None
+
+        # Проверяем, что история партии полностью
+        # совпадает с началом выбранной линии
+        for index, played_move in enumerate(
+            self.move_history
+        ):
+            if played_move != self.opening_line[index]:
+                self.opening_active = False
+                return None
+
+        expected_uci = self.opening_line[move_number]
+
+        try:
+            move = chess.Move.from_uci(
+                expected_uci
+            )
+        except ValueError:
+            self.opening_active = False
+            return None
+
+        # Ход из дебютной линии должен быть легальным
+        if move not in self.board.legal_moves:
+            self.opening_active = False
+            return None
+
+        return move
+
+    # ========================================================
+    # ПРОВЕРКА ХОДА ИГРОКА ОТНОСИТЕЛЬНО ДЕБЮТА
+    # ========================================================
+
+    def _check_player_opening_move(self, move):
+
+        if not self.opening_active:
+            return
+
+        move_number = len(self.move_history)
+
+        if move_number >= len(self.opening_line):
+            self.opening_active = False
+            return
+
+        expected_uci = self.opening_line[move_number]
+
+        if move.uci() != expected_uci:
+            # Игрок отклонился от дебютной линии.
+            # Дальше компьютер играет обычным Stockfish.
+            self.opening_active = False
 
     # ========================================================
     # ЛУЧШИЙ ХОД STOCKFISH
@@ -106,7 +236,7 @@ class ChessGame:
 
     def get_best_move(self):
 
-        if self.board.is_game_over():
+        if self.engine is None:
             return None
 
         result = self.engine.analyse(
@@ -116,21 +246,7 @@ class ChessGame:
             )
         )
 
-        pv = result.get("pv")
-
-        if not pv:
-            return None
-
-        best_move = pv[0]
-
-        best_san = self.board.san(
-            best_move
-        )
-
-        return {
-            "move": best_move,
-            "san": best_san
-        }
+        return result["pv"][0]
 
     # ========================================================
     # ХОД ИГРОКА
@@ -138,112 +254,75 @@ class ChessGame:
 
     def make_player_move(self, uci_move):
 
-        # ----------------------------------------------------
-        # Проверяем очередь хода
-        # ----------------------------------------------------
-
         if self.board.turn != self.player_color:
-            raise ValueError(
-                "Сейчас ход компьютера."
-            )
-
-        # ----------------------------------------------------
-        # Проверяем конец партии
-        # ----------------------------------------------------
-
-        if self.board.is_game_over():
-            raise ValueError(
-                "Партия уже закончена."
-            )
-
-        # ----------------------------------------------------
-        # Получаем лучший ход ДО хода игрока
-        # ----------------------------------------------------
-
-        best_result = self.get_best_move()
-
-        if best_result is None:
-            raise ValueError(
-                "Stockfish не смог определить лучший ход."
-            )
-
-        best_move = best_result["move"]
-        best_san = best_result["san"]
-
-        # ----------------------------------------------------
-        # Преобразуем UCI
-        # ----------------------------------------------------
+            return {
+                "success": False,
+                "error": "Сейчас ход компьютера."
+            }
 
         try:
-
             move = chess.Move.from_uci(
                 uci_move
             )
-
         except ValueError:
-
-            raise ValueError(
-                f"Некорректный ход: {uci_move}"
-            )
-
-        # ----------------------------------------------------
-        # Проверяем легальность
-        # ----------------------------------------------------
+            return {
+                "success": False,
+                "error": "Некорректный ход."
+            }
 
         if move not in self.board.legal_moves:
+            return {
+                "success": False,
+                "error": "Так сходить нельзя."
+            }
 
-            raise ValueError(
-                f"Недопустимый ход: {uci_move}"
-            )
-
-        # ----------------------------------------------------
-        # SAN ДО PUSH
-        # ----------------------------------------------------
-
-        played_san = self.board.san(
+        # Проверяем, не отклонился ли игрок
+        # от выбранной дебютной линии.
+        self._check_player_opening_move(
             move
         )
 
-        # ----------------------------------------------------
-        # Проверяем лучший ход
-        # ----------------------------------------------------
+        # Запоминаем SAN до изменения позиции
+        san = self.board.san(move)
 
-        is_best = (
-            move == best_move
-        )
-
-        # ----------------------------------------------------
-        # Делаем ход
-        # ----------------------------------------------------
+        # Оценка позиции до хода
+        best_move = self.get_best_move()
 
         self.board.push(move)
-
-        # ====================================================
-        # СОХРАНЯЕМ ХОД В ИСТОРИЮ
-        # ====================================================
-
         self.move_history.append(
             move.uci()
         )
-
-        # ----------------------------------------------------
-        # Результат
-        # ----------------------------------------------------
-
+        
         return {
+            "success": True,
 
-            "played_move": move,
+            "move": move.uci(),
 
-            "played_san": played_san,
+            "played_move": move.uci(),
 
-            "best_move": best_move,
+            "san": self.board.peek().uci()
+            if False
+            else None,
 
-            "best_san": best_san,
+            "best_move": (
+                best_move.uci()
+                if best_move
+                else None
+            ),
 
-            "is_best": is_best,
+            "fen": self.get_fen(),
+
+            "legal_moves":
+                self.get_legal_moves(),
+
+            "player_turn":
+                self.is_player_turn(),
 
             "game_over":
-                self.board.is_game_over()
+                self.is_game_over(),
+
+            "status":
+                self.get_status(),
         }
 
     # ========================================================
@@ -252,250 +331,71 @@ class ChessGame:
 
     def make_computer_move(self):
 
-        # ----------------------------------------------------
-        # Проверяем очередь
-        # ----------------------------------------------------
-
         if self.board.turn == self.player_color:
-
-            raise ValueError(
-                "Сейчас ход игрока."
-            )
-
-        # ----------------------------------------------------
-        # Проверяем конец
-        # ----------------------------------------------------
+            return {
+                "success": False,
+                "error": "Сейчас ход игрока."
+            }
 
         if self.board.is_game_over():
-
-            return None
+            return {
+                "success": False,
+                "error": "Партия уже закончена."
+            }
 
         # ----------------------------------------------------
-        # Получаем ход Stockfish
+        # СНАЧАЛА ПРОБУЕМ ВЫБРАННЫЙ ДЕБЮТ
         # ----------------------------------------------------
 
-        result = self.engine.play(
+        move = self._get_opening_move()
 
-            self.board,
+        opening_move = False
 
-            chess.engine.Limit(
-                depth=self.depth
-            )
-        )
+        if move is not None:
+            opening_move = True
 
-        move = result.move
+        # ----------------------------------------------------
+        # ЕСЛИ ДЕБЮТ НЕ ПОДХОДИТ — STOCKFISH
+        # ----------------------------------------------------
 
         if move is None:
-            return None
 
-        # ----------------------------------------------------
-        # SAN ДО PUSH
-        # ----------------------------------------------------
+            move = self.get_best_move()
 
-        san = self.board.san(
-            move
-        )
+            if move is None:
+                return {
+                    "success": False,
+                    "error": "Stockfish не вернул ход."
+                }
 
-        # ----------------------------------------------------
-        # Делаем ход
-        # ----------------------------------------------------
+        # Запоминаем SAN до push
+        san = self.board.san(move)
 
         self.board.push(move)
-
-        # ====================================================
-        # СОХРАНЯЕМ ХОД В ИСТОРИЮ
-        # ====================================================
-
         self.move_history.append(
             move.uci()
         )
 
-        # ----------------------------------------------------
-        # Результат
-        # ----------------------------------------------------
+        # Если дебютная линия закончилась,
+        # дальше будет играть Stockfish.
+        if (
+            self.opening_active
+            and len(self.move_history)
+            >= len(self.opening_line)
+        ):
+            self.opening_active = False
 
         return {
-
-            "move": move,
-
+            "success": True,
+            "move": move.uci(),
             "san": san,
-
-            "game_over":
-                self.board.is_game_over()
+            "opening_move": opening_move,
+            "opening": self.opening,
+            "opening_active": self.opening_active,
+            "fen": self.get_fen(),
+            "legal_moves": self.get_legal_moves(),
+            "player_turn": self.is_player_turn(),
+            "game_over": self.is_game_over(),
+            "status": self.get_status(),
         }
 
-    # ========================================================
-    # PGN ТЕКУЩЕЙ ПАРТИИ
-    # ========================================================
-
-    def get_pgn(self):
-        """
-        Возвращает текущую партию в формате PGN.
-
-        Игрок:
-            Maximka2912
-
-        Компьютер:
-            Stockfish
-        """
-
-        game = chess.pgn.Game()
-
-        # ----------------------------------------------------
-        # Заголовки
-        # ----------------------------------------------------
-
-        game.headers["Event"] = "Chess Trainer"
-        game.headers["Site"] = "Telegram Mini App"
-
-        if self.player_color == chess.WHITE:
-
-            game.headers["White"] = "Maximka2912"
-            game.headers["Black"] = "Stockfish"
-
-        else:
-
-            game.headers["White"] = "Stockfish"
-            game.headers["Black"] = "Maximka2912"
-
-        game.headers["Result"] = self.board.result()
-        # ----------------------------------------------------
-        # Воспроизводим историю
-        # ----------------------------------------------------
-
-        node = game
-
-        replay_board = chess.Board()
-
-        for uci in self.move_history:
-
-            try:
-
-                move = chess.Move.from_uci(
-                    uci
-                )
-
-            except ValueError:
-
-                continue
-
-            if move not in replay_board.legal_moves:
-                continue
-
-            node = node.add_variation(
-                move
-            )
-
-            replay_board.push(
-                move
-            )
-
-        # ----------------------------------------------------
-        # Принудительно ставим результат
-        # ----------------------------------------------------
-
-        game.headers["Result"] = (
-            self.board.result()
-        )
-
-        # ----------------------------------------------------
-        # Получаем PGN
-        # ----------------------------------------------------
-
-        output = io.StringIO()
-
-        exporter = chess.pgn.StringExporter(
-            headers=True,
-            variations=False,
-            comments=False
-        )
-
-        game.accept(
-            exporter
-        )
-
-        return exporter.result()
-
-    # ========================================================
-    # FEN
-    # ========================================================
-
-    def get_fen(self):
-
-        return self.board.fen()
-
-    # ========================================================
-    # ХОДЫ
-    # ========================================================
-
-    def get_legal_moves(self):
-
-        return [
-            move.uci()
-            for move in self.board.legal_moves
-        ]
-
-    # ========================================================
-    # ТЕКУЩИЙ ХОД
-    # ========================================================
-
-    def is_player_turn(self):
-
-        return (
-            self.board.turn
-            == self.player_color
-        )
-
-    # ========================================================
-    # КОНЕЦ ПАРТИИ
-    # ========================================================
-
-    def is_game_over(self):
-
-        return self.board.is_game_over()
-
-    # ========================================================
-    # РЕЗУЛЬТАТ ПАРТИИ
-    # ========================================================
-
-    def get_result(self):
-
-        return self.board.result()
-
-    # ========================================================
-    # СТАТУС ПАРТИИ
-    # ========================================================
-
-    def get_status(self):
-
-        if self.board.is_checkmate():
-
-            if self.board.turn == chess.WHITE:
-                return "checkmate_black"
-
-            return "checkmate_white"
-
-        if self.board.is_stalemate():
-            return "stalemate"
-
-        if self.board.is_insufficient_material():
-            return "draw_insufficient_material"
-
-        if self.board.is_fifty_moves():
-            return "draw_fifty_moves"
-
-        if self.board.is_repetition():
-            return "draw_repetition"
-
-        if self.board.is_check():
-            return "check"
-
-        return "playing"
-
-    # ========================================================
-    # ТЕКУЩАЯ ПОЗИЦИЯ
-    # ========================================================
-
-    def get_board(self):
-
-        return self.board

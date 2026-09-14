@@ -5,6 +5,7 @@
 const tg = window.Telegram?.WebApp;
 
 if (tg) {
+
     tg.ready();
 
     if (tg.expand) {
@@ -12,13 +13,38 @@ if (tg) {
     }
 }
 
-console.log("========== TELEGRAM WEBAPP DEBUG ==========");
-console.log("Telegram =", window.Telegram);
-console.log("tg =", tg);
-console.log("tg.initData =", tg?.initData);
-console.log("tg.initDataUnsafe =", tg?.initDataUnsafe);
-console.log("tg.initDataUnsafe.user =", tg?.initDataUnsafe?.user);
-console.log("============================================");
+console.log(
+    "========== TELEGRAM WEBAPP DEBUG =========="
+);
+
+console.log(
+    "Telegram =",
+    window.Telegram
+);
+
+console.log(
+    "tg =",
+    tg
+);
+
+console.log(
+    "tg.initData =",
+    tg?.initData
+);
+
+console.log(
+    "tg.initDataUnsafe =",
+    tg?.initDataUnsafe
+);
+
+console.log(
+    "tg.initDataUnsafe.user =",
+    tg?.initDataUnsafe?.user
+);
+
+console.log(
+    "============================================"
+);
 
 
 /* ============================================================
@@ -26,25 +52,54 @@ console.log("============================================");
 ============================================================ */
 
 const menuScreen =
-    document.getElementById("menuScreen");
+    document.getElementById(
+        "menuScreen"
+    );
 
 const gameScreen =
-    document.getElementById("gameScreen");
+    document.getElementById(
+        "gameScreen"
+    );
 
 const sideSelection =
-    document.getElementById("sideSelection");
+    document.getElementById(
+        "sideSelection"
+    );
 
 const playWhiteButton =
-    document.getElementById("playWhiteButton");
+    document.getElementById(
+        "playWhiteButton"
+    );
 
 const playBlackButton =
-    document.getElementById("playBlackButton");
+    document.getElementById(
+        "playBlackButton"
+    );
+
+const openingSelection =
+    document.getElementById(
+        "openingSelection"
+    );
+
+const backToSideSelectionButton =
+    document.getElementById(
+        "backToSideSelectionButton"
+    );
+
+const openingButtons =
+    document.querySelectorAll(
+        ".opening-button"
+    );
 
 const analysisScreen =
-    document.getElementById("analysisScreen");
+    document.getElementById(
+        "analysisScreen"
+    );
 
 const mistakesScreen =
-    document.getElementById("mistakesScreen");
+    document.getElementById(
+        "mistakesScreen"
+    );
 
 
 /* ============================================================
@@ -52,16 +107,24 @@ const mistakesScreen =
 ============================================================ */
 
 const playButton =
-    document.getElementById("playButton");
+    document.getElementById(
+        "playButton"
+    );
 
 const analysisButton =
-    document.getElementById("analysisButton");
+    document.getElementById(
+        "analysisButton"
+    );
 
 const mistakesButton =
-    document.getElementById("mistakesButton");
+    document.getElementById(
+        "mistakesButton"
+    );
 
 const backFromGameButton =
-    document.getElementById("backFromGameButton");
+    document.getElementById(
+        "backFromGameButton"
+    );
 
 const backFromAnalysisButton =
     document.getElementById(
@@ -79,19 +142,32 @@ const backFromMistakesButton =
 ============================================================ */
 
 const boardElement =
-    document.getElementById("board");
+    document.getElementById(
+        "board"
+    );
 
 const messageElement =
-    document.getElementById("message");
+    document.getElementById(
+        "message"
+    );
 
 const turnElement =
-    document.getElementById("turnText");
+    document.getElementById(
+        "turnText"
+    );
+
+const turnText =
+    turnElement;
 
 const hintButton =
-    document.getElementById("hintButton");
+    document.getElementById(
+        "hintButton"
+    );
 
 const newGameButton =
-    document.getElementById("newGameButton");
+    document.getElementById(
+        "newGameButton"
+    );
 
 
 /* ============================================================
@@ -99,10 +175,14 @@ const newGameButton =
 ============================================================ */
 
 const pgnInput =
-    document.getElementById("pgnInput");
+    document.getElementById(
+        "pgnInput"
+    );
 
 const analyzeButton =
-    document.getElementById("analyzeButton");
+    document.getElementById(
+        "analyzeButton"
+    );
 
 const analysisMessage =
     document.getElementById(
@@ -133,6 +213,13 @@ let gameOver = false;
 
 
 /* ============================================================
+   ВЫБРАННЫЙ ДЕБЮТ
+============================================================ */
+
+let selectedOpening = "none";
+
+
+/* ============================================================
    СОСТОЯНИЕ АНАЛИЗА
 ============================================================ */
 
@@ -140,7 +227,8 @@ let currentAnalysisData = null;
 
 let myMistakesData = [];
 
-let currentMistakeSource = "analysis";
+let currentMistakeSource =
+    "analysis";
 
 
 /* ============================================================
@@ -191,6 +279,7 @@ function getTelegramUser() {
         tg.initDataUnsafe &&
         tg.initDataUnsafe.user
     ) {
+
         return tg.initDataUnsafe.user;
     }
 
@@ -216,6 +305,7 @@ function fenToBoard(fen) {
 
     const result = [];
 
+
     for (
         let row = 0;
         row < 8;
@@ -226,6 +316,7 @@ function fenToBoard(fen) {
 
         const rowText =
             rows[row] || "";
+
 
         for (
             const char of rowText
@@ -241,6 +332,7 @@ function fenToBoard(fen) {
                     i < emptyCount;
                     i++
                 ) {
+
                     resultRow.push(null);
                 }
 
@@ -248,19 +340,25 @@ function fenToBoard(fen) {
 
                 let color;
 
+
                 if (
                     char ===
                     char.toUpperCase()
                 ) {
+
                     color = "white";
+
                 } else {
+
                     color = "black";
                 }
+
 
                 const lower =
                     char.toLowerCase();
 
                 let type = null;
+
 
                 if (lower === "k") {
                     type = "king";
@@ -286,6 +384,7 @@ function fenToBoard(fen) {
                     type = "pawn";
                 }
 
+
                 resultRow.push({
                     type: type,
                     color: color
@@ -293,14 +392,25 @@ function fenToBoard(fen) {
             }
         }
 
-        while (resultRow.length < 8) {
+
+        while (
+            resultRow.length < 8
+        ) {
+
             resultRow.push(null);
         }
 
-        result.push(resultRow);
+
+        result.push(
+            resultRow
+        );
     }
 
-    while (result.length < 8) {
+
+    while (
+        result.length < 8
+    ) {
+
         result.push([
             null,
             null,
@@ -312,6 +422,7 @@ function fenToBoard(fen) {
             null
         ]);
     }
+
 
     return result;
 }
@@ -334,19 +445,24 @@ function getPiece(squareName) {
             squareName[1]
         );
 
+
     if (
         file < 0 ||
         rank < 0 ||
         rank > 7
     ) {
+
         return null;
     }
+
 
     if (
         !board[rank]
     ) {
+
         return null;
     }
+
 
     return board[rank][file];
 }
@@ -362,13 +478,17 @@ function renderBoard() {
         return;
     }
 
-    // ============================================================
-    // СОХРАНЯЕМ СТАРУЮ ФИГУРУ ДЛЯ АНИМАЦИИ
-    // ============================================================
+
+    /* ========================================================
+       СОХРАНЯЕМ СТАРУЮ ФИГУРУ ДЛЯ АНИМАЦИИ
+    ======================================================== */
 
     let animationPiece = null;
+
     let animationFrom = null;
+
     let animationTo = null;
+
 
     if (
         lastMove &&
@@ -379,8 +499,6 @@ function renderBoard() {
         const moveKey =
             `${lastMove.from}-${lastMove.to}`;
 
-        // Не проигрываем одну и ту же анимацию
-        // при каждом повторном renderBoard()
 
         if (
             renderBoard.lastAnimatedMoveKey !==
@@ -392,12 +510,14 @@ function renderBoard() {
                     `.square[data-square="${lastMove.from}"]`
                 );
 
+
             if (oldSquare) {
 
                 const oldPiece =
                     oldSquare.querySelector(
                         ".piece-image"
                     );
+
 
                 if (oldPiece) {
 
@@ -414,37 +534,75 @@ function renderBoard() {
                 }
             }
 
+
             renderBoard.lastAnimatedMoveKey =
                 moveKey;
         }
     }
 
 
-    // ============================================================
-    // ОЧИЩАЕМ ДОСКУ
-    // ============================================================
+    /* ========================================================
+       ОЧИЩАЕМ ДОСКУ
+    ======================================================== */
 
     boardElement.innerHTML = "";
 
 
-    // ============================================================
-    // ОРИЕНТАЦИЯ ДОСКИ
-    // ============================================================
+    /* ========================================================
+       ОРИЕНТАЦИЯ ДОСКИ
+    ======================================================== */
 
     const rows =
         playerColor === "black"
-            ? [7, 6, 5, 4, 3, 2, 1, 0]
-            : [0, 1, 2, 3, 4, 5, 6, 7];
+            ? [
+                7,
+                6,
+                5,
+                4,
+                3,
+                2,
+                1,
+                0
+            ]
+            : [
+                0,
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7
+            ];
+
 
     const cols =
         playerColor === "black"
-            ? [7, 6, 5, 4, 3, 2, 1, 0]
-            : [0, 1, 2, 3, 4, 5, 6, 7];
+            ? [
+                7,
+                6,
+                5,
+                4,
+                3,
+                2,
+                1,
+                0
+            ]
+            : [
+                0,
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7
+            ];
 
 
-    // ============================================================
-    // СОЗДАЁМ ДОСКУ
-    // ============================================================
+    /* ========================================================
+       СОЗДАЁМ ДОСКУ
+    ======================================================== */
 
     for (
         let displayRow = 0;
@@ -471,16 +629,19 @@ function renderBoard() {
                     "button"
                 );
 
-            square.type = "button";
+
+            square.type =
+                "button";
+
 
             square.classList.add(
                 "square"
             );
 
 
-            // ====================================================
-            // ЦВЕТ КЛЕТКИ
-            // ====================================================
+            /* =================================================
+               ЦВЕТ КЛЕТКИ
+            ================================================= */
 
             if (
                 (row + col) % 2 === 0
@@ -498,21 +659,22 @@ function renderBoard() {
             }
 
 
-            // ====================================================
-            // НАЗВАНИЕ КЛЕТКИ
-            // ====================================================
+            /* =================================================
+               НАЗВАНИЕ КЛЕТКИ
+            ================================================= */
 
             const squareName =
                 FILES[col] +
                 (8 - row);
 
+
             square.dataset.square =
                 squareName;
 
 
-            // ====================================================
-            // ПОСЛЕДНИЙ ХОД
-            // ====================================================
+            /* =================================================
+               ПОСЛЕДНИЙ ХОД
+            ================================================= */
 
             if (
                 lastMove &&
@@ -530,9 +692,9 @@ function renderBoard() {
             }
 
 
-            // ====================================================
-            // ВЫБРАННАЯ КЛЕТКА
-            // ====================================================
+            /* =================================================
+               ВЫБРАННАЯ КЛЕТКА
+            ================================================= */
 
             if (
                 selectedSquare ===
@@ -545,12 +707,13 @@ function renderBoard() {
             }
 
 
-            // ====================================================
-            // ФИГУРА
-            // ====================================================
+            /* =================================================
+               ФИГУРА
+            ================================================= */
 
             const piece =
                 board[row]?.[col];
+
 
             if (piece) {
 
@@ -559,12 +722,15 @@ function renderBoard() {
                         "img"
                     );
 
+
                 pieceElement.classList.add(
                     "piece-image"
                 );
 
+
                 pieceElement.src =
                     `pieces/${piece.color}/${piece.type.charAt(0).toUpperCase() + piece.type.slice(1)}.svg?v=5`;
+
 
                 pieceElement.onerror = () => {
 
@@ -572,19 +738,20 @@ function renderBoard() {
                         "Не удалось загрузить фигуру:",
                         pieceElement.src
                     );
-
                 };
+
 
                 pieceElement.alt =
                     `${piece.color} ${piece.type}`;
+
 
                 pieceElement.draggable =
                     false;
 
 
-                // =================================================
-                // СКРЫВАЕМ НОВУЮ ФИГУРУ НА ВРЕМЯ АНИМАЦИИ
-                // =================================================
+                /* =============================================
+                   СКРЫВАЕМ НОВУЮ ФИГУРУ НА ВРЕМЯ АНИМАЦИИ
+                ============================================= */
 
                 if (
                     animationTo &&
@@ -604,17 +771,20 @@ function renderBoard() {
             }
 
 
-            // ====================================================
-            // КЛИК
-            // ====================================================
+            /* =================================================
+               КЛИК
+            ================================================= */
 
             square.addEventListener(
                 "click",
-                () =>
+                () => {
+
                     handleSquareClick(
                         squareName
-                    )
+                    );
+                }
             );
+
 
             boardElement.appendChild(
                 square
@@ -623,9 +793,9 @@ function renderBoard() {
     }
 
 
-    // ============================================================
-    // ЗАПУСКАЕМ НАСТОЯЩУЮ АНИМАЦИЮ
-    // ============================================================
+    /* ========================================================
+       ЗАПУСКАЕМ НАСТОЯЩУЮ АНИМАЦИЮ
+    ======================================================== */
 
     if (
         animationPiece &&
@@ -633,13 +803,11 @@ function renderBoard() {
         animationTo
     ) {
 
-        // Получаем координаты клеток
-        // уже после создания новой доски
-
         const newFromSquare =
             boardElement.querySelector(
                 `.square[data-square="${lastMove.from}"]`
             );
+
 
         const newToSquare =
             boardElement.querySelector(
@@ -655,38 +823,43 @@ function renderBoard() {
             const boardRect =
                 boardElement.getBoundingClientRect();
 
+
             const fromRect =
                 newFromSquare.getBoundingClientRect();
+
 
             const toRect =
                 newToSquare.getBoundingClientRect();
 
 
-            // ====================================================
-            // ПОДГОТАВЛИВАЕМ КОПИЮ ФИГУРЫ
-            // ====================================================
-
             animationPiece.classList.add(
                 "piece-moving"
             );
 
+
             animationPiece.style.position =
                 "absolute";
+
 
             animationPiece.style.width =
                 `${fromRect.width * 0.82}px`;
 
+
             animationPiece.style.height =
                 `${fromRect.height * 0.82}px`;
+
 
             animationPiece.style.left =
                 `${fromRect.left - boardRect.left + fromRect.width * 0.09}px`;
 
+
             animationPiece.style.top =
                 `${fromRect.top - boardRect.top + fromRect.height * 0.09}px`;
 
+
             animationPiece.style.zIndex =
                 "100";
+
 
             animationPiece.style.pointerEvents =
                 "none";
@@ -697,22 +870,15 @@ function renderBoard() {
             );
 
 
-            // ====================================================
-            // РАССЧИТЫВАЕМ ДВИЖЕНИЕ
-            // ====================================================
-
             const deltaX =
                 toRect.left -
                 fromRect.left;
+
 
             const deltaY =
                 toRect.top -
                 fromRect.top;
 
-
-            // ====================================================
-            // ЗАПУСК АНИМАЦИИ
-            // ====================================================
 
             const animation =
                 animationPiece.animate(
@@ -735,20 +901,18 @@ function renderBoard() {
                 );
 
 
-            // ====================================================
-            // ПОСЛЕ АНИМАЦИИ
-            // ====================================================
-
             animation.finished
                 .then(
                     () => {
 
                         animationPiece.remove();
 
+
                         const target =
                             boardElement.querySelector(
                                 `.square[data-square="${lastMove.to}"] .piece-animation-target`
                             );
+
 
                         if (target) {
 
@@ -774,23 +938,44 @@ function renderBoard() {
     }
 
 
-    // ============================================================
-    // ЦИФРЫ
-    // ============================================================
+    /* ========================================================
+       ЦИФРЫ
+    ======================================================== */
 
     const rankLabels =
         document.querySelector(
             "#gameScreen .rank-labels"
         );
 
+
     if (rankLabels) {
 
         rankLabels.innerHTML = "";
 
+
         const ranks =
             playerColor === "black"
-                ? [1, 2, 3, 4, 5, 6, 7, 8]
-                : [8, 7, 6, 5, 4, 3, 2, 1];
+                ? [
+                    1,
+                    2,
+                    3,
+                    4,
+                    5,
+                    6,
+                    7,
+                    8
+                ]
+                : [
+                    8,
+                    7,
+                    6,
+                    5,
+                    4,
+                    3,
+                    2,
+                    1
+                ];
+
 
         ranks.forEach(
             rank => {
@@ -800,8 +985,10 @@ function renderBoard() {
                         "span"
                     );
 
+
                 span.textContent =
                     rank;
+
 
                 rankLabels.appendChild(
                     span
@@ -811,18 +998,20 @@ function renderBoard() {
     }
 
 
-    // ============================================================
-    // БУКВЫ
-    // ============================================================
+    /* ========================================================
+       БУКВЫ
+    ======================================================== */
 
     const fileLabels =
         document.querySelector(
             "#gameScreen .file-labels"
         );
 
+
     if (fileLabels) {
 
         fileLabels.innerHTML = "";
+
 
         const files =
             playerColor === "black"
@@ -847,6 +1036,7 @@ function renderBoard() {
                     "h"
                 ];
 
+
         files.forEach(
             file => {
 
@@ -855,8 +1045,10 @@ function renderBoard() {
                         "span"
                     );
 
+
                 span.textContent =
                     file;
+
 
                 fileLabels.appendChild(
                     span
@@ -866,11 +1058,14 @@ function renderBoard() {
     }
 }
 
+
 /* ============================================================
    НАЖАТИЕ НА КЛЕТКУ
 ============================================================ */
 
-function handleSquareClick(squareName) {
+function handleSquareClick(
+    squareName
+) {
 
     if (gameOver) {
 
@@ -881,6 +1076,7 @@ function handleSquareClick(squareName) {
         return;
     }
 
+
     if (!playerTurn) {
 
         setMessage(
@@ -890,8 +1086,11 @@ function handleSquareClick(squareName) {
         return;
     }
 
+
     const piece =
-        getPiece(squareName);
+        getPiece(
+            squareName
+        );
 
 
     if (
@@ -907,6 +1106,7 @@ function handleSquareClick(squareName) {
             return;
         }
 
+
         if (
             piece.color !==
             playerColor
@@ -919,12 +1119,15 @@ function handleSquareClick(squareName) {
             return;
         }
 
+
         selectedSquare =
             squareName;
+
 
         setMessage(
             `Выбрана ${squareName}. Выберите клетку назначения.`
         );
+
 
         renderBoard();
 
@@ -939,9 +1142,11 @@ function handleSquareClick(squareName) {
 
         selectedSquare = null;
 
+
         setMessage(
             "Выбор отменён."
         );
+
 
         renderBoard();
 
@@ -958,9 +1163,11 @@ function handleSquareClick(squareName) {
         selectedSquare =
             squareName;
 
+
         setMessage(
             `Выбрана ${squareName}.`
         );
+
 
         renderBoard();
 
@@ -971,13 +1178,18 @@ function handleSquareClick(squareName) {
     const from =
         selectedSquare;
 
+
     const to =
         squareName;
+
 
     const uciMove =
         from + to;
 
-    selectedSquare = null;
+
+    selectedSquare =
+        null;
+
 
     makeMove(
         uciMove
@@ -989,11 +1201,14 @@ function handleSquareClick(squareName) {
    ОТПРАВКА ХОДА
 ============================================================ */
 
-async function makeMove(uciMove) {
+async function makeMove(
+    uciMove
+) {
 
     setMessage(
         "Проверяем ход..."
     );
+
 
     try {
 
@@ -1016,13 +1231,14 @@ async function makeMove(uciMove) {
                 }
             );
 
+
         const data =
             await response.json();
 
 
-        // ========================================================
-        // ОШИБКА
-        // ========================================================
+        /* ====================================================
+           ОШИБКА
+        ==================================================== */
 
         if (
             !response.ok ||
@@ -1034,17 +1250,20 @@ async function makeMove(uciMove) {
                 "Недопустимый ход."
             );
 
+
             renderBoard();
 
             return;
         }
 
 
-        // ========================================================
-        // СОХРАНЯЕМ ХОД ИГРОКА
-        // ========================================================
+        /* ====================================================
+           СОХРАНЯЕМ ХОД ИГРОКА
+        ==================================================== */
 
-        let playerMove = null;
+        let playerMove =
+            null;
+
 
         if (
             data.played_move
@@ -1067,11 +1286,13 @@ async function makeMove(uciMove) {
         }
 
 
-        // ========================================================
-        // СОХРАНЯЕМ ХОД КОМПЬЮТЕРА
-        // ========================================================
+        /* ====================================================
+           СОХРАНЯЕМ ХОД КОМПЬЮТЕРА
+        ==================================================== */
 
-        let computerMove = null;
+        let computerMove =
+            null;
+
 
         if (
             data.computer_move
@@ -1094,9 +1315,9 @@ async function makeMove(uciMove) {
         }
 
 
-        // ========================================================
-        // СОХРАНЯЕМ ФИНАЛЬНУЮ ПОЗИЦИЮ
-        // ========================================================
+        /* ====================================================
+           СОХРАНЯЕМ ФИНАЛЬНУЮ ПОЗИЦИЮ
+        ==================================================== */
 
         const finalBoard =
             fenToBoard(
@@ -1104,9 +1325,9 @@ async function makeMove(uciMove) {
             );
 
 
-        // ========================================================
-        // СНАЧАЛА ПОКАЗЫВАЕМ ХОД ИГРОКА
-        // ========================================================
+        /* ====================================================
+           СНАЧАЛА ПОКАЗЫВАЕМ ХОД ИГРОКА
+        ==================================================== */
 
         if (
             playerMove
@@ -1115,33 +1336,23 @@ async function makeMove(uciMove) {
             lastMove =
                 playerMove;
 
-            /*
-             * Важный момент:
-             *
-             * Сервер уже вернул FEN после хода
-             * компьютера.
-             *
-             * Поэтому временно откатываем позицию
-             * на один ход назад через текущую
-             * локальную доску.
-             */
 
             board =
                 JSON.parse(
-                    JSON.stringify(board)
+                    JSON.stringify(
+                        board
+                    )
                 );
+
 
             applyLocalMove(
                 board,
                 playerMove
             );
 
+
             renderBoard();
 
-
-            // ====================================================
-            // ЖДЁМ ОКОНЧАНИЯ АНИМАЦИИ ИГРОКА
-            // ====================================================
 
             await sleep(
                 240
@@ -1149,9 +1360,9 @@ async function makeMove(uciMove) {
         }
 
 
-        // ========================================================
-        // ЕСЛИ ИГРА ЗАКОНЧИЛАСЬ ПОСЛЕ ХОДА ИГРОКА
-        // ========================================================
+        /* ====================================================
+           ЕСЛИ ИГРА ЗАКОНЧИЛАСЬ ПОСЛЕ ХОДА ИГРОКА
+        ==================================================== */
 
         if (
             !computerMove
@@ -1160,23 +1371,29 @@ async function makeMove(uciMove) {
             board =
                 finalBoard;
 
+
             lastMove =
                 playerMove;
+
 
             playerTurn =
                 Boolean(
                     data.player_turn
                 );
 
+
             gameOver =
                 Boolean(
                     data.game_over
                 );
 
+
             renderBoard();
 
 
-            if (data.is_best) {
+            if (
+                data.is_best
+            ) {
 
                 setMessage(
                     `Отлично! ${data.played_san} — лучший ход.`
@@ -1193,61 +1410,58 @@ async function makeMove(uciMove) {
             updateTurnText();
 
 
-            if (gameOver) {
+            if (
+                gameOver
+            ) {
 
                 setMessage(
                     `Партия закончена: ${data.status}`
                 );
 
+
                 showGameAnalysisButton();
             }
+
 
             return;
         }
 
 
-        // ========================================================
-        // ПОКАЗЫВАЕМ ХОД КОМПЬЮТЕРА
-        // ========================================================
+        /* ====================================================
+           ПОКАЗЫВАЕМ ХОД КОМПЬЮТЕРА
+        ==================================================== */
 
         lastMove =
             computerMove;
 
-
-        /*
-         * Сейчас board находится после хода игрока.
-         *
-         * Накладываем ход компьютера локально.
-         */
 
         applyLocalMove(
             board,
             computerMove
         );
 
+
         renderBoard();
 
-
-        // ========================================================
-        // ЖДЁМ ОКОНЧАНИЯ АНИМАЦИИ КОМПЬЮТЕРА
-        // ========================================================
 
         await sleep(
             240
         );
 
 
-        // ========================================================
-        // УСТАНАВЛИВАЕМ НАСТОЯЩУЮ ПОЗИЦИЮ СЕРВЕРА
-        // ========================================================
+        /* ====================================================
+           УСТАНАВЛИВАЕМ НАСТОЯЩУЮ ПОЗИЦИЮ СЕРВЕРА
+        ==================================================== */
 
         board =
             finalBoard;
+
 
         playerTurn =
             Boolean(
                 data.player_turn
             );
+
 
         gameOver =
             Boolean(
@@ -1258,11 +1472,13 @@ async function makeMove(uciMove) {
         renderBoard();
 
 
-        // ========================================================
-        // СООБЩЕНИЕ
-        // ========================================================
+        /* ====================================================
+           СООБЩЕНИЕ
+        ==================================================== */
 
-        if (data.is_best) {
+        if (
+            data.is_best
+        ) {
 
             setMessage(
                 `Отлично! ${data.played_san} — лучший ход.`
@@ -1279,15 +1495,18 @@ async function makeMove(uciMove) {
         updateTurnText();
 
 
-        // ========================================================
-        // КОНЕЦ ИГРЫ
-        // ========================================================
+        /* ====================================================
+           КОНЕЦ ИГРЫ
+        ==================================================== */
 
-        if (gameOver) {
+        if (
+            gameOver
+        ) {
 
             setMessage(
                 `Партия закончена: ${data.status}`
             );
+
 
             showGameAnalysisButton();
         }
@@ -1299,11 +1518,17 @@ async function makeMove(uciMove) {
             error
         );
 
+
         setMessage(
             "Ошибка соединения с сервером."
         );
     }
 }
+
+
+/* ============================================================
+   ОЖИДАНИЕ
+============================================================ */
 
 function sleep(ms) {
 
@@ -1317,6 +1542,10 @@ function sleep(ms) {
 }
 
 
+/* ============================================================
+   ЛОКАЛЬНЫЙ ХОД
+============================================================ */
+
 function applyLocalMove(
     currentBoard,
     move
@@ -1327,6 +1556,7 @@ function applyLocalMove(
         !move.from ||
         !move.to
     ) {
+
         return;
     }
 
@@ -1335,6 +1565,7 @@ function applyLocalMove(
         FILES.indexOf(
             move.from[0]
         );
+
 
     const fromRow =
         8 -
@@ -1347,6 +1578,7 @@ function applyLocalMove(
         FILES.indexOf(
             move.to[0]
         );
+
 
     const toRow =
         8 -
@@ -1363,6 +1595,7 @@ function applyLocalMove(
         toRow < 0 ||
         toRow > 7
     ) {
+
         return;
     }
 
@@ -1372,20 +1605,19 @@ function applyLocalMove(
 
 
     if (!piece) {
+
         return;
     }
 
 
-    // ============================================================
-    // ПЕРЕМЕЩАЕМ ФИГУРУ
-    // ============================================================
-
     currentBoard[toRow][toCol] =
         piece;
+
 
     currentBoard[fromRow][fromCol] =
         null;
 }
+
 
 /* ============================================================
    КНОПКА АНАЛИЗА ЗАКОНЧЕННОЙ ПАРТИИ
@@ -1398,29 +1630,38 @@ function showGameAnalysisButton() {
             "gameAnalysisButton"
         )
     ) {
+
         return;
     }
+
 
     const button =
         document.createElement(
             "button"
         );
 
+
     button.id =
         "gameAnalysisButton";
+
 
     button.textContent =
         "📊 Начать анализ";
 
+
     button.className =
         "main-button";
+
 
     button.addEventListener(
         "click",
         analyzeFinishedGame
     );
 
-    if (messageElement) {
+
+    if (
+        messageElement
+    ) {
 
         messageElement.parentNode.insertBefore(
             button,
@@ -1441,18 +1682,22 @@ async function analyzeFinishedGame() {
             "gameAnalysisButton"
         );
 
+
     if (button) {
 
         button.disabled =
             true;
 
+
         button.textContent =
             "⏳ Анализируем...";
     }
 
+
     setMessage(
         "⏳ Анализируем партию Stockfish..."
     );
+
 
     try {
 
@@ -1465,8 +1710,10 @@ async function analyzeFinishedGame() {
                 "/game_pgn"
             );
 
+
         const pgnData =
             await pgnResponse.json();
+
 
         if (
             !pgnResponse.ok ||
@@ -1555,6 +1802,7 @@ async function analyzeFinishedGame() {
         currentAnalysisData =
             data;
 
+
         currentMistakeSource =
             "analysis";
 
@@ -1572,6 +1820,7 @@ async function analyzeFinishedGame() {
         ---------------------------------------------------- */
 
         if (button) {
+
             button.remove();
         }
 
@@ -1601,7 +1850,7 @@ async function analyzeFinishedGame() {
 
 
         setMessage(
-            `❌ Ошибка анализа: ${error.message}`
+            `❌ Ошибка анализа партии: ${error.message}`
         );
 
 
@@ -1609,6 +1858,7 @@ async function analyzeFinishedGame() {
 
             button.disabled =
                 false;
+
 
             button.textContent =
                 "📊 Начать анализ";
@@ -1937,48 +2187,55 @@ function showScreen(screen) {
 
 if (playButton) {
 
-    playButton.addEventListener(
-        "click",
-        () => {
+    playButton.addEventListener("click", () => {
 
-            showScreen(
-                gameScreen
-            );
+        showScreen(gameScreen);
 
-            // Показываем выбор стороны
-            sideSelection.classList.remove(
-                "hidden"
-            );
+        // Показываем выбор стороны
+        sideSelection.classList.remove("hidden");
 
-            // Скрываем игровую часть
-            document.querySelector(
-                "#gameScreen main"
-            ).classList.add(
-                "hidden"
-            );
+        // Скрываем выбор дебюта
+        openingSelection.classList.add("hidden");
 
-            document.querySelector(
-                "#gameScreen .info"
-            ).classList.add(
-                "hidden"
-            );
+        // Скрываем саму шахматную доску
+        document
+            .querySelector("#gameScreen main")
+            .classList.add("hidden");
 
-            document.querySelector(
-                "#gameScreen .buttons"
-            ).classList.add(
-                "hidden"
-            );
+        document
+            .querySelector("#gameScreen .info")
+            .classList.add("hidden");
 
-            turnText.textContent =
-                "Выберите сторону";
-        }
-    );
+        document
+            .querySelector("#gameScreen .buttons")
+            .classList.add("hidden");
+
+        turnText.textContent =
+            "Выберите сторону";
+    });
+
 }
+
+// ============================================================
+// ВЫБОР СТОРОНЫ
+// ============================================================
 
 playWhiteButton.addEventListener(
     "click",
     () => {
-        startGame("white");
+
+        playerColor = "white";
+
+        sideSelection.classList.add(
+            "hidden"
+        );
+
+        openingSelection.classList.remove(
+            "hidden"
+        );
+
+        turnText.textContent =
+            "Выберите дебют";
     }
 );
 
@@ -1986,7 +2243,75 @@ playWhiteButton.addEventListener(
 playBlackButton.addEventListener(
     "click",
     () => {
-        startGame("black");
+
+        playerColor = "black";
+
+        sideSelection.classList.add(
+            "hidden"
+        );
+
+        openingSelection.classList.remove(
+            "hidden"
+        );
+
+        turnText.textContent =
+            "Выберите дебют";
+    }
+);
+
+// ============================================================
+// ВЫБОР ДЕБЮТА
+// ============================================================
+
+openingButtons.forEach(
+    (button) => {
+
+        button.addEventListener(
+            "click",
+            () => {
+
+                // --------------------------------------------
+                // Снимаем выбор со всех кнопок
+                // --------------------------------------------
+
+                openingButtons.forEach(
+                    (item) => {
+                        item.classList.remove(
+                            "selected"
+                        );
+                    }
+                );
+
+                // --------------------------------------------
+                // Выбираем текущую кнопку
+                // --------------------------------------------
+
+                button.classList.add(
+                    "selected"
+                );
+
+                // --------------------------------------------
+                // Сохраняем выбранный дебют
+                // --------------------------------------------
+
+                selectedOpening =
+                    button.dataset.opening;
+
+                console.log(
+                    "Выбран дебют:",
+                    selectedOpening
+                );
+
+                // --------------------------------------------
+                // Сразу запускаем партию
+                // --------------------------------------------
+
+                startGame(
+                    playerColor
+                );
+            }
+        );
+
     }
 );
 
@@ -2011,7 +2336,8 @@ async function startGame(color) {
                 },
 
                 body: JSON.stringify({
-                    player_color: color
+                    player_color: color,
+                    opening: selectedOpening
                 })
             }
         );
@@ -2037,6 +2363,9 @@ async function startGame(color) {
             "hidden"
         );
 
+        openingSelection.classList.add(
+            "hidden"
+        );
         document.querySelector(
             "#gameScreen main"
         ).classList.remove("hidden");
