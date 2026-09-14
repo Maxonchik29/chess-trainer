@@ -247,6 +247,8 @@ let positionBestMoveShown = false;
 
 let positionUserMove = null;
 
+let positionWrongMove = false;
+
 let positionLocked = false;
 
 let positionCastlingRights = "-";
@@ -3720,20 +3722,37 @@ function handlePositionSquareClick(
                     "✗ Неверный ход. Попробуйте ещё раз."
                 );
 
-
                 /*
-                 * Возвращаем исходную позицию
-                 */
+                * Показываем неправильный ход красным
+                */
 
-                positionBoardState =
-                    oldBoard;
-
-                positionUserMove =
-                    null;
-
+                positionWrongMove =
+                    true;
 
                 renderPositionBoard();
 
+                /*
+                * Через некоторое время
+                * возвращаем исходную позицию
+                */
+
+                setTimeout(
+                    () => {
+
+                        positionBoardState =
+                            oldBoard;
+
+                        positionUserMove =
+                            null;
+
+                        positionWrongMove =
+                            false;
+
+                        renderPositionBoard();
+
+                    },
+                    800
+                );
 
                 return;
             }
@@ -4057,9 +4076,18 @@ function renderPositionBoard() {
                         squareName
                 ) {
 
-                    square.classList.add(
-                        "user-move"
-                    );
+                    if (positionWrongMove) {
+
+                        square.classList.add(
+                            "wrong-move"
+                        );
+
+                    } else {
+
+                        square.classList.add(
+                            "user-move"
+                        );
+                    }
                 }
             }
 
@@ -4317,6 +4345,9 @@ function showMistakePosition(
 
     positionUserMove =
         null;
+
+    positionWrongMove =
+        false;
 
     positionLocked =
         false;

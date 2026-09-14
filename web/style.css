@@ -1269,3 +1269,23 @@ and (max-height: 600px) {
 
     pointer-events: none;
 }
+
+.position-square.wrong-move {
+    background: #e74c3c !important;
+    box-shadow: inset 0 0 0 4px rgba(120, 0, 0, 0.45);
+    animation: wrongMovePulse 0.35s ease-in-out 2;
+}
+
+@keyframes wrongMovePulse {
+    0% {
+        filter: brightness(1);
+    }
+
+    50% {
+        filter: brightness(1.25);
+    }
+
+    100% {
+        filter: brightness(1);
+    }
+}
