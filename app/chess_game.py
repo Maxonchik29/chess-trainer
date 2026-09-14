@@ -1,15 +1,17 @@
+import os
+import shutil
 
 import chess
 import chess.engine
 
 
-# ============================================================
-# НАСТРОЙКИ
-# ============================================================
-
-ENGINE_PATH = "engine/stockfish.exe"
 ENGINE_DEPTH = 12
 
+
+if os.name == "nt":
+    ENGINE_PATH = "engine/stockfish.exe"
+else:
+    ENGINE_PATH = shutil.which("stockfish") or "stockfish"
 
 # ============================================================
 # ДЕБЮТНЫЕ ЛИНИИ
@@ -292,7 +294,7 @@ class ChessGame:
         self.move_history.append(
             move.uci()
         )
-        
+
         return {
             "success": True,
 
