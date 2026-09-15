@@ -1163,19 +1163,8 @@ async def handle_square(
         # СРАЗУ ПОКАЗЫВАЕМ НОВУЮ ДОСКУ
         # ====================================================
 
-        await query.edit_message_text(
-
-            board_message(
-
-                game,
-
-                f"Ваш ход: {played_san}\n\n"
-                "⏳ Анализирую ваш ход..."
-            ),
-
-            reply_markup=create_board_keyboard(
-                game
-            )
+        await query.edit_message_reply_markup(
+            reply_markup=create_board_keyboard(game)
         )
 
         # ====================================================
