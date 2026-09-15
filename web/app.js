@@ -1693,14 +1693,13 @@ async function analyzeFinishedGame() {
         button.disabled =
             true;
 
-
         button.textContent =
             "⏳ Анализируем...";
     }
 
 
     setMessage(
-        "⏳ Анализируем партию Stockfish..."
+        "⏳ Подготовка анализа..."
     );
 
 
@@ -1756,8 +1755,13 @@ async function analyzeFinishedGame() {
 
 
         /* ----------------------------------------------------
-           ОТПРАВЛЯЕМ PGN В СУЩЕСТВУЮЩИЙ АНАЛИЗ
+           ЗАПУСКАЕМ ФОНОВЫЙ АНАЛИЗ
         ---------------------------------------------------- */
+
+        setMessage(
+            "⏳ Запускаем анализ..."
+        );
+
 
         const response =
             await fetch(
@@ -1795,55 +1799,233 @@ async function analyzeFinishedGame() {
 
             throw new Error(
                 data.error ||
-                "Ошибка анализа."
+                "Не удалось запустить анализ."
             );
         }
 
 
         /* ----------------------------------------------------
-           СОХРАНЯЕМ РЕЗУЛЬТАТ
+           ПОЛУЧАЕМ ID ФОНОВОЙ ЗАДАЧИ
         ---------------------------------------------------- */
 
-        currentAnalysisData =
-            data;
+        const jobId =
+            data.job_id;
 
 
-        currentMistakeSource =
-            "analysis";
+        if (!jobId) {
 
-
-        const mistakes =
-            Array.isArray(
-                data.mistakes
-            )
-                ? data.mistakes
-                : [];
-
-
-        /* ----------------------------------------------------
-           УБИРАЕМ КНОПКУ "НАЧАТЬ АНАЛИЗ"
-        ---------------------------------------------------- */
-
-        if (button) {
-
-            button.remove();
+            throw new Error(
+                "Сервер не вернул ID задачи анализа."
+            );
         }
 
 
         /* ----------------------------------------------------
-           ПОКАЗЫВАЕМ РЕЗУЛЬТАТ
+           ОПРАШИВАЕМ ПРОГРЕСС
         ---------------------------------------------------- */
 
-        setMessage(
-            `✅ Анализ завершён. Найдено ошибок: ${mistakes.length}`
-        );
+        let analysisFinished =
+            false;
 
 
-        /* ----------------------------------------------------
-           ПОКАЗЫВАЕМ КНОПКУ "МОИ ОШИБКИ"
-        ---------------------------------------------------- */
+        while (!analysisFinished) {
 
-        showGameMistakesButton();
+            await new Promise(
+                resolve =>
+                    setTimeout(
+                        resolve,
+                        500
+                    )
+            );
+
+
+            const progressResponse =
+                await fetch(
+                    `/analyze/progress/${jobId}`
+                );
+
+
+            const progressData =
+                await progressResponse.json();
+
+            console.log(
+                "========== ANALYSIS PROGRESS =========="
+            );
+
+            console.log(
+                "JOB ID:",
+                jobId
+            );
+
+            console.log(
+                "HTTP STATUS:",
+                progressResponse.status
+            );
+
+            console.log(
+                "PROGRESS DATA:",
+                progressData
+            );
+
+            console.log(
+                "STATUS:",
+                progressData.status
+            );
+
+            console.log(
+                "PROGRESS:",
+                progressData.progress
+            );
+
+            console.log(
+                "RESULT:",
+                progressData.result
+            );
+
+            console.log(
+                "========================================"
+            );
+
+
+            if (
+                !progressResponse.ok ||
+                !progressData.success
+            ) {
+
+                throw new Error(
+                    progressData.error ||
+                    "Не удалось получить прогресс анализа."
+                );
+            }
+
+
+            /* ------------------------------------------------
+               ПРОГРЕСС
+            ------------------------------------------------ */
+
+            const progress =
+                Number(
+                    progressData.progress
+                );
+
+
+            if (
+                Number.isFinite(progress)
+            ) {
+
+                const safeProgress =
+                    Math.max(
+                        0,
+                        Math.min(
+                            100,
+                            Math.round(progress)
+                        )
+                    );
+
+
+                if (button) {
+
+                    button.textContent =
+                        `⏳ Анализируем... ${safeProgress}%`;
+                }
+
+
+                setMessage(
+                    `⏳ Анализ партии Stockfish... ${safeProgress}%`
+                );
+            }
+
+
+            /* ------------------------------------------------
+               АНАЛИЗ ЗАВЕРШЁН
+            ------------------------------------------------ */
+
+            if (
+                progressData.status ===
+                "completed"
+            ) {
+
+                analysisFinished =
+                    true;
+
+
+                const result =
+                    progressData.result;
+
+
+                if (!result) {
+
+                    throw new Error(
+                        "Сервер завершил анализ, но не вернул результат."
+                    );
+                }
+
+
+                /* --------------------------------------------
+                   СОХРАНЯЕМ НАСТОЯЩИЙ РЕЗУЛЬТАТ
+                -------------------------------------------- */
+
+                currentAnalysisData =
+                    result;
+
+
+                currentMistakeSource =
+                    "analysis";
+
+
+                const mistakes =
+                    Array.isArray(
+                        result.mistakes
+                    )
+                        ? result.mistakes
+                        : [];
+
+
+                /* --------------------------------------------
+                   УБИРАЕМ КНОПКУ "НАЧАТЬ АНАЛИЗ"
+                -------------------------------------------- */
+
+                if (button) {
+
+                    button.remove();
+                }
+
+
+                /* --------------------------------------------
+                   ПОКАЗЫВАЕМ РЕЗУЛЬТАТ
+                -------------------------------------------- */
+
+                setMessage(
+                    `✅ Анализ завершён. Найдено ошибок: ${mistakes.length}`
+                );
+
+
+                /* --------------------------------------------
+                   ПОКАЗЫВАЕМ КНОПКУ "МОИ ОШИБКИ"
+                -------------------------------------------- */
+
+                showGameMistakesButton();
+
+
+                break;
+            }
+
+
+            /* ------------------------------------------------
+               ОШИБКА ФОНОВОЙ ЗАДАЧИ
+            ------------------------------------------------ */
+
+            if (
+                progressData.status ===
+                "error"
+            ) {
+
+                throw new Error(
+                    progressData.error ||
+                    "Ошибка фонового анализа."
+                );
+            }
+        }
 
 
     } catch (error) {
@@ -1864,12 +2046,13 @@ async function analyzeFinishedGame() {
             button.disabled =
                 false;
 
-
             button.textContent =
                 "📊 Начать анализ";
         }
     }
 }
+
+
 
 
 /* ============================================================
@@ -5370,7 +5553,6 @@ function renderMyMistakes() {
     );
 }
 
-
 /* ============================================================
    АНАЛИЗ PGN
 ============================================================ */
@@ -5410,7 +5592,7 @@ if (analyzeButton) {
             if (analysisMessage) {
 
                 analysisMessage.textContent =
-                    "⏳ Анализируем партию...";
+                    "⏳ Запускаем анализ...";
             }
 
 
@@ -5427,6 +5609,10 @@ if (analyzeButton) {
                 const user =
                     getTelegramUser();
 
+
+                /* ------------------------------------------------
+                   ЗАПУСКАЕМ ФОНОВЫЙ АНАЛИЗ
+                ------------------------------------------------ */
 
                 const response =
                     await fetch(
@@ -5458,7 +5644,7 @@ if (analyzeButton) {
 
 
                 console.log(
-                    "Результат анализа:",
+                    "Запуск анализа:",
                     data
                 );
 
@@ -5472,15 +5658,167 @@ if (analyzeButton) {
 
                         analysisMessage.textContent =
                             data.error ||
-                            "Не удалось проанализировать партию.";
+                            "Не удалось запустить анализ.";
                     }
 
                     return;
                 }
 
 
+                /* ------------------------------------------------
+                   ПОЛУЧАЕМ ID ЗАДАЧИ
+                ------------------------------------------------ */
+
+                const jobId =
+                    data.job_id;
+
+
+                if (!jobId) {
+
+                    throw new Error(
+                        "Сервер не вернул ID задачи анализа."
+                    );
+                }
+
+
+                /* ------------------------------------------------
+                   ЖДЁМ ЗАВЕРШЕНИЯ ФОНОВОГО АНАЛИЗА
+                ------------------------------------------------ */
+
+                let result = null;
+
+                let finished = false;
+
+
+                while (!finished) {
+
+                    await new Promise(
+                        resolve =>
+                            setTimeout(
+                                resolve,
+                                500
+                            )
+                    );
+
+
+                    const progressResponse =
+                        await fetch(
+                            `/analyze/progress/${jobId}`
+                        );
+
+
+                    const progressData =
+                        await progressResponse.json();
+
+
+                    console.log(
+                        "Прогресс анализа:",
+                        progressData
+                    );
+
+
+                    if (
+                        !progressResponse.ok ||
+                        !progressData.success
+                    ) {
+
+                        throw new Error(
+                            progressData.error ||
+                            "Не удалось получить прогресс анализа."
+                        );
+                    }
+
+
+                    /* ------------------------------------------------
+                       ПОКАЗЫВАЕМ ПРОГРЕСС
+                    ------------------------------------------------ */
+
+                    const progress =
+                        Number(
+                            progressData.progress
+                        );
+
+
+                    if (
+                        Number.isFinite(progress)
+                    ) {
+
+                        const safeProgress =
+                            Math.max(
+                                0,
+                                Math.min(
+                                    100,
+                                    Math.round(
+                                        progress
+                                    )
+                                )
+                            );
+
+
+                        if (analysisMessage) {
+
+                            analysisMessage.textContent =
+                                `⏳ Анализируем партию... ${safeProgress}%`;
+                        }
+                    }
+
+
+                    /* ------------------------------------------------
+                       ПРОВЕРЯЕМ СТАТУС
+                    ------------------------------------------------ */
+
+                    if (
+                        progressData.status ===
+                        "completed"
+                    ) {
+
+                        result =
+                            progressData.result;
+
+                        finished =
+                            true;
+
+                        break;
+                    }
+
+
+                    if (
+                        progressData.status ===
+                        "error"
+                    ) {
+
+                        throw new Error(
+                            progressData.error ||
+                            "Ошибка фонового анализа."
+                        );
+                    }
+                }
+
+
+                /* ------------------------------------------------
+                   ПРОВЕРЯЕМ РЕЗУЛЬТАТ
+                ------------------------------------------------ */
+
+                if (!result) {
+
+                    throw new Error(
+                        "Анализ завершён, но результат не получен."
+                    );
+                }
+
+
+                console.log(
+                    "Результат анализа:",
+                    result
+                );
+
+
+                /* ------------------------------------------------
+                   СОХРАНЯЕМ РЕЗУЛЬТАТ
+                ------------------------------------------------ */
+
                 currentAnalysisData =
-                    data;
+                    result;
 
 
                 currentMistakeSource =
@@ -5508,7 +5846,7 @@ if (analyzeButton) {
                                 Белые:
                             </strong>
                             ${
-                                data.white ||
+                                result.white ||
                                 "—"
                             }
                         </p>
@@ -5518,7 +5856,7 @@ if (analyzeButton) {
                                 Чёрные:
                             </strong>
                             ${
-                                data.black ||
+                                result.black ||
                                 "—"
                             }
                         </p>
@@ -5528,7 +5866,7 @@ if (analyzeButton) {
                                 Результат:
                             </strong>
                             ${
-                                data.result ||
+                                result.result ||
                                 "—"
                             }
                         </p>
@@ -5538,7 +5876,7 @@ if (analyzeButton) {
                                 Точность:
                             </strong>
                             ${
-                                data.accuracy ??
+                                result.accuracy ??
                                 "—"
                             }
                         </p>
@@ -5552,8 +5890,8 @@ if (analyzeButton) {
                 ------------------------------------------------ */
 
                 if (
-                    !data.mistakes ||
-                    data.mistakes.length === 0
+                    !result.mistakes ||
+                    result.mistakes.length === 0
                 ) {
 
                     html += `
@@ -5581,7 +5919,7 @@ if (analyzeButton) {
                     `;
 
 
-                    data.mistakes.forEach(
+                    result.mistakes.forEach(
                         (
                             mistake,
                             index
@@ -5612,6 +5950,7 @@ if (analyzeButton) {
                                 mistake.loss ??
                                 mistake.evaluation_loss ??
                                 null;
+
 
                             html += `
                                 <div
@@ -5676,7 +6015,7 @@ if (analyzeButton) {
                 ------------------------------------------------ */
 
                 if (
-                    data.statistics
+                    result.statistics
                 ) {
 
                     html += `
@@ -5689,7 +6028,7 @@ if (analyzeButton) {
                             </h3>
 
                             <pre>${JSON.stringify(
-                                data.statistics,
+                                result.statistics,
                                 null,
                                 2
                             )}</pre>
@@ -5698,6 +6037,10 @@ if (analyzeButton) {
                     `;
                 }
 
+
+                /* ------------------------------------------------
+                   ПОКАЗЫВАЕМ РЕЗУЛЬТАТ
+                ------------------------------------------------ */
 
                 if (analysisResult) {
 
@@ -5740,7 +6083,7 @@ if (analyzeButton) {
 
 
                                     const mistake =
-                                        data.mistakes[
+                                        result.mistakes[
                                             index
                                         ];
 
@@ -5769,7 +6112,10 @@ if (analyzeButton) {
                 if (analysisMessage) {
 
                     analysisMessage.textContent =
-                        "✅ Анализ завершён.";
+                        `✅ Анализ завершён. Найдено ошибок: ${
+                            result.mistakes
+                                ?.length || 0
+                        }`;
                 }
 
 
@@ -5784,12 +6130,13 @@ if (analyzeButton) {
                 if (analysisMessage) {
 
                     analysisMessage.textContent =
-                        "Ошибка соединения с сервером.";
+                        `❌ Ошибка анализа: ${error.message}`;
                 }
             }
         }
     );
 }
+
 
 
 /* ============================================================

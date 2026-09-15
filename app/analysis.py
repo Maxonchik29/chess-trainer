@@ -70,6 +70,7 @@ MISTAKE_THRESHOLD = 40
 
 EQUIVALENT_MOVE_THRESHOLD = 30
 
+
 # ============================================================
 # НАСТРОЙКИ АНАЛИЗА
 # ============================================================
@@ -91,6 +92,7 @@ else:
 
     ANALYSIS_MULTIPV = 3
     DEEP_ANALYSIS_MULTIPV = 2
+
 
 # ==========================================================
 # ПУТЬ К АРХИВУ АНАЛИЗОВ
@@ -183,6 +185,7 @@ def get_engine():
         )
 
     return engine
+
 
 # ==========================================================
 # ТЕСТ ДВИЖКА
@@ -838,7 +841,8 @@ def save_analysis_result(
 def analyze_game(
     game,
     start_move=1,
-    end_move=None
+    end_move=None,
+    progress_callback=None
 ):
 
     # ======================================================
@@ -850,6 +854,9 @@ def analyze_game(
         print(
             "!!! ОШИБКА: game == None !!!"
         )
+
+        if progress_callback:
+            progress_callback(100)
 
         return (
             [],
@@ -913,6 +920,9 @@ def analyze_game(
                 "!!! ОШИБКА: "
                 "end_move меньше start_move !!!"
             )
+
+            if progress_callback:
+                progress_callback(100)
 
             return (
                 [],
@@ -984,15 +994,6 @@ def analyze_game(
         "Date",
         ""
     )
-
-    # ------------------------------------------------------
-    # ВАЖНО:
-    # Называем именно game_result.
-    #
-    # Нельзя использовать просто result,
-    # потому что ниже Stockfish тоже использует
-    # переменную result.
-    # ------------------------------------------------------
 
     game_result = headers.get(
         "Result",
@@ -1083,20 +1084,112 @@ def analyze_game(
     endgame_scores = []
 
     # ======================================================
+    # ХОДЫ ПАРТИИ
+    # ======================================================
+
+    all_moves = list(
+        game.mainline_moves()
+    )
+
+    # ======================================================
+    # ПОДСЧЁТ ХОДОВ ПОЛЬЗОВАТЕЛЯ
+    # В ВЫБРАННОМ ДИАПАЗОНЕ
+    # ======================================================
+
+    progress_board = game.board()
+
+    total_analysis_moves = 0
+
+    for progress_move in all_moves:
+
+        progress_move_number = (
+            progress_board.fullmove_number
+        )
+
+        if (
+            progress_move_number >= start_move
+            and (
+                end_move is None
+                or progress_move_number <= end_move
+            )
+            and (
+                (
+                    progress_board.turn == chess.WHITE
+                    and user_color == "white"
+                )
+                or
+                (
+                    progress_board.turn == chess.BLACK
+                    and user_color == "black"
+                )
+            )
+        ):
+
+            total_analysis_moves += 1
+
+        progress_board.push(
+            progress_move
+        )
+
+    print(
+        "ХОДОВ ПОЛЬЗОВАТЕЛЯ ДЛЯ АНАЛИЗА:",
+        total_analysis_moves
+    )
+
+    # ======================================================
+    # ПРОГРЕСС
+    # ======================================================
+
+    processed_analysis_moves = 0
+    last_progress = -1
+
+    def report_progress():
+
+        nonlocal last_progress
+
+        if progress_callback is None:
+            return
+
+        if total_analysis_moves <= 0:
+
+            if last_progress != 100:
+
+                last_progress = 100
+
+                progress_callback(100)
+
+            return
+
+        progress = int(
+            (
+                processed_analysis_moves
+                /
+                total_analysis_moves
+            ) * 100
+        )
+
+        progress = max(
+            0,
+            min(
+                99,
+                progress
+            )
+        )
+
+        if progress != last_progress:
+
+            last_progress = progress
+
+            progress_callback(
+                progress
+            )
+
+    # ======================================================
     # ПРОХОДИМ ПО ВСЕЙ ПАРТИИ
-    #
-    # ВАЖНО:
-    #
-    # До start_move партия просто проигрывается,
-    # чтобы получить правильную позицию.
-    #
-    # Stockfish на этих ходах НЕ запускается.
-    #
-    # После end_move анализ полностью прекращается.
     # ======================================================
 
     for number, move in enumerate(
-        game.mainline_moves(),
+        all_moves,
         start=1
     ):
 
@@ -1116,9 +1209,6 @@ def analyze_game(
 
         # ==================================================
         # ХОДЫ ДО НАЧАЛА ДИАПАЗОНА
-        #
-        # Просто проигрываем партию.
-        # Никакого анализа Stockfish.
         # ==================================================
 
         if current_move_number < start_move:
@@ -1131,8 +1221,6 @@ def analyze_game(
 
         # ==================================================
         # ХОДЫ ПОСЛЕ КОНЦА ДИАПАЗОНА
-        #
-        # Полностью прекращаем цикл.
         # ==================================================
 
         if (
@@ -1169,6 +1257,20 @@ def analyze_game(
             )
 
             continue
+
+        # ==================================================
+        # НАЧАЛО ОБРАБОТКИ ХОДА ПОЛЬЗОВАТЕЛЯ
+        #
+        # Здесь обновляем прогресс.
+        #
+        # Процент означает:
+        # сколько пользовательских ходов
+        # уже взято в работу.
+        # ==================================================
+
+        processed_analysis_moves += 1
+
+        report_progress()
 
         # ==================================================
         # ПОЗИЦИЯ ДО ХОДА
@@ -2491,6 +2593,18 @@ def analyze_game(
         )
 
     # ==============================================================
+    # 100% — АНАЛИЗ ХОДОВ ЗАКОНЧЕН
+    # ==============================================================
+
+    if progress_callback:
+
+        last_progress = 100
+
+        progress_callback(
+            100
+        )
+
+    # ==============================================================
     # ИТОГОВЫЕ ОШИБКИ
     # ==============================================================
 
@@ -2498,7 +2612,10 @@ def analyze_game(
         "\nНайденные ошибки:\n"
     )
 
-    print("========== TEST 1: ПОСЛЕ НАЙДЕННЫХ ОШИБОК ==========", flush=True)
+    print(
+        "========== TEST 1: ПОСЛЕ НАЙДЕННЫХ ОШИБОК ==========",
+        flush=True
+    )
 
     for mistake in mistakes:
 
@@ -2557,20 +2674,26 @@ def analyze_game(
         "========== DEBUG X: ЦИКЛ ВЫВОДА ОШИБОК ЗАКОНЧЕН ==========",
         flush=True
     )
-    print("========== DEBUG A: НАЧАЛО СТАТИСТИКИ ==========")
-    
+
+    print(
+        "========== DEBUG A: НАЧАЛО СТАТИСТИКИ =========="
+    )
 
     accuracy = calculate_accuracy(
         scores
     )
 
-    print("========== DEBUG B: ACCURACY ГОТОВА ==========")
+    print(
+        "========== DEBUG B: ACCURACY ГОТОВА =========="
+    )
 
     statistics = calculate_statistics(
         mistakes
     )
 
-    print("========== DEBUG C: STATISTICS ГОТОВА ==========")
+    print(
+        "========== DEBUG C: STATISTICS ГОТОВА =========="
+    )
 
     phase_statistics = {
 
@@ -2587,35 +2710,47 @@ def analyze_game(
         )
     }
 
-    print("========== DEBUG D: PHASE STATISTICS ГОТОВА ==========")
+    print(
+        "========== DEBUG D: PHASE STATISTICS ГОТОВА =========="
+    )
 
     # ==============================================================
     # ЗАКРЫВАЕМ STOCKFISH
     # ==============================================================
 
-    print("========== DEBUG E: ПЕРЕД ENGINE.QUIT ==========")
+    print(
+        "========== DEBUG E: ПЕРЕД ENGINE.QUIT =========="
+    )
 
     engine.quit()
 
-    print("========== DEBUG F: ENGINE.QUIT ЗАВЕРШЁН ==========")
+    print(
+        "========== DEBUG F: ENGINE.QUIT ЗАВЕРШЁН =========="
+    )
 
     # ==============================================================
     # СОХРАНЯЕМ ОШИБКИ ДЛЯ ТРЕНИРОВКИ
     # ==============================================================
 
-    print("========== DEBUG G: ПЕРЕД SAVE_NEW_MISTAKES ==========")
+    print(
+        "========== DEBUG G: ПЕРЕД SAVE_NEW_MISTAKES =========="
+    )
 
     save_new_mistakes(
         mistakes
     )
 
-    print("========== DEBUG H: SAVE_NEW_MISTAKES ЗАВЕРШЁН ==========")
+    print(
+        "========== DEBUG H: SAVE_NEW_MISTAKES ЗАВЕРШЁН =========="
+    )
 
     # ==============================================================
     # СОХРАНЯЕМ РЕЗУЛЬТАТ АНАЛИЗА
     # ==============================================================
 
-    print("========== DEBUG I: ПЕРЕД SAVE_ANALYSIS_RESULT ==========")
+    print(
+        "========== DEBUG I: ПЕРЕД SAVE_ANALYSIS_RESULT =========="
+    )
 
     save_analysis_result(
 
@@ -2647,7 +2782,9 @@ def analyze_game(
 
     )
 
-    print("========== DEBUG J: SAVE_ANALYSIS_RESULT ЗАВЕРШЁН ==========")
+    print(
+        "========== DEBUG J: SAVE_ANALYSIS_RESULT ЗАВЕРШЁН =========="
+    )
 
     # ==============================================================
     # ЭКСПОРТ ДЛЯ МОБИЛЬНОГО ПРИЛОЖЕНИЯ

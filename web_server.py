@@ -6,12 +6,22 @@ import chess.pgn
 import io
 import os
 import json
+import threading
+import uuid
 
 import psycopg2
+
 
 from app.chess_game import ChessGame
 from app.analysis import analyze_game, make_json_safe
 
+# ==========================================================
+# ЗАДАЧИ АНАЛИЗА
+# ==========================================================
+
+ANALYSIS_JOBS = {}
+
+ANALYSIS_JOBS_LOCK = threading.Lock()
 
 # ============================================================
 # НАСТРОЙКИ
@@ -1130,168 +1140,104 @@ def get_game_pgn():
 
         }), 500
 
-# ============================================================
-# АНАЛИЗ PGN
-# ============================================================
+# ==========================================================
+# ОБНОВЛЕНИЕ ПРОГРЕССА АНАЛИЗА
+# ==========================================================
 
-@app.route(
-    "/analyze",
-    methods=["POST"]
-)
-def analyze_pgn():
+def update_analysis_progress(
+    job_id,
+    progress
+):
+
+    with ANALYSIS_JOBS_LOCK:
+
+        job = ANALYSIS_JOBS.get(
+            job_id
+        )
+
+        if job is None:
+            return
+
+        job["progress"] = int(
+            progress
+        )
+
+
+# ==========================================================
+# ЗАПУСК АНАЛИЗА В ФОНОВОМ ПОТОКЕ
+# ==========================================================
+
+def run_analysis_job(
+    job_id,
+    pgn_text,
+    telegram_user,
+    start_move,
+    end_move
+):
 
     try:
 
-        # ====================================================
-        # ПОЛУЧАЕМ ДАННЫЕ
-        # ====================================================
-
-        data = request.get_json()
-
-        if not data:
-
-            return jsonify({
-
-                "success": False,
-                "error": "Нет данных."
-
-            }), 400
-
-        # ----------------------------------------------------
-        # TELEGRAM USER
-        # ----------------------------------------------------
-
-        telegram_user = data.get(
-            "telegram_user"
+        print(
+            "========================================"
         )
 
-        # ----------------------------------------------------
-        # PGN
-        # ----------------------------------------------------
-
-        pgn_text = data.get(
-            "pgn",
-            ""
+        print(
+            "ФОНОВЫЙ АНАЛИЗ ЗАПУЩЕН"
         )
 
-        if not pgn_text.strip():
-
-            return jsonify({
-
-                "success": False,
-                "error": "PGN пустой."
-
-            }), 400
-
-        # ====================================================
-        # ДИАПАЗОН АНАЛИЗА
-        # ====================================================
-
-        start_move = data.get(
-            "start_move",
-            1
+        print(
+            "JOB ID:",
+            job_id
         )
 
-        end_move = data.get(
-            "end_move"
+        print(
+            "========================================"
         )
 
-        try:
-
-            start_move = int(
-                start_move
-            )
-
-        except (
-            TypeError,
-            ValueError
-        ):
-
-            start_move = 1
-
-        if end_move in (
-            None,
-            "",
-            "null"
-        ):
-
-            end_move = None
-
-        else:
-
-            try:
-
-                end_move = int(
-                    end_move
-                )
-
-            except (
-                TypeError,
-                ValueError
-            ):
-
-                end_move = None
-
-        # ====================================================
+        # ==================================================
         # ЧИТАЕМ PGN
-        # ====================================================
+        # ==================================================
 
         pgn_file = io.StringIO(
             pgn_text
         )
 
-        parsed_game = (
-            chess.pgn.read_game(
-                pgn_file
-            )
+        parsed_game = chess.pgn.read_game(
+            pgn_file
         )
 
         if parsed_game is None:
 
-            return jsonify({
+            with ANALYSIS_JOBS_LOCK:
 
-                "success": False,
-                "error":
+                ANALYSIS_JOBS[job_id][
+                    "status"
+                ] = "error"
+
+                ANALYSIS_JOBS[job_id][
+                    "error"
+                ] = (
                     "Не удалось прочитать PGN."
+                )
 
-            }), 400
+            return
 
-        # ====================================================
-        # ЗАПУСК АНАЛИЗАТОРА
-        # ====================================================
+        # ==================================================
+        # CALLBACK ПРОГРЕССА
+        # ==================================================
 
-        print(
-            "========================================"
-        )
+        def progress_callback(
+            progress
+        ):
 
-        print(
-            "ЗАПУСК ВЕБ-АНАЛИЗА"
-        )
-
-        print(
-            "White:",
-            parsed_game.headers.get(
-                "White",
-                ""
+            update_analysis_progress(
+                job_id,
+                progress
             )
-        )
 
-        print(
-            "Black:",
-            parsed_game.headers.get(
-                "Black",
-                ""
-            )
-        )
-
-        print(
-            "Telegram user:",
-            telegram_user
-        )
-
-        print(
-            "========================================"
-        )
+        # ==================================================
+        # АНАЛИЗ
+        # ==================================================
 
         (
             mistakes,
@@ -1303,28 +1249,21 @@ def analyze_pgn():
         ) = analyze_game(
             parsed_game,
             start_move=start_move,
-            end_move=end_move
+            end_move=end_move,
+            progress_callback=progress_callback
         )
 
-        # ====================================================
-        # ВОССТАНАВЛИВАЕМ ПОЗИЦИИ
-        # ====================================================
+        # ==================================================
+        # ПОЗИЦИИ ХОДОВ
+        # ==================================================
 
         board = parsed_game.board()
 
         move_positions = []
 
-        for move in (
-            parsed_game.mainline_moves()
-        ):
+        for move in parsed_game.mainline_moves():
 
-            # ------------------------------------------------
-            # FEN ДО ХОДА
-            # ------------------------------------------------
-
-            fen_before = (
-                board.fen()
-            )
+            fen_before = board.fen()
 
             move_number = (
                 board.fullmove_number
@@ -1336,71 +1275,44 @@ def analyze_pgn():
                 else "black"
             )
 
-            played_san = (
-                board.san(move)
+            played_san = board.san(
+                move
             )
 
             move_positions.append({
 
-                "move_number":
-                    move_number,
+                "move_number": move_number,
 
-                "side":
-                    side,
+                "side": side,
 
-                "uci":
-                    move.uci(),
+                "uci": move.uci(),
 
-                "san":
-                    played_san,
+                "san": played_san,
 
-                "fen":
-                    fen_before
+                "fen": fen_before
+
             })
 
-            board.push(move)
+            board.push(
+                move
+            )
 
-        # ====================================================
-        # ДОБАВЛЯЕМ FEN К ОШИБКАМ
-        # ====================================================
+        # ==================================================
+        # ДОБАВЛЯЕМ ПОЗИЦИИ К ОШИБКАМ
+        # ==================================================
 
         for mistake in mistakes:
 
             move_number = (
-
-                mistake.get(
-                    "move_number"
-                )
-
-                or
-
-                mistake.get(
-                    "move"
-                )
+                mistake.get("move_number")
+                or mistake.get("move")
             )
 
             played_uci = (
-
-                mistake.get(
-                    "played_move"
-                )
-
-                or
-
-                mistake.get(
-                    "move_uci"
-                )
-
-                or
-
-                mistake.get(
-                    "uci"
-                )
+                mistake.get("played_move")
+                or mistake.get("move_uci")
+                or mistake.get("uci")
             )
-
-            # ------------------------------------------------
-            # ЕСЛИ UCI ЯВЛЯЕТСЯ ОБЪЕКТОМ CHESS MOVE
-            # ------------------------------------------------
 
             if hasattr(
                 played_uci,
@@ -1413,15 +1325,9 @@ def analyze_pgn():
 
             matching_position = None
 
-            # =================================================
-            # ИЩЕМ ПО UCI
-            # =================================================
-
             if played_uci:
 
-                for position in (
-                    move_positions
-                ):
+                for position in move_positions:
 
                     if (
                         position["uci"]
@@ -1434,37 +1340,19 @@ def analyze_pgn():
 
                         break
 
-            # =================================================
-            # ЕСЛИ ПО UCI НЕ НАШЛИ —
-            # ИЩЕМ ПО НОМЕРУ ХОДА
-            # =================================================
-
             if (
                 matching_position is None
                 and move_number
             ):
 
-                for position in (
-                    move_positions
-                ):
+                for position in move_positions:
 
                     if (
-
-                        position[
-                            "move_number"
-                        ]
+                        position["move_number"]
                         == move_number
-
-                        and
-
-                        (
+                        and (
                             user_color is None
-
-                            or
-
-                            position[
-                                "side"
-                            ]
+                            or position["side"]
                             == user_color
                         )
                     ):
@@ -1475,59 +1363,44 @@ def analyze_pgn():
 
                         break
 
-            # =================================================
-            # СОХРАНЯЕМ ДАННЫЕ ПОЗИЦИИ
-            # =================================================
-
             if matching_position:
 
                 mistake[
                     "position_fen"
-                ] = (
-                    matching_position[
-                        "fen"
-                    ]
-                )
+                ] = matching_position[
+                    "fen"
+                ]
 
                 mistake[
                     "position_move_number"
-                ] = (
-                    matching_position[
-                        "move_number"
-                    ]
-                )
+                ] = matching_position[
+                    "move_number"
+                ]
 
                 mistake[
                     "position_played_uci"
-                ] = (
-                    matching_position[
-                        "uci"
-                    ]
-                )
+                ] = matching_position[
+                    "uci"
+                ]
 
                 mistake[
                     "position_played_san"
-                ] = (
-                    matching_position[
-                        "san"
-                    ]
-                )
+                ] = matching_position[
+                    "san"
+                ]
 
             else:
 
                 print(
-
-                    "Не удалось найти "
-                    "позицию для ошибки:",
-
+                    "Не удалось найти позицию "
+                    "для ошибки:",
                     move_number,
-
                     played_uci
                 )
 
-        # ====================================================
-        # СОХРАНЯЕМ АНАЛИЗ В SUPABASE
-        # ====================================================
+        # ==================================================
+        # СОХРАНЕНИЕ В БД
+        # ==================================================
 
         saved_to_database = False
 
@@ -1549,10 +1422,6 @@ def analyze_pgn():
                 repr(db_error)
             )
 
-        # ====================================================
-        # УВЕЛИЧИВАЕМ СЧЁТЧИК АНАЛИЗОВ
-        # ====================================================
-
         if saved_to_database:
 
             update_bot_user(
@@ -1560,14 +1429,13 @@ def analyze_pgn():
                 count_analysis=True
             )
 
-        # ====================================================
-        # ФОРМИРУЕМ ОТВЕТ
-        # ====================================================
+        # ==================================================
+        # ФИНАЛЬНЫЙ РЕЗУЛЬТАТ
+        # ==================================================
 
         result = {
 
-            "success":
-                True,
+            "success": True,
 
             "saved_to_database":
                 saved_to_database,
@@ -1615,24 +1483,39 @@ def analyze_pgn():
                 mistakes
         }
 
-        # ====================================================
-        # ПРЕОБРАЗУЕМ В JSON
-        # ====================================================
-
         result = make_json_safe(
             result
         )
 
-        # ====================================================
-        # ЛОГ
-        # ====================================================
+        # ==================================================
+        # СОХРАНЯЕМ РЕЗУЛЬТАТ ЗАДАЧИ
+        # ==================================================
+
+        with ANALYSIS_JOBS_LOCK:
+
+            ANALYSIS_JOBS[job_id][
+                "status"
+            ] = "completed"
+
+            ANALYSIS_JOBS[job_id][
+                "progress"
+            ] = 100
+
+            ANALYSIS_JOBS[job_id][
+                "result"
+            ] = result
 
         print(
             "========================================"
         )
 
         print(
-            "АНАЛИЗ ЗАВЕРШЁН"
+            "ФОНОВЫЙ АНАЛИЗ ЗАВЕРШЁН"
+        )
+
+        print(
+            "JOB ID:",
+            job_id
         )
 
         print(
@@ -1654,9 +1537,233 @@ def analyze_pgn():
             "========================================"
         )
 
-        return jsonify(
-            result
+    except Exception as e:
+
+        print(
+            "ОШИБКА ФОНОВОГО АНАЛИЗА:",
+            repr(e)
         )
+
+        with ANALYSIS_JOBS_LOCK:
+
+            if job_id in ANALYSIS_JOBS:
+
+                ANALYSIS_JOBS[job_id][
+                    "status"
+                ] = "error"
+
+                ANALYSIS_JOBS[job_id][
+                    "error"
+                ] = str(e)
+
+# ==========================================================
+# ЗАПУСК АНАЛИЗА ПАРТИИ
+# ==========================================================
+
+@app.route(
+    "/analyze",
+    methods=["POST"]
+)
+def analyze_pgn():
+
+    try:
+
+        data = request.get_json()
+
+        if not data:
+
+            return jsonify({
+                "success": False,
+                "error": "Нет данных."
+            }), 400
+
+        telegram_user = data.get(
+            "telegram_user"
+        )
+
+        pgn_text = data.get(
+            "pgn",
+            ""
+        )
+
+        if not pgn_text.strip():
+
+            return jsonify({
+                "success": False,
+                "error": "PGN пустой."
+            }), 400
+
+        # ==================================================
+        # НАЧАЛЬНЫЙ ХОД
+        # ==================================================
+
+        start_move = data.get(
+            "start_move",
+            1
+        )
+
+        try:
+
+            start_move = int(
+                start_move
+            )
+
+        except (
+            TypeError,
+            ValueError
+        ):
+
+            start_move = 1
+
+        # ==================================================
+        # КОНЕЧНЫЙ ХОД
+        # ==================================================
+
+        end_move = data.get(
+            "end_move"
+        )
+
+        if end_move in (
+            None,
+            "",
+            "null"
+        ):
+
+            end_move = None
+
+        else:
+
+            try:
+
+                end_move = int(
+                    end_move
+                )
+
+            except (
+                TypeError,
+                ValueError
+            ):
+
+                end_move = None
+
+        # ==================================================
+        # ПРОВЕРЯЕМ PGN ДО ЗАПУСКА ПОТОКА
+        # ==================================================
+
+        pgn_file = io.StringIO(
+            pgn_text
+        )
+
+        parsed_game = chess.pgn.read_game(
+            pgn_file
+        )
+
+        if parsed_game is None:
+
+            return jsonify({
+                "success": False,
+                "error":
+                    "Не удалось прочитать PGN."
+            }), 400
+
+        print(
+            "========================================"
+        )
+
+        print(
+            "ЗАПУСК ФОНОВОГО ВЕБ-АНАЛИЗА"
+        )
+
+        print(
+            "White:",
+            parsed_game.headers.get(
+                "White",
+                ""
+            )
+        )
+
+        print(
+            "Black:",
+            parsed_game.headers.get(
+                "Black",
+                ""
+            )
+        )
+
+        print(
+            "Telegram user:",
+            telegram_user
+        )
+
+        print(
+            "========================================"
+        )
+
+        # ==================================================
+        # СОЗДАЁМ ID ЗАДАЧИ
+        # ==================================================
+
+        job_id = str(
+            uuid.uuid4()
+        )
+
+        # ==================================================
+        # СОЗДАЁМ ЗАДАЧУ
+        # ==================================================
+
+        with ANALYSIS_JOBS_LOCK:
+
+            ANALYSIS_JOBS[job_id] = {
+
+                "status": "running",
+
+                "progress": 0,
+
+                "result": None,
+
+                "error": None
+
+            }
+
+        # ==================================================
+        # ЗАПУСКАЕМ АНАЛИЗ В ФОНОВОМ ПОТОКЕ
+        # ==================================================
+
+        thread = threading.Thread(
+
+            target=run_analysis_job,
+
+            args=(
+
+                job_id,
+
+                pgn_text,
+
+                telegram_user,
+
+                start_move,
+
+                end_move
+
+            ),
+
+            daemon=True
+
+        )
+
+        thread.start()
+
+        # ==================================================
+        # СРАЗУ ОТВЕЧАЕМ БРАУЗЕРУ
+        # ==================================================
+
+        return jsonify({
+
+            "success": True,
+
+            "job_id": job_id
+
+        })
 
     except Exception as e:
 
@@ -1669,11 +1776,89 @@ def analyze_pgn():
 
             "success": False,
 
-            "error":
-                str(e)
+            "error": str(e)
 
         }), 500
 
+# ==========================================================
+# ПРОГРЕСС АНАЛИЗА
+# ==========================================================
+
+@app.route(
+    "/analyze/progress/<job_id>",
+    methods=["GET"]
+)
+def analyze_progress(
+    job_id
+):
+
+    with ANALYSIS_JOBS_LOCK:
+
+        job = ANALYSIS_JOBS.get(
+            job_id
+        )
+
+        if job is None:
+
+            return jsonify({
+
+                "success": False,
+
+                "error":
+                    "Задача анализа не найдена."
+
+            }), 404
+
+        response = {
+
+            "success": True,
+
+            "status":
+                job.get(
+                    "status",
+                    "running"
+                ),
+
+            "progress":
+                job.get(
+                    "progress",
+                    0
+                )
+
+        }
+
+        # ==================================================
+        # АНАЛИЗ ЗАКОНЧЕН
+        # ==================================================
+
+        if job.get(
+            "status"
+        ) == "completed":
+
+            response[
+                "result"
+            ] = job.get(
+                "result"
+            )
+
+        # ==================================================
+        # ОШИБКА
+        # ==================================================
+
+        elif job.get(
+            "status"
+        ) == "error":
+
+            response[
+                "error"
+            ] = job.get(
+                "error",
+                "Неизвестная ошибка."
+            )
+
+        return jsonify(
+            response
+        )
 
 # ============================================================
 # ПОЛУЧИТЬ МОИ ОШИБКИ
