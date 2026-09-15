@@ -3447,14 +3447,237 @@ function isPositionMoveLegal(
     }
 
 
+   
     /* --------------------------------------------------------
-       КОРОЛЬ
+    КОРОЛЬ
     -------------------------------------------------------- */
 
     if (
         piece.type ===
         "king"
     ) {
+
+        /* ====================================================
+        РОКИРОВКА
+        ==================================================== */
+
+        if (
+            !attackOnly &&
+            absDr === 0 &&
+            absDc === 2
+        ) {
+
+            const isWhite =
+                piece.color === "white";
+
+            const homeRow =
+                isWhite
+                    ? 7
+                    : 0;
+
+            /* Король должен находиться
+            на начальной клетке */
+
+            if (
+                from.row !== homeRow ||
+                from.col !== 4
+            ) {
+                return false;
+            }
+
+            /* -----------------------------------------------
+            КОРОТКАЯ РОКИРОВКА
+            e1-g1 / e8-g8
+            ----------------------------------------------- */
+
+            if (
+                to.col === 6
+            ) {
+
+                const requiredRight =
+                    isWhite ? "K" : "k";
+
+                if (
+                    !positionCastlingRights.includes(
+                        requiredRight
+                    )
+                ) {
+                    return false;
+                }
+
+                /* Между королём и ладьёй
+                не должно быть фигур */
+
+                if (
+                    boardState[homeRow][5] ||
+                    boardState[homeRow][6]
+                ) {
+                    return false;
+                }
+
+                /* На h1/h8 должна быть ладья */
+
+                const rook =
+                    boardState[homeRow][7];
+
+                if (
+                    !rook ||
+                    rook.type !== "rook" ||
+                    rook.color !== piece.color
+                ) {
+                    return false;
+                }
+
+                /* Король не может:
+                - находиться под шахом
+                - проходить через битое поле
+                - оказаться на битом поле */
+
+                const kingSquare =
+                    isWhite ? "e1" : "e8";
+
+                const middleSquare =
+                    isWhite ? "f1" : "f8";
+
+                const targetSquare =
+                    isWhite ? "g1" : "g8";
+
+                const enemyColor =
+                    isWhite ? "black" : "white";
+
+                if (
+                    isSquareAttackedByColor(
+                        boardState,
+                        kingSquare,
+                        enemyColor
+                    )
+                ) {
+                    return false;
+                }
+
+                if (
+                    isSquareAttackedByColor(
+                        boardState,
+                        middleSquare,
+                        enemyColor
+                    )
+                ) {
+                    return false;
+                }
+
+                if (
+                    isSquareAttackedByColor(
+                        boardState,
+                        targetSquare,
+                        enemyColor
+                    )
+                ) {
+                    return false;
+                }
+
+                return true;
+            }
+
+
+            /* -----------------------------------------------
+            ДЛИННАЯ РОКИРОВКА
+            e1-c1 / e8-c8
+            ----------------------------------------------- */
+
+            if (
+                to.col === 2
+            ) {
+
+                const requiredRight =
+                    isWhite ? "Q" : "q";
+
+                if (
+                    !positionCastlingRights.includes(
+                        requiredRight
+                    )
+                ) {
+                    return false;
+                }
+
+                /* Между королём и ладьёй
+                не должно быть фигур */
+
+                if (
+                    boardState[homeRow][1] ||
+                    boardState[homeRow][2] ||
+                    boardState[homeRow][3]
+                ) {
+                    return false;
+                }
+
+                /* На a1/a8 должна быть ладья */
+
+                const rook =
+                    boardState[homeRow][0];
+
+                if (
+                    !rook ||
+                    rook.type !== "rook" ||
+                    rook.color !== piece.color
+                ) {
+                    return false;
+                }
+
+                /* Проверяем e, d и c */
+
+                const kingSquare =
+                    isWhite ? "e1" : "e8";
+
+                const middleSquare =
+                    isWhite ? "d1" : "d8";
+
+                const targetSquare =
+                    isWhite ? "c1" : "c8";
+
+                const enemyColor =
+                    isWhite ? "black" : "white";
+
+                if (
+                    isSquareAttackedByColor(
+                        boardState,
+                        kingSquare,
+                        enemyColor
+                    )
+                ) {
+                    return false;
+                }
+
+                if (
+                    isSquareAttackedByColor(
+                        boardState,
+                        middleSquare,
+                        enemyColor
+                    )
+                ) {
+                    return false;
+                }
+
+                if (
+                    isSquareAttackedByColor(
+                        boardState,
+                        targetSquare,
+                        enemyColor
+                    )
+                ) {
+                    return false;
+                }
+
+                return true;
+            }
+
+
+            /* Обычный ход короля */
+
+            return false;
+        }
+
+
+        /* Обычный ход короля */
 
         return (
             absDr <= 1 &&
