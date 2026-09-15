@@ -1,7 +1,7 @@
-
 import asyncio
 import logging
 import os
+import time
 
 import chess
 import psycopg2
@@ -988,6 +988,21 @@ async def handle_square(
         "move:"
     ):
 
+        # ----------------------------------------------------
+        # ОБЩИЙ ТАЙМЕР ВСЕГО ХОДА
+        # ----------------------------------------------------
+
+        move_start_time = time.perf_counter()
+
+        print(
+            "\n"
+            "=================================================="
+        )
+
+        print(
+            "[TIME] MOVE CALLBACK RECEIVED"
+        )
+
         parts = query.data.split(
             ":"
         )
@@ -1094,14 +1109,28 @@ async def handle_square(
 
             return
 
+        # ====================================================
+        # ОТВЕЧАЕМ TELEGRAM
+        # ====================================================
+
+        answer_start_time = time.perf_counter()
+
         asyncio.create_task(
             query.answer(
                 "Ход принят."
             )
         )
+
+        print(
+            "[TIME] query.answer scheduled:",
+            f"{time.perf_counter() - answer_start_time:.3f}s"
+        )
+
         # ====================================================
         # СРАЗУ ДЕЛАЕМ ХОД ИГРОКА
         # ====================================================
+
+        prepare_start_time = time.perf_counter()
 
         try:
 
@@ -1132,6 +1161,11 @@ async def handle_square(
 
             return
 
+        print(
+            "[TIME] prepare_player_move:",
+            f"{time.perf_counter() - prepare_start_time:.3f}s"
+        )
+
         if not result.get(
             "success",
             False
@@ -1160,11 +1194,44 @@ async def handle_square(
         ]
 
         # ====================================================
+        # СОЗДАЁМ НОВУЮ КЛАВИАТУРУ
+        # ====================================================
+
+        keyboard_start_time = time.perf_counter()
+
+        new_keyboard = create_board_keyboard(
+            game
+        )
+
+        print(
+            "[TIME] create_board_keyboard:",
+            f"{time.perf_counter() - keyboard_start_time:.3f}s"
+        )
+
+        # ====================================================
         # СРАЗУ ПОКАЗЫВАЕМ НОВУЮ ДОСКУ
         # ====================================================
 
+        telegram_update_start_time = time.perf_counter()
+
         await query.edit_message_reply_markup(
-            reply_markup=create_board_keyboard(game)
+            reply_markup=new_keyboard
+        )
+
+        telegram_update_time = (
+            time.perf_counter()
+            -
+            telegram_update_start_time
+        )
+
+        print(
+            "[TIME] Telegram board update:",
+            f"{telegram_update_time:.3f}s"
+        )
+
+        print(
+            "[TIME] TOTAL before Stockfish:",
+            f"{time.perf_counter() - move_start_time:.3f}s"
         )
 
         # ====================================================
@@ -1200,6 +1267,15 @@ async def handle_square(
                 None
             )
 
+            print(
+                "[TIME] TOTAL GAME OVER:",
+                f"{time.perf_counter() - move_start_time:.3f}s"
+            )
+
+            print(
+                "==================================================\n"
+            )
+
             return
 
         # ====================================================
@@ -1207,6 +1283,8 @@ async def handle_square(
         #
         # Запускаем в отдельном потоке.
         # ====================================================
+
+        analysis_start_time = time.perf_counter()
 
         try:
 
@@ -1228,6 +1306,17 @@ async def handle_square(
                 "best_move": None,
                 "best_san": None,
             }
+
+        analysis_time = (
+            time.perf_counter()
+            -
+            analysis_start_time
+        )
+
+        print(
+            "[TIME] Stockfish analysis:",
+            f"{analysis_time:.3f}s"
+        )
 
         best_move = analysis_result.get(
             "best_move"
@@ -1294,6 +1383,8 @@ async def handle_square(
         # Тоже запускаем в отдельном потоке.
         # ====================================================
 
+        computer_start_time = time.perf_counter()
+
         try:
 
             computer_result = (
@@ -1307,6 +1398,11 @@ async def handle_square(
             print(
                 "COMPUTER MOVE ERROR:",
                 repr(error)
+            )
+
+            print(
+                "[TIME] Computer move ERROR after:",
+                f"{time.perf_counter() - computer_start_time:.3f}s"
             )
 
             await query.edit_message_text(
@@ -1323,6 +1419,17 @@ async def handle_square(
             )
 
             return
+
+        computer_time = (
+            time.perf_counter()
+            -
+            computer_start_time
+        )
+
+        print(
+            "[TIME] Computer move:",
+            f"{computer_time:.3f}s"
+        )
 
         if computer_result is not None:
 
@@ -1410,6 +1517,15 @@ async def handle_square(
                 None
             )
 
+            print(
+                "[TIME] TOTAL GAME OVER:",
+                f"{time.perf_counter() - move_start_time:.3f}s"
+            )
+
+            print(
+                "==================================================\n"
+            )
+
             return
 
         # ====================================================
@@ -1430,6 +1546,15 @@ async def handle_square(
             reply_markup=create_board_keyboard(
                 game
             )
+        )
+
+        print(
+            "[TIME] TOTAL MOVE:",
+            f"{time.perf_counter() - move_start_time:.3f}s"
+        )
+
+        print(
+            "==================================================\n"
         )
 
         return
