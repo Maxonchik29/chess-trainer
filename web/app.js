@@ -2835,26 +2835,54 @@ function createPositionScreen() {
                 🗑 Удалить эту ошибку
             </button>
 
-        </div>
-
         <div
-            class="mistake-navigation"
-        >
+            id="positionBestMoveInfo"
+            class="position-best-move-info"
+        ></div>
+
+        <div class="position-buttons compact-buttons">
 
             <button
                 type="button"
-                id="previousMistakeButton"
-                class="menu-button"
+                id="showBestMoveButton"
+                class="compact-action-button"
             >
-                ← Предыдущая
+                💡 Лучший ход
             </button>
 
             <button
                 type="button"
-                id="nextMistakeButton"
-                class="menu-button"
+                id="deleteMistakeButton"
+                class="compact-action-button delete-mistake-button"
             >
-                Следующая →
+                🗑 Удалить
+            </button>
+
+        </div>
+
+        <div class="mistake-navigation compact-navigation">
+
+            <button
+                type="button"
+                id="previousMistakeButton"
+                class="navigation-arrow-button"
+            >
+                ←
+            </button>
+
+            <span
+                id="mistakeCounter"
+                class="mistake-counter"
+            >
+                1 / 1
+            </span>
+
+            <button
+                type="button"
+                id="nextMistakeButton"
+                class="navigation-arrow-button"
+            >
+                →
             </button>
 
         </div>

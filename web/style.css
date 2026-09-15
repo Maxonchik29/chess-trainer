@@ -1299,3 +1299,119 @@ and (max-height: 600px) {
     box-shadow:
         inset 0 0 0 4px rgba(180, 120, 0, 0.55);
 }
+
+/* ============================================================
+   КОМПАКТНЫЕ КНОПКИ В "МОИХ ОШИБКАХ"
+============================================================ */
+
+.compact-buttons {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+    margin-top: 12px;
+}
+
+.compact-action-button {
+    width: auto;
+    min-width: 135px;
+    height: 38px;
+
+    padding: 0 14px;
+
+    border: none;
+    border-radius: 9px;
+
+    font-size: 14px;
+    font-weight: 600;
+
+    cursor: pointer;
+    box-sizing: border-box;
+}
+
+.compact-action-button:active {
+    transform: scale(0.97);
+}
+
+.compact-action-button.delete-mistake-button {
+    min-width: 105px;
+}
+
+
+/* ============================================================
+   НАВИГАЦИЯ ПО ОШИБКАМ
+============================================================ */
+
+.compact-navigation {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+
+    gap: 14px;
+
+    margin-top: 10px;
+    margin-bottom: 8px;
+}
+
+.navigation-arrow-button {
+    width: 38px;
+    height: 34px;
+
+    padding: 0;
+
+    border: none;
+    border-radius: 8px;
+
+    font-size: 20px;
+    font-weight: 600;
+
+    cursor: pointer;
+}
+
+.navigation-arrow-button:active {
+    transform: scale(0.94);
+}
+
+.mistake-counter {
+    min-width: 48px;
+
+    text-align: center;
+
+    font-size: 14px;
+    font-weight: 600;
+
+    opacity: 0.75;
+}
+
+
+/* ============================================================
+   КНОПКА НАЗАД
+============================================================ */
+
+.position-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.position-header .menu-button {
+    width: auto;
+    min-width: 70px;
+
+    height: 34px;
+
+    padding: 0 12px;
+
+    font-size: 13px;
+    border-radius: 8px;
+}
+
+
+/* ============================================================
+   НЕ ПОКАЗЫВАЕМ ТЕКСТ "ЛУЧШИЙ ХОД"
+   ПОД ДОСКОЙ
+============================================================ */
+
+.position-best-move-info {
+    display: none;
+}
