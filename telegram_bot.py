@@ -1214,7 +1214,14 @@ async def handle_square(
 
         telegram_update_start_time = time.perf_counter()
 
-        await query.edit_message_reply_markup(
+        await query.edit_message_text(
+
+            board_message(
+                game,
+                f"Ваш ход: {played_san}\n\n"
+                "⏳ Анализирую ход..."
+            ),
+
             reply_markup=new_keyboard
         )
 
