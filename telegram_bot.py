@@ -1,4 +1,5 @@
 
+import asyncio
 import logging
 import os
 
@@ -28,29 +29,23 @@ from app.chess_game import ChessGame
 # ТОКЕН БОТА
 # ============================================================
 
-BOT_TOKEN = os.environ.get("BOT_TOKEN")
+BOT_TOKEN = os.environ.get(
+    "BOT_TOKEN"
+)
 
 
 # ============================================================
 # TELEGRAM MINI APP
 # ============================================================
 
-WEB_APP_URL = "https://chess-trainer-3cni.onrender.com"
+WEB_APP_URL = (
+    "https://chess-trainer-3cni.onrender.com"
+)
 
 
 # ============================================================
 # АДМИНИСТРАТОР
 # ============================================================
-
-# В Render нужно будет добавить:
-#
-# ADMIN_TELEGRAM_ID = твой Telegram ID
-#
-# Например:
-#
-# ADMIN_TELEGRAM_ID=123456789
-#
-# Если переменная не задана, /stats будет недоступна.
 
 ADMIN_TELEGRAM_ID = os.environ.get(
     "ADMIN_TELEGRAM_ID"
@@ -109,31 +104,48 @@ def update_bot_user(
     count_start=False,
     count_game=False
 ):
+
     if not telegram_user:
+
         return False
 
-    telegram_id = telegram_user.get("id")
+    telegram_id = telegram_user.get(
+        "id"
+    )
+
     if not telegram_id:
+
         return False
 
-    telegram_id = safe_int(telegram_id)
+    telegram_id = safe_int(
+        telegram_id
+    )
+
     if telegram_id is None:
+
         return False
 
-    username = telegram_user.get("username")
-    first_name = telegram_user.get("first_name")
+    username = telegram_user.get(
+        "username"
+    )
+
+    first_name = telegram_user.get(
+        "first_name"
+    )
 
     conn = None
 
     try:
+
         conn = get_db_connection()
 
         with conn:
+
             with conn.cursor() as cur:
 
-                # =====================================================
-                # СОЗДАЁМ ПОЛЬЗОВАТЕЛЯ, ЕСЛИ ЕГО ЕЩЁ НЕТ
-                # =====================================================
+                # =================================================
+                # СОЗДАЁМ / ОБНОВЛЯЕМ ПОЛЬЗОВАТЕЛЯ
+                # =================================================
 
                 cur.execute(
                     """
@@ -160,20 +172,22 @@ def update_bot_user(
                     )
                 )
 
-                # =====================================================
-                # УВЕЛИЧИВАЕМ СЧЁТЧИКИ
-                # =====================================================
+                # =================================================
+                # СЧЁТЧИКИ
+                # =================================================
 
                 updates = [
                     "last_seen = NOW()"
                 ]
 
                 if count_start:
+
                     updates.append(
                         "start_count = start_count + 1"
                     )
 
                 if count_game:
+
                     updates.append(
                         "games_count = games_count + 1"
                     )
@@ -185,21 +199,28 @@ def update_bot_user(
                         {", ".join(updates)}
                     WHERE telegram_id = %s
                     """,
-                    (telegram_id,)
+                    (
+                        telegram_id,
+                    )
                 )
 
                 return True
 
     except Exception as error:
+
         print(
             "BOT STATS ERROR:",
             repr(error)
         )
+
         return False
 
     finally:
+
         if conn:
+
             conn.close()
+
 
 # ============================================================
 # ПРОВЕРКА АДМИНИСТРАТОРА
@@ -237,10 +258,6 @@ def get_bot_statistics():
         with conn:
 
             with conn.cursor() as cur:
-
-                # ====================================================
-                # ОБЩАЯ СТАТИСТИКА
-                # ====================================================
 
                 cur.execute(
                     """
@@ -344,8 +361,6 @@ logging.basicConfig(
 
 games = {}
 
-# user_id -> selected square
-
 
 # ============================================================
 # ОСНОВНАЯ КЛАВИАТУРА
@@ -404,26 +419,29 @@ def create_board_keyboard(
     # ВЕРХНИЕ КООРДИНАТЫ
     # ========================================================
 
-    keyboard.append([
+    keyboard.append(
 
-        InlineKeyboardButton(
-            " ",
-            callback_data="noop"
-        ),
+        [
 
-        *[
             InlineKeyboardButton(
-                chr(ord("a") + file),
+                " ",
                 callback_data="noop"
-            )
-            for file in range(8)
-        ],
+            ),
 
-        InlineKeyboardButton(
-            " ",
-            callback_data="noop"
-        ),
-    ])
+            *[
+                InlineKeyboardButton(
+                    chr(ord("a") + file),
+                    callback_data="noop"
+                )
+                for file in range(8)
+            ],
+
+            InlineKeyboardButton(
+                " ",
+                callback_data="noop"
+            ),
+        ]
+    )
 
     # ========================================================
     # ДОСКА
@@ -469,21 +487,25 @@ def create_board_keyboard(
                 ]
 
             # ------------------------------------------------
-            # Выбранная клетка
+            # ВЫБРАННАЯ КЛЕТКА
             # ------------------------------------------------
 
             if selected_square == square:
 
-                text = "🟨" + text
+                text = (
+                    "🟨"
+                    +
+                    text
+                )
 
             # ------------------------------------------------
-            # Callback
+            # CALLBACK
             # ------------------------------------------------
 
             if selected_square is not None:
 
                 callback_data = (
-                    f"move:"
+                    "move:"
                     f"{chess.square_name(selected_square)}:"
                     f"{square_name}"
                 )
@@ -503,7 +525,7 @@ def create_board_keyboard(
             )
 
         # ----------------------------------------------------
-        # Номер горизонтали справа
+        # НОМЕР ГОРИЗОНТАЛИ СПРАВА
         # ----------------------------------------------------
 
         row.append(
@@ -522,38 +544,44 @@ def create_board_keyboard(
     # НИЖНИЕ КООРДИНАТЫ
     # ========================================================
 
-    keyboard.append([
+    keyboard.append(
 
-        InlineKeyboardButton(
-            " ",
-            callback_data="noop"
-        ),
+        [
 
-        *[
             InlineKeyboardButton(
-                chr(ord("a") + file),
+                " ",
                 callback_data="noop"
-            )
-            for file in range(8)
-        ],
+            ),
 
-        InlineKeyboardButton(
-            " ",
-            callback_data="noop"
-        ),
-    ])
+            *[
+                InlineKeyboardButton(
+                    chr(ord("a") + file),
+                    callback_data="noop"
+                )
+                for file in range(8)
+            ],
+
+            InlineKeyboardButton(
+                " ",
+                callback_data="noop"
+            ),
+        ]
+    )
 
     # ========================================================
     # НОВАЯ ПАРТИЯ
     # ========================================================
 
-    keyboard.append([
+    keyboard.append(
 
-        InlineKeyboardButton(
-            "🔄 Новая партия",
-            callback_data="new_game"
-        )
-    ])
+        [
+
+            InlineKeyboardButton(
+                "🔄 Новая партия",
+                callback_data="new_game"
+            )
+        ]
+    )
 
     return InlineKeyboardMarkup(
         keyboard
@@ -600,24 +628,18 @@ async def start(
 
     user = update.effective_user
 
-    # ========================================================
-    # СТАТИСТИКА
-    # ========================================================
-
     if user:
 
         update_bot_user(
+
             {
                 "id": user.id,
                 "username": user.username,
                 "first_name": user.first_name,
             },
+
             count_start=True
         )
-
-    # ========================================================
-    # ПРИВЕТСТВИЕ
-    # ========================================================
 
     await update.message.reply_text(
 
@@ -645,10 +667,6 @@ async def stats(
 
         return
 
-    # ========================================================
-    # ПРОВЕРКА АДМИНИСТРАТОРА
-    # ========================================================
-
     if not is_admin(
         user.id
     ):
@@ -658,10 +676,6 @@ async def stats(
         )
 
         return
-
-    # ========================================================
-    # ПОЛУЧАЕМ СТАТИСТИКУ
-    # ========================================================
 
     try:
 
@@ -689,10 +703,6 @@ async def stats(
         )
 
         return
-
-    # ========================================================
-    # ФОРМИРУЕМ ОТВЕТ
-    # ========================================================
 
     text = (
 
@@ -744,11 +754,13 @@ async def new_game(
     # ========================================================
 
     update_bot_user(
+
         {
             "id": update.effective_user.id,
             "username": update.effective_user.username,
             "first_name": update.effective_user.first_name,
         },
+
         count_game=True
     )
 
@@ -773,10 +785,6 @@ async def new_game(
     )
 
     games[user_id] = game
-
-    # ========================================================
-    # СБРАСЫВАЕМ ВЫБРАННУЮ ФИГУРУ
-    # ========================================================
 
     context.user_data.pop(
         "selected_square",
@@ -810,10 +818,6 @@ async def handle_text(
         update.message.text.strip()
     )
 
-    # ========================================================
-    # НОВАЯ ИГРА
-    # ========================================================
-
     if text == "♟ Играть с компьютером":
 
         await new_game(
@@ -822,10 +826,6 @@ async def handle_text(
         )
 
         return
-
-    # ========================================================
-    # ОБЫЧНЫЙ ТЕКСТ
-    # ========================================================
 
     await update.message.reply_text(
 
@@ -883,16 +883,14 @@ async def handle_square(
 
         games[user_id] = game
 
-        # ----------------------------------------------------
-        # СТАТИСТИКА
-        # ----------------------------------------------------
-
         update_bot_user(
+
             {
                 "id": query.from_user.id,
                 "username": query.from_user.username,
                 "first_name": query.from_user.first_name,
             },
+
             count_game=True
         )
 
@@ -928,10 +926,6 @@ async def handle_square(
 
         board = game.get_board()
 
-        # ----------------------------------------------------
-        # Проверяем ход игрока
-        # ----------------------------------------------------
-
         if not game.is_player_turn():
 
             await query.answer(
@@ -940,10 +934,6 @@ async def handle_square(
             )
 
             return
-
-        # ----------------------------------------------------
-        # Проверяем фигуру
-        # ----------------------------------------------------
 
         piece = board.piece_at(
             square
@@ -965,10 +955,6 @@ async def handle_square(
             )
 
             return
-
-        # ----------------------------------------------------
-        # Показываем выбранную клетку
-        # ----------------------------------------------------
 
         await query.answer(
 
@@ -1113,38 +1099,48 @@ async def handle_square(
         )
 
         # ====================================================
-        # АНАЛИЗ
-        # ====================================================
-
-        await query.edit_message_text(
-
-            board_message(
-                game,
-                "⏳ Анализирую ваш ход..."
-            ),
-
-            reply_markup=create_board_keyboard(
-                game
-            )
-        )
-
-        # ====================================================
-        # ХОД ИГРОКА
+        # СРАЗУ ДЕЛАЕМ ХОД ИГРОКА
         # ====================================================
 
         try:
 
-            result = game.make_player_move(
-                uci_move
+            result = (
+                game.prepare_player_move(
+                    uci_move
+                )
             )
 
-        except ValueError as error:
+        except Exception as error:
+
+            print(
+                "PLAYER MOVE ERROR:",
+                repr(error)
+            )
 
             await query.edit_message_text(
 
                 board_message(
                     game,
-                    f"❌ {error}"
+                    "❌ Ошибка при выполнении хода."
+                ),
+
+                reply_markup=create_board_keyboard(
+                    game
+                )
+            )
+
+            return
+
+        if not result.get(
+            "success",
+            False
+        ):
+
+            await query.edit_message_text(
+
+                board_message(
+                    game,
+                    f"❌ {result.get('error', 'Ошибка')}"
                 ),
 
                 reply_markup=create_board_keyboard(
@@ -1155,38 +1151,42 @@ async def handle_square(
             return
 
         played_san = result[
-            "played_san"
+            "san"
         ]
 
-        best_san = result[
-            "best_san"
+        board_before = result[
+            "board_before"
         ]
-
-        is_best = result[
-            "is_best"
-        ]
-
-        message = (
-
-            f"Ваш ход: {played_san}\n"
-            f"Лучше было: {best_san}"
-        )
-
-        if is_best:
-
-            message += (
-                "\n✓ Лучший ход!"
-            )
 
         # ====================================================
-        # ИГРА ЗАКОНЧИЛАСЬ
+        # СРАЗУ ПОКАЗЫВАЕМ НОВУЮ ДОСКУ
+        # ====================================================
+
+        await query.edit_message_text(
+
+            board_message(
+
+                game,
+
+                f"Ваш ход: {played_san}\n\n"
+                "⏳ Анализирую ваш ход..."
+            ),
+
+            reply_markup=create_board_keyboard(
+                game
+            )
+        )
+
+        # ====================================================
+        # ЕСЛИ ПАРТИЯ ЗАКОНЧИЛАСЬ
         # ====================================================
 
         if result["game_over"]:
 
-            message += (
+            message = (
 
-                "\n\n🏁 Партия закончена.\n"
+                f"Ваш ход: {played_san}\n\n"
+                "🏁 Партия закончена.\n"
                 f"Результат: "
                 f"{game.get_result()}"
             )
@@ -1205,11 +1205,78 @@ async def handle_square(
 
             game.close()
 
-            del games[
-                user_id
-            ]
+            games.pop(
+                user_id,
+                None
+            )
 
             return
+
+        # ====================================================
+        # STOCKFISH АНАЛИЗИРУЕТ ПОЗИЦИЮ ДО ХОДА
+        #
+        # Запускаем в отдельном потоке.
+        # ====================================================
+
+        try:
+
+            analysis_result = await asyncio.to_thread(
+
+                game.analyze_player_move,
+
+                board_before
+            )
+
+        except Exception as error:
+
+            print(
+                "PLAYER ANALYSIS ERROR:",
+                repr(error)
+            )
+
+            analysis_result = {
+                "best_move": None,
+                "best_san": None,
+            }
+
+        best_move = analysis_result.get(
+            "best_move"
+        )
+
+        best_san = analysis_result.get(
+            "best_san"
+        )
+
+        is_best = (
+            best_move == uci_move
+        )
+
+        # ====================================================
+        # ФОРМИРУЕМ РЕЗУЛЬТАТ АНАЛИЗА
+        # ====================================================
+
+        message = (
+
+            f"Ваш ход: {played_san}\n"
+        )
+
+        if best_san:
+
+            message += (
+                f"Лучше было: {best_san}"
+            )
+
+        else:
+
+            message += (
+                "Лучший ход: не определён"
+            )
+
+        if is_best:
+
+            message += (
+                "\n✓ Лучший ход!"
+            )
 
         # ====================================================
         # ХОД КОМПЬЮТЕРА
@@ -1231,11 +1298,62 @@ async def handle_square(
             )
         )
 
-        computer_result = (
-            game.make_computer_move()
-        )
+        # ====================================================
+        # STOCKFISH КОМПЬЮТЕРА
+        #
+        # Тоже запускаем в отдельном потоке.
+        # ====================================================
+
+        try:
+
+            computer_result = (
+                await asyncio.to_thread(
+                    game.make_computer_move
+                )
+            )
+
+        except Exception as error:
+
+            print(
+                "COMPUTER MOVE ERROR:",
+                repr(error)
+            )
+
+            await query.edit_message_text(
+
+                board_message(
+                    game,
+                    message
+                    + "\n\n❌ Ошибка хода компьютера."
+                ),
+
+                reply_markup=create_board_keyboard(
+                    game
+                )
+            )
+
+            return
 
         if computer_result is not None:
+
+            if not computer_result.get(
+                "success",
+                True
+            ):
+
+                await query.edit_message_text(
+
+                    board_message(
+                        game,
+                        message
+                    ),
+
+                    reply_markup=create_board_keyboard(
+                        game
+                    )
+                )
+
+                return
 
             computer_san = (
                 computer_result["san"]
@@ -1244,8 +1362,19 @@ async def handle_square(
             message = (
 
                 f"Ваш ход: {played_san}\n"
-                f"Лучше было: {best_san}"
             )
+
+            if best_san:
+
+                message += (
+                    f"Лучше было: {best_san}"
+                )
+
+            else:
+
+                message += (
+                    "Лучший ход: не определён"
+                )
 
             if is_best:
 
@@ -1286,9 +1415,10 @@ async def handle_square(
 
             game.close()
 
-            del games[
-                user_id
-            ]
+            games.pop(
+                user_id,
+                None
+            )
 
             return
 
@@ -1296,7 +1426,9 @@ async def handle_square(
         # СЛЕДУЮЩИЙ ХОД
         # ====================================================
 
-        message += "\n\nВаш ход."
+        message += (
+            "\n\nВаш ход."
+        )
 
         await query.edit_message_text(
 

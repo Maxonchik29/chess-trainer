@@ -65,7 +65,6 @@ OPENING_LINES = {
     ],
 }
 
-
 # ============================================================
 # ШАХМАТНАЯ ИГРА
 # ============================================================
@@ -269,6 +268,106 @@ class ChessGame:
         )
 
         return result["pv"][0]
+
+    # ========================================================
+    # ПОДГОТОВКА ХОДА ИГРОКА БЕЗ ОЖИДАНИЯ STOCKFISH
+    # ========================================================
+
+    def prepare_player_move(self, uci_move):
+
+        if self.board.turn != self.player_color:
+            return {
+                "success": False,
+                "error": "Сейчас ход компьютера."
+            }
+
+        try:
+            move = chess.Move.from_uci(
+                uci_move
+            )
+        except ValueError:
+            return {
+                "success": False,
+                "error": "Некорректный ход."
+            }
+
+        if move not in self.board.legal_moves:
+            return {
+                "success": False,
+                "error": "Так сходить нельзя."
+            }
+
+        # ----------------------------------------------------
+        # Сохраняем позицию ДО хода.
+        # Именно её потом будет анализировать Stockfish.
+        # ----------------------------------------------------
+
+        board_before = self.board.copy()
+
+        # Проверяем дебютную линию
+        self._check_player_opening_move(
+            move
+        )
+
+        # SAN нужно получить ДО push
+        san = self.board.san(move)
+
+        # ----------------------------------------------------
+        # СРАЗУ ДЕЛАЕМ ХОД
+        # ----------------------------------------------------
+
+        self.board.push(move)
+
+        self.move_history.append(
+            move.uci()
+        )
+
+        return {
+            "success": True,
+            "move": move.uci(),
+            "played_move": move.uci(),
+            "san": san,
+            "board_before": board_before,
+            "fen": self.get_fen(),
+            "legal_moves": self.get_legal_moves(),
+            "player_turn": self.is_player_turn(),
+            "game_over": self.is_game_over(),
+            "status": self.get_status(),
+        }
+
+    # ========================================================
+    # АНАЛИЗ ХОДА ИГРОКА
+    # ========================================================
+
+    def analyze_player_move(
+        self,
+        board_before
+    ):
+
+        if self.engine is None:
+            return {
+                "best_move": None,
+                "best_san": None,
+                "is_best": False,
+            }
+
+        result = self.engine.analyse(
+            board_before,
+            chess.engine.Limit(
+                depth=self.depth
+            )
+        )
+
+        best_move = result["pv"][0]
+
+        best_san = board_before.san(
+            best_move
+        )
+
+        return {
+            "best_move": best_move.uci(),
+            "best_san": best_san,
+        }
 
     # ========================================================
     # ХОД ИГРОКА
