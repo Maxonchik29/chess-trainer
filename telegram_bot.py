@@ -846,6 +846,17 @@ async def handle_square(
 
     query = update.callback_query
 
+    print(
+        "########### NEW HANDLE_SQUARE CODE ###########",
+        flush=True
+    )
+
+    print(
+        "CALLBACK DATA =",
+        query.data,
+        flush=True
+    )
+
     user_id = query.from_user.id
 
     game = games.get(
@@ -987,6 +998,11 @@ async def handle_square(
     if query.data.startswith(
         "move:"
     ):
+
+        print(
+            "########### MOVE BLOCK REACHED ###########",
+            flush=True
+        )
 
         # ----------------------------------------------------
         # ОБЩИЙ ТАЙМЕР ВСЕГО ХОДА
