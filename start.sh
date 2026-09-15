@@ -4,10 +4,20 @@ echo "========================================"
 echo "ЗАПУСК TELEGRAM BOT"
 echo "========================================"
 
+echo "=== PROCESSES BEFORE BOT ==="
+ps aux
+echo "========================================"
+
 python -u telegram_bot.py &
 BOT_PID=$!
 
 echo "Telegram bot PID: $BOT_PID"
+
+sleep 2
+
+echo "=== PROCESSES AFTER BOT START ==="
+ps aux
+echo "========================================"
 
 echo "========================================"
 echo "ЗАПУСК FLASK"
