@@ -2990,6 +2990,65 @@ function createPositionScreen() {
 
 }
 
+/* ============================================================
+   СЧЁТЧИК ОШИБОК
+============================================================ */
+
+function updateMistakeCounter() {
+
+    const counter =
+        document.getElementById(
+            "mistakeCounter"
+        );
+
+    if (!counter) {
+        return;
+    }
+
+    let mistakes = [];
+
+    if (
+        currentMistakeSource ===
+        "mistakes"
+    ) {
+
+        mistakes =
+            myMistakesData;
+
+    } else if (
+        currentAnalysisData &&
+        Array.isArray(
+            currentAnalysisData.mistakes
+        )
+    ) {
+
+        mistakes =
+            currentAnalysisData.mistakes;
+    }
+
+    const current =
+        positionScreen?.currentMistake;
+
+    const index =
+        mistakes.indexOf(
+            current
+        );
+
+    if (
+        index >= 0 &&
+        mistakes.length > 0
+    ) {
+
+        counter.textContent =
+            `${index + 1} / ${mistakes.length}`;
+
+    } else {
+
+        counter.textContent =
+            `— / ${mistakes.length}`;
+    }
+}
+
 
 
 /* ============================================================
@@ -4775,6 +4834,8 @@ function showMistakePosition(
                     ? currentAnalysisData.mistakes.indexOf(mistake)
                     : 0
             );
+            
+    updateMistakeCounter();
 
     positionOrientation =
         getMistakeSide(

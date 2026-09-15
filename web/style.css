@@ -1415,3 +1415,20 @@ and (max-height: 600px) {
 .position-best-move-info {
     display: none;
 }
+
+/* ============================================================
+   КОМПАКТНАЯ ИНФОРМАЦИЯ ОБ ОШИБКЕ
+============================================================ */
+
+.position-info {
+    font-size: 13px;
+    line-height: 1.35;
+}
+
+.position-info div {
+    margin: 2px 0;
+}
+
+.position-info strong {
+    font-size: 13px;
+}
