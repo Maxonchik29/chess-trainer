@@ -376,62 +376,83 @@ class ChessGame:
     def make_player_move(self, uci_move):
 
         if self.board.turn != self.player_color:
+
             return {
                 "success": False,
                 "error": "Сейчас ход компьютера."
             }
 
         try:
+
             move = chess.Move.from_uci(
                 uci_move
             )
+
         except ValueError:
+
             return {
                 "success": False,
                 "error": "Некорректный ход."
             }
 
         if move not in self.board.legal_moves:
+
             return {
                 "success": False,
                 "error": "Так сходить нельзя."
             }
 
-        # Проверяем, не отклонился ли игрок
-        # от выбранной дебютной линии.
+        # ----------------------------------------------------
+        # ПРОВЕРЯЕМ ОТКЛОНЕНИЕ ОТ ДЕБЮТНОЙ ЛИНИИ
+        # ----------------------------------------------------
+
         self._check_player_opening_move(
             move
         )
 
-        # Запоминаем SAN до изменения позиции
-        san = self.board.san(move)
+        # ----------------------------------------------------
+        # SAN ДО ИЗМЕНЕНИЯ ПОЗИЦИИ
+        # ----------------------------------------------------
 
-        # Оценка позиции до хода
-        best_move = self.get_best_move()
+        san = self.board.san(
+            move
+        )
 
-        self.board.push(move)
+        # ----------------------------------------------------
+        # ДЕЛАЕМ ХОД ИГРОКА СРАЗУ
+        # ----------------------------------------------------
+
+        self.board.push(
+            move
+        )
+
         self.move_history.append(
             move.uci()
         )
 
+        # ----------------------------------------------------
+        # ВАЖНО:
+        # Stockfish ЗДЕСЬ НЕ ЗАПУСКАЕМ
+        # ----------------------------------------------------
+
         return {
+
             "success": True,
 
-            "move": move.uci(),
+            "move":
+                move.uci(),
 
-            "played_move": move.uci(),
+            "played_move":
+                move.uci(),
 
-            "san": self.board.peek().uci()
-            if False
-            else None,
+            "san":
+                san,
 
-            "best_move": (
-                best_move.uci()
-                if best_move
-                else None
-            ),
+            "best_move":
+                None,
 
-            "fen": self.get_fen(),
+            "fen":
+                self.get_fen(),
 
             "legal_moves":
                 self.get_legal_moves(),
@@ -445,7 +466,6 @@ class ChessGame:
             "status":
                 self.get_status(),
         }
-
     # ========================================================
     # ХОД КОМПЬЮТЕРА
     # ========================================================

@@ -1210,12 +1210,19 @@ async function makeMove(
     uciMove
 ) {
 
+    /* ========================================================
+       ХОД ИГРОКА
+    ======================================================== */
+
     setMessage(
-        "Проверяем ход..."
+        "Ваш ход принят."
     );
 
-
     try {
+
+        /* ====================================================
+           ОТПРАВЛЯЕМ ХОД ИГРОКА
+        ==================================================== */
 
         const response =
             await fetch(
@@ -1255,7 +1262,6 @@ async function makeMove(
                 "Недопустимый ход."
             );
 
-
             renderBoard();
 
             return;
@@ -1292,46 +1298,17 @@ async function makeMove(
 
 
         /* ====================================================
-           СОХРАНЯЕМ ХОД КОМПЬЮТЕРА
+           СОХРАНЯЕМ ФИНАЛЬНУЮ ПОЗИЦИЮ ПОСЛЕ ХОДА ИГРОКА
         ==================================================== */
 
-        let computerMove =
-            null;
-
-
-        if (
-            data.computer_move
-        ) {
-
-            computerMove = {
-
-                from:
-                    data.computer_move.substring(
-                        0,
-                        2
-                    ),
-
-                to:
-                    data.computer_move.substring(
-                        2,
-                        4
-                    )
-            };
-        }
-
-
-        /* ====================================================
-           СОХРАНЯЕМ ФИНАЛЬНУЮ ПОЗИЦИЮ
-        ==================================================== */
-
-        const finalBoard =
+        const playerBoard =
             fenToBoard(
                 data.fen
             );
 
 
         /* ====================================================
-           СНАЧАЛА ПОКАЗЫВАЕМ ХОД ИГРОКА
+           СРАЗУ ПОКАЗЫВАЕМ ХОД ИГРОКА
         ==================================================== */
 
         if (
@@ -1341,7 +1318,6 @@ async function makeMove(
             lastMove =
                 playerMove;
 
-
             board =
                 JSON.parse(
                     JSON.stringify(
@@ -1349,15 +1325,12 @@ async function makeMove(
                     )
                 );
 
-
             applyLocalMove(
                 board,
                 playerMove
             );
 
-
             renderBoard();
-
 
             await sleep(
                 240
@@ -1366,32 +1339,25 @@ async function makeMove(
 
 
         /* ====================================================
-           ЕСЛИ ИГРА ЗАКОНЧИЛАСЬ ПОСЛЕ ХОДА ИГРОКА
+           ЕСЛИ ИГРА ЗАКОНЧИЛАСЬ
         ==================================================== */
 
         if (
-            !computerMove
+            !data.need_computer_move
         ) {
 
             board =
-                finalBoard;
-
-
-            lastMove =
-                playerMove;
-
+                playerBoard;
 
             playerTurn =
                 Boolean(
                     data.player_turn
                 );
 
-
             gameOver =
                 Boolean(
                     data.game_over
                 );
-
 
             renderBoard();
 
@@ -1407,7 +1373,7 @@ async function makeMove(
             } else {
 
                 setMessage(
-                    `Вы сыграли ${data.played_san}. Лучший ход: ${data.best_san}`
+                    `Вы сыграли ${data.played_san}.`
                 );
             }
 
@@ -1423,12 +1389,99 @@ async function makeMove(
                     `Партия закончена: ${data.status}`
                 );
 
-
                 showGameAnalysisButton();
             }
 
+            return;
+        }
+
+
+        /* ====================================================
+           ТЕПЕРЬ ХОДИТ КОМПЬЮТЕР
+        ==================================================== */
+
+        board =
+            playerBoard;
+
+        playerTurn =
+            false;
+
+        renderBoard();
+
+        setMessage(
+            "⏳ Ход компьютера..."
+        );
+
+
+        /* ====================================================
+           ЗАПРАШИВАЕМ ХОД КОМПЬЮТЕРА
+        ==================================================== */
+
+        const computerResponse =
+            await fetch(
+                "/computer_move",
+                {
+                    method: "POST",
+
+                    headers: {
+                        "Content-Type":
+                            "application/json"
+                    },
+
+                    body:
+                        JSON.stringify({})
+                }
+            );
+
+
+        const computerData =
+            await computerResponse.json();
+
+
+        /* ====================================================
+           ОШИБКА ХОДА КОМПЬЮТЕРА
+        ==================================================== */
+
+        if (
+            !computerResponse.ok ||
+            !computerData.success
+        ) {
+
+            setMessage(
+                computerData.error ||
+                "Ошибка хода компьютера."
+            );
 
             return;
+        }
+
+
+        /* ====================================================
+           СОХРАНЯЕМ ХОД КОМПЬЮТЕРА
+        ==================================================== */
+
+        let computerMove =
+            null;
+
+
+        if (
+            computerData.computer_move
+        ) {
+
+            computerMove = {
+
+                from:
+                    computerData.computer_move.substring(
+                        0,
+                        2
+                    ),
+
+                to:
+                    computerData.computer_move.substring(
+                        2,
+                        4
+                    )
+            };
         }
 
 
@@ -1436,41 +1489,43 @@ async function makeMove(
            ПОКАЗЫВАЕМ ХОД КОМПЬЮТЕРА
         ==================================================== */
 
-        lastMove =
-            computerMove;
-
-
-        applyLocalMove(
-            board,
+        if (
             computerMove
-        );
+        ) {
 
+            lastMove =
+                computerMove;
 
-        renderBoard();
+            applyLocalMove(
+                board,
+                computerMove
+            );
 
+            renderBoard();
 
-        await sleep(
-            240
-        );
+            await sleep(
+                240
+            );
+        }
 
 
         /* ====================================================
-           УСТАНАВЛИВАЕМ НАСТОЯЩУЮ ПОЗИЦИЮ СЕРВЕРА
+           УСТАНАВЛИВАЕМ НАСТОЯЩУЮ ПОЗИЦИЮ С СЕРВЕРА
         ==================================================== */
 
         board =
-            finalBoard;
-
+            fenToBoard(
+                computerData.fen
+            );
 
         playerTurn =
             Boolean(
-                data.player_turn
+                computerData.player_turn
             );
-
 
         gameOver =
             Boolean(
-                data.game_over
+                computerData.game_over
             );
 
 
@@ -1478,7 +1533,7 @@ async function makeMove(
 
 
         /* ====================================================
-           СООБЩЕНИЕ
+           РЕЗУЛЬТАТ
         ==================================================== */
 
         if (
@@ -1492,7 +1547,7 @@ async function makeMove(
         } else {
 
             setMessage(
-                `Вы сыграли ${data.played_san}. Лучший ход: ${data.best_san}`
+                `Вы сыграли ${data.played_san}.`
             );
         }
 
@@ -1509,27 +1564,39 @@ async function makeMove(
         ) {
 
             setMessage(
-                `Партия закончена: ${data.status}`
+                `Партия закончена: ${computerData.status}`
             );
 
-
             showGameAnalysisButton();
+
+            return;
         }
 
-    } catch (error) {
+
+        /* ====================================================
+           СЛЕДУЮЩИЙ ХОД
+        ==================================================== */
+
+        setMessage(
+            `Вы сыграли ${data.played_san}.`
+        );
+
+        updateTurnText();
+
+    } catch (
+        error
+    ) {
 
         console.error(
             "Ошибка хода:",
             error
         );
 
-
         setMessage(
             "Ошибка соединения с сервером."
         );
     }
 }
-
 
 /* ============================================================
    ОЖИДАНИЕ

@@ -701,14 +701,18 @@ def make_move():
     data = request.get_json()
 
     if not data:
+
         return jsonify({
             "success": False,
             "error": "Нет данных."
         }), 400
 
-    uci_move = data.get("move")
+    uci_move = data.get(
+        "move"
+    )
 
     if not uci_move:
+
         return jsonify({
             "success": False,
             "error": "Не указан ход."
@@ -724,82 +728,71 @@ def make_move():
             uci_move
         )
 
-        if not player_result.get("success"):
+        if not player_result.get(
+            "success"
+        ):
+
             return jsonify({
+
                 "success": False,
-                "error": player_result.get(
-                    "error",
-                    "Неверный ход."
-                )
+
+                "error":
+                    player_result.get(
+                        "error",
+                        "Неверный ход."
+                    )
+
             }), 400
 
         # ====================================================
         # ДАННЫЕ ХОДА ИГРОКА
         # ====================================================
 
-        played_move = player_result.get(
-            "played_move"
+        played_move = (
+            player_result.get(
+                "played_move"
+            )
         )
 
         if played_move is None:
+
             played_move = uci_move
 
         if hasattr(
             played_move,
             "uci"
         ):
+
             played_move_uci = (
                 played_move.uci()
             )
+
         else:
+
             played_move_uci = (
                 played_move
             )
 
-        played_san = player_result.get(
-            "san"
+        played_san = (
+            player_result.get(
+                "san"
+            )
         )
 
         if played_san is None:
+
             played_san = ""
 
         # ====================================================
-        # ЛУЧШИЙ ХОД
+        # ПОКА ЛУЧШИЙ ХОД НЕ АНАЛИЗИРУЕМ
         # ====================================================
 
-        best_move = player_result.get(
-            "best_move"
-        )
+        best_move_uci = None
 
-        if best_move is not None:
-
-            if hasattr(
-                best_move,
-                "uci"
-            ):
-                best_move_uci = (
-                    best_move.uci()
-                )
-            else:
-                best_move_uci = (
-                    best_move
-                )
-
-        else:
-            best_move_uci = None
+        is_best = False
 
         # ====================================================
-        # ПРОВЕРЯЕМ, БЫЛ ЛИ ХОД ЛУЧШИМ
-        # ====================================================
-
-        is_best = (
-            best_move_uci is not None
-            and played_move_uci
-            == best_move_uci
-        )
-
-        # ====================================================
-        # ЕСЛИ ИГРА ЗАКОНЧИЛАСЬ
+        # ИГРА ЗАКОНЧИЛАСЬ
         # ====================================================
 
         if player_result.get(
@@ -818,13 +811,13 @@ def make_move():
                     played_san,
 
                 "best_move":
-                    best_move_uci,
+                    None,
 
                 "best_san":
                     None,
 
                 "is_best":
-                    is_best,
+                    False,
 
                 "computer_move":
                     None,
@@ -845,48 +838,17 @@ def make_move():
                     True,
 
                 "status":
-                    game.get_status()
+                    game.get_status(),
+
+                "need_computer_move":
+                    False
             })
 
         # ====================================================
-        # ХОД КОМПЬЮТЕРА
-        # ====================================================
-
-        computer_result = (
-            game.make_computer_move()
-        )
-
-        # ====================================================
-        # ХОД КОМПЬЮТЕРА
-        # ====================================================
-
-        computer_move = None
-        computer_san = None
-
-        if computer_result:
-
-            computer_move = (
-                computer_result.get(
-                    "move"
-                )
-            )
-
-            if hasattr(
-                computer_move,
-                "uci"
-            ):
-                computer_move = (
-                    computer_move.uci()
-                )
-
-            computer_san = (
-                computer_result.get(
-                    "san"
-                )
-            )
-
-        # ====================================================
-        # ФИНАЛЬНЫЙ ОТВЕТ
+        # ВАЖНО:
+        # ЗДЕСЬ НЕ ДЕЛАЕМ ХОД КОМПЬЮТЕРА
+        #
+        # Браузер должен сначала получить ход игрока.
         # ====================================================
 
         return jsonify({
@@ -917,18 +879,131 @@ def make_move():
                 is_best,
 
             # ------------------------------------------------
-            # ХОД КОМПЬЮТЕРА
+            # КОМПЬЮТЕР ПОКА НЕ ХОДИЛ
             # ------------------------------------------------
 
             "computer_move":
+                None,
+
+            "computer_san":
+                None,
+
+            # ------------------------------------------------
+            # ТЕКУЩАЯ ПОЗИЦИЯ
+            # ------------------------------------------------
+
+            "fen":
+                game.get_fen(),
+
+            "legal_moves":
+                game.get_legal_moves(),
+
+            "player_turn":
+                game.is_player_turn(),
+
+            "game_over":
+                game.is_game_over(),
+
+            "status":
+                game.get_status(),
+
+            # ------------------------------------------------
+            # ГОВОРИМ JAVASCRIPT:
+            # НУЖЕН ХОД КОМПЬЮТЕРА
+            # ------------------------------------------------
+
+            "need_computer_move":
+                True
+        })
+
+    except ValueError as e:
+
+        return jsonify({
+
+            "success": False,
+
+            "error":
+                str(e)
+
+        }), 400
+
+    except Exception as e:
+
+        print(
+            "ОШИБКА /move:",
+            repr(e)
+        )
+
+        return jsonify({
+
+            "success": False,
+
+            "error":
+                "Внутренняя ошибка сервера."
+
+        }), 500
+
+@app.route(
+    "/computer_move",
+    methods=["POST"]
+)
+def computer_move():
+
+    try:
+
+        # ====================================================
+        # ХОД КОМПЬЮТЕРА
+        # ====================================================
+
+        computer_result = (
+            game.make_computer_move()
+        )
+
+        computer_move_uci = None
+        computer_san = None
+
+        if computer_result:
+
+            computer_move = (
+                computer_result.get(
+                    "move"
+                )
+            )
+
+            if hasattr(
                 computer_move,
+                "uci"
+            ):
+
+                computer_move_uci = (
+                    computer_move.uci()
+                )
+
+            else:
+
+                computer_move_uci = (
+                    computer_move
+                )
+
+            computer_san = (
+                computer_result.get(
+                    "san"
+                )
+            )
+
+        # ====================================================
+        # ОТВЕТ
+        # ====================================================
+
+        return jsonify({
+
+            "success": True,
+
+            "computer_move":
+                computer_move_uci,
 
             "computer_san":
                 computer_san,
-
-            # ------------------------------------------------
-            # НОВАЯ ПОЗИЦИЯ
-            # ------------------------------------------------
 
             "fen":
                 game.get_fen(),
@@ -946,27 +1021,19 @@ def make_move():
                 game.get_status()
         })
 
-    except ValueError as e:
-
-        return jsonify({
-
-            "success": False,
-            "error": str(e)
-
-        }), 400
-
     except Exception as e:
 
         print(
-            "ОШИБКА /move:",
+            "ОШИБКА /computer_move:",
             repr(e)
         )
 
         return jsonify({
 
             "success": False,
+
             "error":
-                "Внутренняя ошибка сервера."
+                "Ошибка хода компьютера."
 
         }), 500
     
