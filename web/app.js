@@ -2791,7 +2791,7 @@ function createPositionScreen() {
         ></div>
 
 
-       <div
+        <div
             id="positionBoardWrapper"
             class="position-board-wrapper"
         >
@@ -2809,36 +2809,7 @@ function createPositionScreen() {
         </div>
 
 
-        <div
-            id="positionBestMoveInfo"
-            class="position-best-move-info"
-        ></div>
-
-
-        <div
-            class="position-buttons"
-        >
-
-            <button
-                type="button"
-                id="showBestMoveButton"
-                class="menu-button"
-            >
-                💡 Показать лучший ход
-            </button>
-
-            <button
-                type="button"
-                id="deleteMistakeButton"
-                class="menu-button delete-mistake-button"
-            >
-                🗑 Удалить эту ошибку
-            </button>
-
-        <div
-            id="positionBestMoveInfo"
-            class="position-best-move-info"
-        ></div>
+        <!-- Только один блок кнопок -->
 
         <div class="position-buttons compact-buttons">
 
@@ -2859,6 +2830,9 @@ function createPositionScreen() {
             </button>
 
         </div>
+
+
+        <!-- Навигация -->
 
         <div class="mistake-navigation compact-navigation">
 
@@ -2886,7 +2860,9 @@ function createPositionScreen() {
             </button>
 
         </div>
+
     `;
+
 
     document
         .querySelector(".app")
@@ -2894,6 +2870,10 @@ function createPositionScreen() {
             positionScreen
         );
 
+
+    /* ========================================================
+       НАЗАД
+    ======================================================== */
 
     document
         .getElementById(
@@ -2926,6 +2906,10 @@ function createPositionScreen() {
         );
 
 
+    /* ========================================================
+       ЛУЧШИЙ ХОД
+    ======================================================== */
+
     document
         .getElementById(
             "showBestMoveButton"
@@ -2946,6 +2930,11 @@ function createPositionScreen() {
             }
         );
 
+
+    /* ========================================================
+       УДАЛИТЬ ОШИБКУ
+    ======================================================== */
+
     document
         .getElementById(
             "deleteMistakeButton"
@@ -2955,8 +2944,14 @@ function createPositionScreen() {
             () => {
 
                 deleteCurrentMistake();
+
             }
         );
+
+
+    /* ========================================================
+       ПРЕДЫДУЩАЯ ОШИБКА
+    ======================================================== */
 
     document
         .getElementById(
@@ -2969,9 +2964,14 @@ function createPositionScreen() {
                 navigateMistake(
                     -1
                 );
+
             }
         );
 
+
+    /* ========================================================
+       СЛЕДУЮЩАЯ ОШИБКА
+    ======================================================== */
 
     document
         .getElementById(
@@ -2984,9 +2984,12 @@ function createPositionScreen() {
                 navigateMistake(
                     1
                 );
+
             }
         );
+
 }
+
 
 
 /* ============================================================
