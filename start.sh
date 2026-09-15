@@ -5,7 +5,16 @@ echo "ЗАПУСК TELEGRAM BOT"
 echo "========================================"
 
 echo "=== PROCESSES BEFORE BOT ==="
-ps aux
+
+for dir in /proc/[0-9]*; do
+    pid="${dir#/proc/}"
+    if [ -f "$dir/cmdline" ]; then
+        echo "PID $pid:"
+        tr '\0' ' ' < "$dir/cmdline"
+        echo
+    fi
+done
+
 echo "========================================"
 
 python -u telegram_bot.py &
@@ -16,8 +25,15 @@ echo "Telegram bot PID: $BOT_PID"
 sleep 2
 
 echo "=== PROCESSES AFTER BOT START ==="
-ps aux
-echo "========================================"
+
+for dir in /proc/[0-9]*; do
+    pid="${dir#/proc/}"
+    if [ -f "$dir/cmdline" ]; then
+        echo "PID $pid:"
+        tr '\0' ' ' < "$dir/cmdline"
+        echo
+    fi
+done
 
 echo "========================================"
 echo "ЗАПУСК FLASK"
