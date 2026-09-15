@@ -4,7 +4,7 @@ echo "========================================"
 echo "ЗАПУСК TELEGRAM BOT"
 echo "========================================"
 
-python telegram_bot.py &
+python -u telegram_bot.py &
 BOT_PID=$!
 
 echo "Telegram bot PID: $BOT_PID"
