@@ -1211,22 +1211,32 @@ function handleSquareClick(
    ОТПРАВКА ХОДА
 ============================================================ */
 
-async function makeMove(
-    uciMove
-) {
+async function makeMove(uciMove) {
 
-    /* ========================================================
-       ХОД ИГРОКА
-    ======================================================== */
-
-    setMessage(
-        "Ваш ход принят."
-    );
+    setMessage("Ваш ход принят.");
 
     try {
 
+        const user =
+            getTelegramUser();
+
+
+        if (!user) {
+
+            console.error(
+                "Telegram пользователь не определён."
+            );
+
+            setMessage(
+                "Telegram пользователь не определён."
+            );
+
+            return;
+        }
+
+
         /* ====================================================
-           ОТПРАВЛЯЕМ ХОД ИГРОКА
+           ОТПРАВЛЯЕМ ХОД НА СЕРВЕР
         ==================================================== */
 
         const response =
@@ -1242,8 +1252,13 @@ async function makeMove(
 
                     body:
                         JSON.stringify({
+
                             move:
-                                uciMove
+                                uciMove,
+
+                            telegram_user:
+                                user
+
                         })
                 }
             );
@@ -1253,351 +1268,346 @@ async function makeMove(
             await response.json();
 
 
+        if (!response.ok) {
+
+            throw new Error(
+                data.error ||
+                "Ошибка выполнения хода."
+            );
+        }
+
+
+        console.log(
+            "ОТВЕТ /move:",
+            data
+        );
+
+
         /* ====================================================
-           ОШИБКА
+           ХОД НЕПРАВИЛЬНЫЙ
         ==================================================== */
 
         if (
-            !response.ok ||
-            !data.success
+            data.success === false
         ) {
 
             setMessage(
                 data.error ||
-                "Недопустимый ход."
+                "Ход невозможен."
             );
-
-            renderBoard();
 
             return;
         }
 
 
         /* ====================================================
-           СОХРАНЯЕМ ХОД ИГРОКА
+           ОБНОВЛЯЕМ ДОСКУ ПО FEN СЕРВЕРА
         ==================================================== */
 
-        let playerMove =
-            null;
+        if (data.fen) {
 
+            board =
+                fenToBoard(
+                    data.fen
+                );
+        }
+
+
+        /* ====================================================
+           ЗАПОМИНАЕМ ПОСЛЕДНИЙ ХОД
+        ==================================================== */
 
         if (
             data.played_move
         ) {
 
-            playerMove = {
+            lastMove = {
 
                 from:
-                    data.played_move.substring(
-                        0,
-                        2
-                    ),
+                    data.played_move
+                        .substring(0, 2),
 
                 to:
-                    data.played_move.substring(
-                        2,
-                        4
-                    )
+                    data.played_move
+                        .substring(2, 4)
+
+            };
+
+        } else {
+
+            lastMove = {
+
+                from:
+                    uciMove
+                        .substring(0, 2),
+
+                to:
+                    uciMove
+                        .substring(2, 4)
+
             };
         }
 
 
-        /* ====================================================
-           СОХРАНЯЕМ ФИНАЛЬНУЮ ПОЗИЦИЮ ПОСЛЕ ХОДА ИГРОКА
-        ==================================================== */
-
-        const playerBoard =
-            fenToBoard(
-                data.fen
-            );
-
-
-        /* ====================================================
-           СРАЗУ ПОКАЗЫВАЕМ ХОД ИГРОКА
-        ==================================================== */
-
-        if (
-            playerMove
-        ) {
-
-            lastMove =
-                playerMove;
-
-            board =
-                JSON.parse(
-                    JSON.stringify(
-                        board
-                    )
-                );
-
-            applyLocalMove(
-                board,
-                playerMove
-            );
-
-            renderBoard();
-
-            await sleep(
-                240
-            );
-        }
-
-
-        /* ====================================================
-           ЕСЛИ ИГРА ЗАКОНЧИЛАСЬ
-        ==================================================== */
-
-        if (
-            !data.need_computer_move
-        ) {
-
-            board =
-                playerBoard;
-
-            playerTurn =
-                Boolean(
-                    data.player_turn
-                );
-
-            gameOver =
-                Boolean(
-                    data.game_over
-                );
-
-            renderBoard();
-
-
-            if (
-                data.is_best
-            ) {
-
-                setMessage(
-                    `Отлично! ${data.played_san} — лучший ход.`
-                );
-
-            } else {
-
-                setMessage(
-                    `Вы сыграли ${data.played_san}.`
-                );
-            }
-
-
-            updateTurnText();
-
-
-            if (
-                gameOver
-            ) {
-
-                setMessage(
-                    `Партия закончена: ${data.status}`
-                );
-
-                showGameAnalysisButton();
-            }
-
-            return;
-        }
-
-
-        /* ====================================================
-           ТЕПЕРЬ ХОДИТ КОМПЬЮТЕР
-        ==================================================== */
-
-        board =
-            playerBoard;
-
-        playerTurn =
-            false;
-
-        renderBoard();
-
-        setMessage(
-            "⏳ Ход компьютера..."
-        );
-
-
-        /* ====================================================
-           ЗАПРАШИВАЕМ ХОД КОМПЬЮТЕРА
-        ==================================================== */
-
-        const computerResponse =
-            await fetch(
-                "/computer_move",
-                {
-                    method: "POST",
-
-                    headers: {
-                        "Content-Type":
-                            "application/json"
-                    },
-
-                    body:
-                        JSON.stringify({})
-                }
-            );
-
-
-        const computerData =
-            await computerResponse.json();
-
-
-        /* ====================================================
-           ОШИБКА ХОДА КОМПЬЮТЕРА
-        ==================================================== */
-
-        if (
-            !computerResponse.ok ||
-            !computerData.success
-        ) {
-
-            setMessage(
-                computerData.error ||
-                "Ошибка хода компьютера."
-            );
-
-            return;
-        }
-
-
-        /* ====================================================
-           СОХРАНЯЕМ ХОД КОМПЬЮТЕРА
-        ==================================================== */
-
-        let computerMove =
+        selectedSquare =
             null;
 
 
+        /* ====================================================
+           СОСТОЯНИЕ ИГРЫ
+        ==================================================== */
+
         if (
-            computerData.computer_move
+            typeof data.player_turn ===
+            "boolean"
         ) {
 
-            computerMove = {
+            playerTurn =
+                data.player_turn;
+        }
 
-                from:
-                    computerData.computer_move.substring(
-                        0,
-                        2
-                    ),
 
-                to:
-                    computerData.computer_move.substring(
-                        2,
-                        4
-                    )
-            };
+        if (
+            typeof data.game_over ===
+            "boolean"
+        ) {
+
+            gameOver =
+                data.game_over;
         }
 
 
         /* ====================================================
-           ПОКАЗЫВАЕМ ХОД КОМПЬЮТЕРА
+           СООБЩЕНИЕ О ХОДЕ
         ==================================================== */
 
         if (
-            computerMove
-        ) {
-
-            lastMove =
-                computerMove;
-
-            applyLocalMove(
-                board,
-                computerMove
-            );
-
-            renderBoard();
-
-            await sleep(
-                240
-            );
-        }
-
-
-        /* ====================================================
-           УСТАНАВЛИВАЕМ НАСТОЯЩУЮ ПОЗИЦИЮ С СЕРВЕРА
-        ==================================================== */
-
-        board =
-            fenToBoard(
-                computerData.fen
-            );
-
-        playerTurn =
-            Boolean(
-                computerData.player_turn
-            );
-
-        gameOver =
-            Boolean(
-                computerData.game_over
-            );
-
-
-        renderBoard();
-
-
-        /* ====================================================
-           РЕЗУЛЬТАТ
-        ==================================================== */
-
-        if (
-            data.is_best
+            data.played_san
         ) {
 
             setMessage(
-                `Отлично! ${data.played_san} — лучший ход.`
+                `Ваш ход: ${data.played_san}`
+            );
+
+        } else if (
+            data.status
+        ) {
+
+            setMessage(
+                data.status
             );
 
         } else {
 
             setMessage(
-                `Вы сыграли ${data.played_san}.`
+                "Ход выполнен."
             );
         }
 
 
-        updateTurnText();
+        renderBoard();
 
 
         /* ====================================================
-           КОНЕЦ ИГРЫ
+           ИГРА ЗАКОНЧЕНА
         ==================================================== */
 
         if (
             gameOver
         ) {
 
-            setMessage(
-                `Партия закончена: ${computerData.status}`
-            );
-
             showGameAnalysisButton();
+            showGameMistakesButton();
 
             return;
         }
 
 
         /* ====================================================
-           СЛЕДУЮЩИЙ ХОД
+           ХОД КОМПЬЮТЕРА
         ==================================================== */
 
-        setMessage(
-            `Вы сыграли ${data.played_san}.`
-        );
+        if (
+            data.need_computer_move
+        ) {
 
-        updateTurnText();
+            setMessage(
+                "Ход компьютера..."
+            );
 
-    } catch (
-        error
-    ) {
+
+            const computerResponse =
+                await fetch(
+                    "/computer_move",
+                    {
+                        method: "POST",
+
+                        headers: {
+                            "Content-Type":
+                                "application/json"
+                        },
+
+                        body:
+                            JSON.stringify({
+                                telegram_user:
+                                    user
+                            })
+                    }
+                );
+
+
+            const computerData =
+                await computerResponse.json();
+
+
+            if (
+                !computerResponse.ok
+            ) {
+
+                throw new Error(
+                    computerData.error ||
+                    "Ошибка хода компьютера."
+                );
+            }
+
+
+            console.log(
+                "ОТВЕТ /computer_move:",
+                computerData
+            );
+
+
+            /* ================================================
+               ОБНОВЛЯЕМ ДОСКУ
+            ================================================ */
+
+            if (
+                computerData.fen
+            ) {
+
+                board =
+                    fenToBoard(
+                        computerData.fen
+                    );
+            }
+
+
+            /* ================================================
+               ПОСЛЕДНИЙ ХОД КОМПЬЮТЕРА
+            ================================================ */
+
+            if (
+                computerData.played_move
+            ) {
+
+                lastMove = {
+
+                    from:
+                        computerData
+                            .played_move
+                            .substring(0, 2),
+
+                    to:
+                        computerData
+                            .played_move
+                            .substring(2, 4)
+
+                };
+            }
+
+
+            /* ================================================
+               СОСТОЯНИЕ ИГРЫ
+            ================================================ */
+
+            if (
+                typeof computerData.player_turn ===
+                "boolean"
+            ) {
+
+                playerTurn =
+                    computerData.player_turn;
+            }
+
+
+            if (
+                typeof computerData.game_over ===
+                "boolean"
+            ) {
+
+                gameOver =
+                    computerData.game_over;
+            }
+
+
+            selectedSquare =
+                null;
+
+
+            renderBoard();
+
+
+            /* ================================================
+               СООБЩЕНИЕ
+            ================================================ */
+
+            if (
+                computerData.played_san
+            ) {
+
+                setMessage(
+                    `Компьютер: ${computerData.played_san}`
+                );
+
+            } else if (
+                computerData.status
+            ) {
+
+                setMessage(
+                    computerData.status
+                );
+
+            } else if (
+                gameOver
+            ) {
+
+                setMessage(
+                    "Игра окончена."
+                );
+
+            } else {
+
+                setMessage(
+                    "Ваш ход."
+                );
+            }
+
+
+            /* ================================================
+               КОНЕЦ ИГРЫ ПОСЛЕ ХОДА КОМПЬЮТЕРА
+            ================================================ */
+
+            if (
+                gameOver
+            ) {
+
+                showGameAnalysisButton();
+                showGameMistakesButton();
+
+                return;
+            }
+        }
+
+
+    } catch (error) {
 
         console.error(
-            "Ошибка хода:",
+            "Ошибка выполнения хода:",
             error
         );
 
         setMessage(
+            error.message ||
             "Ошибка соединения с сервером."
         );
     }
@@ -1747,7 +1757,6 @@ function showGameAnalysisButton() {
     }
 }
 
-
 /* ============================================================
    АНАЛИЗ ЗАКОНЧЕННОЙ ПАРТИИ
 ============================================================ */
@@ -1778,12 +1787,28 @@ async function analyzeFinishedGame() {
     try {
 
         /* ----------------------------------------------------
+           ПОЛУЧАЕМ TELEGRAM USER
+        ---------------------------------------------------- */
+
+        const user =
+            getTelegramUser();
+
+
+        if (!user) {
+
+            throw new Error(
+                "Не удалось определить Telegram пользователя."
+            );
+        }
+
+
+        /* ----------------------------------------------------
            ПОЛУЧАЕМ PGN ЗАКОНЧЕННОЙ ПАРТИИ
         ---------------------------------------------------- */
 
         const pgnResponse =
             await fetch(
-                "/game_pgn"
+                `/game_pgn?telegram_id=${encodeURIComponent(user.id)}`
             );
 
 
@@ -1816,14 +1841,6 @@ async function analyzeFinishedGame() {
                 "PGN партии пустой."
             );
         }
-
-
-        /* ----------------------------------------------------
-           ПОЛУЧАЕМ TELEGRAM USER
-        ---------------------------------------------------- */
-
-        const user =
-            getTelegramUser();
 
 
         /* ----------------------------------------------------
@@ -2186,11 +2203,23 @@ function showGameMistakesButton() {
 
 async function loadGame() {
 
+    const user =
+        getTelegramUser();
+
+    if (!user) {
+
+        setMessage(
+            "Не удалось определить Telegram пользователя."
+        );
+
+        return;
+    }
+
     try {
 
         const response =
             await fetch(
-                "/game"
+                `/game?telegram_id=${encodeURIComponent(user.id)}`
             );
 
         const data =
@@ -2299,9 +2328,21 @@ if (hintButton) {
 
             try {
 
+                const user =
+                    getTelegramUser();
+
+                if (!user) {
+
+                    setMessage(
+                        "Не удалось определить Telegram пользователя."
+                    );
+
+                    return;
+                }
+
                 const response =
                     await fetch(
-                        "/game"
+                        `/game?telegram_id=${encodeURIComponent(user.id)}`
                     );
 
                 const data =
@@ -2344,11 +2385,34 @@ if (newGameButton) {
 
             try {
 
+                const user =
+                    getTelegramUser();
+
+                if (!user) {
+
+                    setMessage(
+                        "Не удалось определить Telegram пользователя."
+                    );
+
+                    return;
+                }
+
                 const response =
                     await fetch(
                         "/reset",
                         {
-                            method: "POST"
+                            method: "POST",
+
+                            headers: {
+                                "Content-Type":
+                                    "application/json"
+                            },
+
+                            body: JSON.stringify({
+                                player_color: playerColor,
+                                opening: selectedOpening,
+                                telegram_user: user
+                            })
                         }
                     );
 
@@ -2583,6 +2647,18 @@ async function startGame(color) {
     lastMove = null;
     gameOver = false;
 
+    const user =
+        getTelegramUser();
+
+    if (!user) {
+
+        setMessage(
+            "Не удалось определить Telegram пользователя."
+        );
+
+        return;
+    }
+
     try {
 
         const response = await fetch(
@@ -2597,7 +2673,8 @@ async function startGame(color) {
 
                 body: JSON.stringify({
                     player_color: color,
-                    opening: selectedOpening
+                    opening: selectedOpening,
+                    telegram_user: user
                 })
             }
         );
@@ -2709,9 +2786,6 @@ async function startGame(color) {
         );
     }
 }
-
-
-
 
 /* ============================================================
    МЕНЮ → АНАЛИЗ
