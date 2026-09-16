@@ -799,13 +799,6 @@ def make_move():
         data
     )
 
-    print("========================================")
-    print("MOVE REQUEST")
-    print("DATA:", data)
-    print("TELEGRAM ID:", telegram_id)
-    print("CURRENT GAMES:", list(games.keys()))
-    print("========================================")
-    
     if telegram_id is None:
 
         return jsonify({
