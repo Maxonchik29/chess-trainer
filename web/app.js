@@ -179,9 +179,14 @@ const pgnInput =
         "pgnInput"
     );
 
-const analyzeButton =
+const deepAnalysisButton =
     document.getElementById(
-        "analyzeButton"
+        "deepAnalysisButton"
+    );
+
+const generalAnalysisButton =
+    document.getElementById(
+        "generalAnalysisButton"
     );
 
 const analysisMessage =
@@ -5939,587 +5944,702 @@ function renderMyMistakes() {
    АНАЛИЗ PGN
 ============================================================ */
 
-if (analyzeButton) {
+async function startPgnAnalysis(
+    analysisMode
+) {
 
-    analyzeButton.addEventListener(
-        "click",
-        async () => {
-
-            const pgn =
-                pgnInput
-                    ?.value
-                    ?.trim() ||
-                "";
+    const pgn =
+        pgnInput
+            ?.value
+            ?.trim() ||
+        "";
 
 
-            if (!pgn) {
+    /* ========================================================
+       ПРОВЕРЯЕМ PGN
+    ======================================================== */
 
-                if (analysisMessage) {
+    if (!pgn) {
 
-                    analysisMessage.textContent =
-                        "Сначала вставьте PGN партии.";
+        if (analysisMessage) {
+
+            analysisMessage.textContent =
+                "Сначала вставьте PGN партии.";
+        }
+
+        if (analysisResult) {
+
+            analysisResult.classList.add(
+                "hidden"
+            );
+        }
+
+        return;
+    }
+
+
+    /* ========================================================
+       НАЗВАНИЕ РЕЖИМА
+    ======================================================== */
+
+    const modeText =
+        analysisMode === "general"
+            ? "Общий анализ"
+            : "Глубокий анализ";
+
+
+    const thresholdText =
+        analysisMode === "general"
+            ? "150 cp"
+            : "40 cp";
+
+
+    /* ========================================================
+       НАЧАЛО
+    ======================================================== */
+
+    if (analysisMessage) {
+
+        analysisMessage.textContent =
+            `⏳ ${modeText}: запускаем анализ...`;
+    }
+
+
+    if (analysisResult) {
+
+        analysisResult.classList.add(
+            "hidden"
+        );
+
+        analysisResult.innerHTML =
+            "";
+    }
+
+
+    try {
+
+        const user =
+            getTelegramUser();
+
+
+        /* ====================================================
+           ЗАПУСКАЕМ ФОНОВЫЙ АНАЛИЗ
+        ==================================================== */
+
+        const response =
+            await fetch(
+                "/analyze",
+                {
+                    method: "POST",
+
+                    headers: {
+                        "Content-Type":
+                            "application/json"
+                    },
+
+                    body:
+                        JSON.stringify({
+
+                            pgn:
+                                pgn,
+
+                            telegram_user:
+                                user,
+
+                            analysis_mode:
+                                analysisMode
+
+                        })
                 }
+            );
 
-                if (analysisResult) {
 
-                    analysisResult.classList.add(
-                        "hidden"
-                    );
-                }
+        const data =
+            await response.json();
 
-                return;
-            }
 
+        console.log(
+            "========================================"
+        );
+
+        console.log(
+            "ЗАПУСК АНАЛИЗА"
+        );
+
+        console.log(
+            "Режим:",
+            modeText
+        );
+
+        console.log(
+            "Порог:",
+            thresholdText
+        );
+
+        console.log(
+            "Ответ сервера:",
+            data
+        );
+
+        console.log(
+            "========================================"
+        );
+
+
+        if (
+            !response.ok ||
+            !data.success
+        ) {
 
             if (analysisMessage) {
 
                 analysisMessage.textContent =
-                    "⏳ Запускаем анализ...";
+                    data.error ||
+                    "Не удалось запустить анализ.";
             }
 
+            return;
+        }
 
-            if (analysisResult) {
 
-                analysisResult.classList.add(
-                    "hidden"
+        /* ====================================================
+           ПОЛУЧАЕМ ID ЗАДАЧИ
+        ==================================================== */
+
+        const jobId =
+            data.job_id;
+
+
+        if (!jobId) {
+
+            throw new Error(
+                "Сервер не вернул ID задачи анализа."
+            );
+        }
+
+
+        /* ====================================================
+           ЖДЁМ ЗАВЕРШЕНИЯ
+        ==================================================== */
+
+        let result =
+            null;
+
+        let finished =
+            false;
+
+
+        while (
+            !finished
+        ) {
+
+            await new Promise(
+                resolve =>
+                    setTimeout(
+                        resolve,
+                        500
+                    )
+            );
+
+
+            const progressResponse =
+                await fetch(
+                    `/analyze/progress/${jobId}`
+                );
+
+
+            const progressData =
+                await progressResponse.json();
+
+
+            console.log(
+                "Прогресс анализа:",
+                progressData
+            );
+
+
+            if (
+                !progressResponse.ok ||
+                !progressData.success
+            ) {
+
+                throw new Error(
+                    progressData.error ||
+                    "Не удалось получить прогресс анализа."
                 );
             }
 
 
-            try {
+            /* =================================================
+               ПРОГРЕСС
+            ================================================= */
 
-                const user =
-                    getTelegramUser();
-
-
-                /* ------------------------------------------------
-                   ЗАПУСКАЕМ ФОНОВЫЙ АНАЛИЗ
-                ------------------------------------------------ */
-
-                const response =
-                    await fetch(
-                        "/analyze",
-                        {
-                            method: "POST",
-
-                            headers: {
-                                "Content-Type":
-                                    "application/json"
-                            },
-
-                            body:
-                                JSON.stringify({
-
-                                    pgn:
-                                        pgn,
-
-                                    telegram_user:
-                                        user
-
-                                })
-                        }
-                    );
-
-
-                const data =
-                    await response.json();
-
-
-                console.log(
-                    "Запуск анализа:",
-                    data
+            const progress =
+                Number(
+                    progressData.progress
                 );
 
 
-                if (
-                    !response.ok ||
-                    !data.success
-                ) {
+            if (
+                Number.isFinite(progress)
+            ) {
 
-                    if (analysisMessage) {
-
-                        analysisMessage.textContent =
-                            data.error ||
-                            "Не удалось запустить анализ.";
-                    }
-
-                    return;
-                }
-
-
-                /* ------------------------------------------------
-                   ПОЛУЧАЕМ ID ЗАДАЧИ
-                ------------------------------------------------ */
-
-                const jobId =
-                    data.job_id;
-
-
-                if (!jobId) {
-
-                    throw new Error(
-                        "Сервер не вернул ID задачи анализа."
-                    );
-                }
-
-
-                /* ------------------------------------------------
-                   ЖДЁМ ЗАВЕРШЕНИЯ ФОНОВОГО АНАЛИЗА
-                ------------------------------------------------ */
-
-                let result = null;
-
-                let finished = false;
-
-
-                while (!finished) {
-
-                    await new Promise(
-                        resolve =>
-                            setTimeout(
-                                resolve,
-                                500
+                const safeProgress =
+                    Math.max(
+                        0,
+                        Math.min(
+                            100,
+                            Math.round(
+                                progress
                             )
+                        )
                     );
 
 
-                    const progressResponse =
-                        await fetch(
-                            `/analyze/progress/${jobId}`
-                        );
+                if (analysisMessage) {
 
-
-                    const progressData =
-                        await progressResponse.json();
-
-
-                    console.log(
-                        "Прогресс анализа:",
-                        progressData
-                    );
-
-
-                    if (
-                        !progressResponse.ok ||
-                        !progressData.success
-                    ) {
-
-                        throw new Error(
-                            progressData.error ||
-                            "Не удалось получить прогресс анализа."
-                        );
-                    }
-
-
-                    /* ------------------------------------------------
-                       ПОКАЗЫВАЕМ ПРОГРЕСС
-                    ------------------------------------------------ */
-
-                    const progress =
-                        Number(
-                            progressData.progress
-                        );
-
-
-                    if (
-                        Number.isFinite(progress)
-                    ) {
-
-                        const safeProgress =
-                            Math.max(
-                                0,
-                                Math.min(
-                                    100,
-                                    Math.round(
-                                        progress
-                                    )
-                                )
-                            );
-
-
-                        if (analysisMessage) {
-
-                            analysisMessage.textContent =
-                                `⏳ Анализируем партию... ${safeProgress}%`;
-                        }
-                    }
-
-
-                    /* ------------------------------------------------
-                       ПРОВЕРЯЕМ СТАТУС
-                    ------------------------------------------------ */
-
-                    if (
-                        progressData.status ===
-                        "completed"
-                    ) {
-
-                        result =
-                            progressData.result;
-
-                        finished =
-                            true;
-
-                        break;
-                    }
-
-
-                    if (
-                        progressData.status ===
-                        "error"
-                    ) {
-
-                        throw new Error(
-                            progressData.error ||
-                            "Ошибка фонового анализа."
-                        );
-                    }
+                    analysisMessage.textContent =
+                        `⏳ ${modeText} (${thresholdText})... ${safeProgress}%`;
                 }
+            }
 
 
-                /* ------------------------------------------------
-                   ПРОВЕРЯЕМ РЕЗУЛЬТАТ
-                ------------------------------------------------ */
+            /* =================================================
+               ЗАВЕРШЕНО
+            ================================================= */
 
-                if (!result) {
+            if (
+                progressData.status ===
+                "completed"
+            ) {
 
-                    throw new Error(
-                        "Анализ завершён, но результат не получен."
-                    );
-                }
+                result =
+                    progressData.result;
+
+                finished =
+                    true;
+
+                break;
+            }
 
 
-                console.log(
-                    "Результат анализа:",
-                    result
+            /* =================================================
+               ОШИБКА
+            ================================================= */
+
+            if (
+                progressData.status ===
+                "error"
+            ) {
+
+                throw new Error(
+                    progressData.error ||
+                    "Ошибка фонового анализа."
                 );
+            }
+        }
 
 
-                /* ------------------------------------------------
-                   СОХРАНЯЕМ РЕЗУЛЬТАТ
-                ------------------------------------------------ */
+        /* ====================================================
+           ПРОВЕРЯЕМ РЕЗУЛЬТАТ
+        ==================================================== */
 
-                currentAnalysisData =
-                    result;
+        if (!result) {
 
-
-                currentMistakeSource =
-                    "analysis";
-
-
-                let html = "";
+            throw new Error(
+                "Анализ завершён, но результат не получен."
+            );
+        }
 
 
-                /* ------------------------------------------------
-                   ОСНОВНАЯ ИНФОРМАЦИЯ
-                ------------------------------------------------ */
-
-                html += `
-                    <div
-                        class="analysis-summary"
-                    >
-
-                        <h3>
-                            Результат анализа
-                        </h3>
-
-                        <p>
-                            <strong>
-                                Белые:
-                            </strong>
-                            ${
-                                result.white ||
-                                "—"
-                            }
-                        </p>
-
-                        <p>
-                            <strong>
-                                Чёрные:
-                            </strong>
-                            ${
-                                result.black ||
-                                "—"
-                            }
-                        </p>
-
-                        <p>
-                            <strong>
-                                Результат:
-                            </strong>
-                            ${
-                                result.result ||
-                                "—"
-                            }
-                        </p>
-
-                        <p>
-                            <strong>
-                                Точность:
-                            </strong>
-                            ${
-                                result.accuracy ??
-                                "—"
-                            }
-                        </p>
-
-                    </div>
-                `;
+        console.log(
+            "Результат анализа:",
+            result
+        );
 
 
-                /* ------------------------------------------------
-                   ОШИБКИ
-                ------------------------------------------------ */
+        /* ====================================================
+           СОХРАНЯЕМ РЕЗУЛЬТАТ
+        ==================================================== */
 
-                if (
-                    !result.mistakes ||
-                    result.mistakes.length === 0
-                ) {
+        currentAnalysisData =
+            result;
+
+
+        currentMistakeSource =
+            "analysis";
+
+
+        let html =
+            "";
+
+
+        /* ====================================================
+           ОСНОВНАЯ ИНФОРМАЦИЯ
+        ==================================================== */
+
+        html += `
+            <div
+                class="analysis-summary"
+            >
+
+                <h3>
+                    ${modeText}
+                </h3>
+
+                <p>
+                    <strong>
+                        Порог ошибок:
+                    </strong>
+                    ${thresholdText}
+                </p>
+
+                <p>
+                    <strong>
+                        Белые:
+                    </strong>
+                    ${
+                        result.white ||
+                        "—"
+                    }
+                </p>
+
+                <p>
+                    <strong>
+                        Чёрные:
+                    </strong>
+                    ${
+                        result.black ||
+                        "—"
+                    }
+                </p>
+
+                <p>
+                    <strong>
+                        Результат:
+                    </strong>
+                    ${
+                        result.result ||
+                        "—"
+                    }
+                </p>
+
+                <p>
+                    <strong>
+                        Точность:
+                    </strong>
+                    ${
+                        result.accuracy ??
+                        "—"
+                    }
+                </p>
+
+            </div>
+        `;
+
+
+        /* ====================================================
+           ОШИБКИ
+        ==================================================== */
+
+        if (
+            !result.mistakes ||
+            result.mistakes.length === 0
+        ) {
+
+            html += `
+                <div
+                    class="analysis-empty"
+                >
+
+                    <strong>
+                        Ошибок не найдено.
+                    </strong>
+
+                    <p>
+                        В этом режиме не найдено
+                        ошибок с потерей
+                        от ${thresholdText}.
+                    </p>
+
+                </div>
+            `;
+
+        } else {
+
+            html += `
+                <div
+                    class="mistakes-list"
+                >
+
+                    <h3>
+                        Найденные ошибки:
+                    </h3>
+            `;
+
+
+            result.mistakes.forEach(
+                (
+                    mistake,
+                    index
+                ) => {
+
+                    const moveNumber =
+                        mistake.move_number ??
+                        mistake.move ??
+                        (
+                            index + 1
+                        );
+
+
+                    const playedSan =
+                        mistake.played_move_san ??
+                        mistake.played_san ??
+                        mistake.move_san ??
+                        "—";
+
+
+                    const bestSan =
+                        mistake.best_move_san ??
+                        mistake.best_san ??
+                        mistake.best_move ??
+                        "—";
+
+
+                    const loss =
+                        mistake.loss ??
+                        mistake.evaluation_loss ??
+                        null;
+
 
                     html += `
                         <div
-                            class="analysis-empty"
+                            class="mistake-card"
                         >
 
-                            <strong>
-                                Ошибок не найдено.
-                            </strong>
+                            <div>
+                                <strong>
+                                    Ход ${moveNumber}
+                                </strong>
+                            </div>
+
+                            <div>
+                                Сыграно:
+                                <strong>
+                                    ${playedSan}
+                                </strong>
+                            </div>
+
+                            <div>
+                                Лучший ход:
+                                <strong>
+                                    ${bestSan}
+                                </strong>
+                            </div>
+
+                            ${
+                                loss !== null
+                                    ? `
+                                        <div>
+                                            Потеря:
+                                            <strong>
+                                                ${loss}
+                                            </strong>
+                                        </div>
+                                    `
+                                    : ""
+                            }
+
+                            <button
+                                type="button"
+                                class="show-analysis-mistake-button"
+                                data-analysis-mistake-index="${index}"
+                            >
+                                Показать позицию
+                            </button>
 
                         </div>
                     `;
-
-                } else {
-
-                    html += `
-                        <div
-                            class="mistakes-list"
-                        >
-
-                            <h3>
-                                Найденные ошибки:
-                            </h3>
-                    `;
+                }
+            );
 
 
-                    result.mistakes.forEach(
-                        (
-                            mistake,
-                            index
-                        ) => {
+            html += `
+                </div>
+            `;
+        }
 
-                            const moveNumber =
-                                mistake.move_number ??
-                                mistake.move ??
-                                (
-                                    index + 1
+
+        /* ====================================================
+           СТАТИСТИКА
+        ==================================================== */
+
+        if (
+            result.statistics
+        ) {
+
+            html += `
+                <div
+                    class="analysis-statistics"
+                >
+
+                    <h3>
+                        Статистика
+                    </h3>
+
+                    <pre>${JSON.stringify(
+                        result.statistics,
+                        null,
+                        2
+                    )}</pre>
+
+                </div>
+            `;
+        }
+
+
+        /* ====================================================
+           ПОКАЗЫВАЕМ РЕЗУЛЬТАТ
+        ==================================================== */
+
+        if (analysisResult) {
+
+            analysisResult.innerHTML =
+                html;
+
+            analysisResult.classList.remove(
+                "hidden"
+            );
+        }
+
+
+        /* ====================================================
+           КНОПКИ "ПОКАЗАТЬ ПОЗИЦИЮ"
+        ==================================================== */
+
+        const analysisMistakeButtons =
+            analysisResult
+                ?.querySelectorAll(
+                    ".show-analysis-mistake-button"
+                );
+
+
+        if (
+            analysisMistakeButtons
+        ) {
+
+            analysisMistakeButtons.forEach(
+                button => {
+
+                    button.addEventListener(
+                        "click",
+                        () => {
+
+                            const index =
+                                Number(
+                                    button.dataset
+                                        .analysisMistakeIndex
                                 );
 
 
-                            const playedSan =
-                                mistake.played_move_san ??
-                                mistake.played_san ??
-                                mistake.move_san ??
-                                "—";
+                            const mistake =
+                                result.mistakes[
+                                    index
+                                ];
 
 
-                            const bestSan =
-                                mistake.best_move_san ??
-                                mistake.best_san ??
-                                "—";
+                            if (
+                                !mistake
+                            ) {
+
+                                return;
+                            }
 
 
-                            const loss =
-                                mistake.loss ??
-                                mistake.evaluation_loss ??
-                                null;
+                            currentMistakeSource =
+                                "analysis";
 
 
-                            html += `
-                                <div
-                                    class="mistake-card"
-                                >
-
-                                    <div>
-                                        <strong>
-                                            Ход ${moveNumber}
-                                        </strong>
-                                    </div>
-
-                                    <div>
-                                        Сыграно:
-                                        <strong>
-                                            ${playedSan}
-                                        </strong>
-                                    </div>
-
-                                    <div>
-                                        Лучший ход:
-                                        <strong>
-                                            ${bestSan}
-                                        </strong>
-                                    </div>
-
-                                    ${
-                                        loss !== null
-                                            ? `
-                                                <div>
-                                                    Потеря:
-                                                    <strong>
-                                                        ${loss}
-                                                    </strong>
-                                                </div>
-                                            `
-                                            : ""
-                                    }
-
-                                    <button
-                                        type="button"
-                                        class="show-analysis-mistake-button"
-                                        data-analysis-mistake-index="${index}"
-                                    >
-                                        Показать позицию
-                                    </button>
-
-                                </div>
-                            `;
-                        }
-                    );
-
-
-                    html += `
-                        </div>
-                    `;
-                }
-
-
-                /* ------------------------------------------------
-                   СТАТИСТИКА
-                ------------------------------------------------ */
-
-                if (
-                    result.statistics
-                ) {
-
-                    html += `
-                        <div
-                            class="analysis-statistics"
-                        >
-
-                            <h3>
-                                Статистика
-                            </h3>
-
-                            <pre>${JSON.stringify(
-                                result.statistics,
-                                null,
-                                2
-                            )}</pre>
-
-                        </div>
-                    `;
-                }
-
-
-                /* ------------------------------------------------
-                   ПОКАЗЫВАЕМ РЕЗУЛЬТАТ
-                ------------------------------------------------ */
-
-                if (analysisResult) {
-
-                    analysisResult.innerHTML =
-                        html;
-
-                    analysisResult.classList.remove(
-                        "hidden"
-                    );
-                }
-
-
-                /* ------------------------------------------------
-                   КНОПКИ ПОЗИЦИЙ
-                ------------------------------------------------ */
-
-                const analysisMistakeButtons =
-                    analysisResult
-                        ?.querySelectorAll(
-                            ".show-analysis-mistake-button"
-                        );
-
-
-                if (
-                    analysisMistakeButtons
-                ) {
-
-                    analysisMistakeButtons.forEach(
-                        button => {
-
-                            button.addEventListener(
-                                "click",
-                                () => {
-
-                                    const index =
-                                        Number(
-                                            button.dataset
-                                                .analysisMistakeIndex
-                                        );
-
-
-                                    const mistake =
-                                        result.mistakes[
-                                            index
-                                        ];
-
-
-                                    if (
-                                        !mistake
-                                    ) {
-                                        return;
-                                    }
-
-
-                                    currentMistakeSource =
-                                        "analysis";
-
-
-                                    showMistakePosition(
-                                        mistake
-                                    );
-                                }
+                            showMistakePosition(
+                                mistake
                             );
                         }
                     );
                 }
+            );
+        }
 
 
-                if (analysisMessage) {
+        /* ====================================================
+           ЗАВЕРШЕНИЕ
+        ==================================================== */
 
-                    analysisMessage.textContent =
-                        `✅ Анализ завершён. Найдено ошибок: ${
-                            result.mistakes
-                                ?.length || 0
-                        }`;
-                }
+        if (analysisMessage) {
+
+            analysisMessage.textContent =
+                `✅ ${modeText} завершён. Найдено ошибок: ${
+                    result.mistakes
+                        ?.length || 0
+                }`;
+        }
+
+    } catch (error) {
+
+        console.error(
+            "Ошибка анализа:",
+            error
+        );
 
 
-            } catch (error) {
+        if (analysisMessage) {
 
-                console.error(
-                    "Ошибка анализа:",
-                    error
-                );
+            analysisMessage.textContent =
+                `❌ Ошибка анализа: ${error.message}`;
+        }
+    }
+}
 
 
-                if (analysisMessage) {
+/* ============================================================
+   КНОПКА — ГЛУБОКИЙ АНАЛИЗ
+============================================================ */
 
-                    analysisMessage.textContent =
-                        `❌ Ошибка анализа: ${error.message}`;
-                }
-            }
+if (
+    deepAnalysisButton
+) {
+
+    deepAnalysisButton.addEventListener(
+        "click",
+        () => {
+
+            startPgnAnalysis(
+                "deep"
+            );
+
         }
     );
 }
 
 
+/* ============================================================
+   КНОПКА — ОБЩИЙ АНАЛИЗ
+============================================================ */
+
+if (
+    generalAnalysisButton
+) {
+
+    generalAnalysisButton.addEventListener(
+        "click",
+        () => {
+
+            startPgnAnalysis(
+                "general"
+            );
+
+        }
+    );
+}
 
 /* ============================================================
    ИЗМЕНЕНИЕ РАЗМЕРА ДОСКИ ПОЗИЦИИ

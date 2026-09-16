@@ -1239,7 +1239,8 @@ def run_analysis_job(
     pgn_text,
     telegram_user,
     start_move,
-    end_move
+    end_move,
+    mistake_threshold
 ):
 
     try:
@@ -1317,7 +1318,8 @@ def run_analysis_job(
             parsed_game,
             start_move=start_move,
             end_move=end_move,
-            progress_callback=progress_callback
+            progress_callback=progress_callback,
+            mistake_threshold=mistake_threshold
         )
 
         # ==================================================
@@ -1504,6 +1506,17 @@ def run_analysis_job(
 
             "success": True,
 
+            "analysis_mode":
+                "general"
+                if mistake_threshold >= 150
+                else "deep",
+
+            "mistake_threshold":
+                mistake_threshold,
+
+            "saved_to_database":
+                saved_to_database,
+
             "saved_to_database":
                 saved_to_database,
 
@@ -1664,10 +1677,24 @@ def analyze_pgn():
         # НАЧАЛЬНЫЙ ХОД
         # ==================================================
 
-        start_move = data.get(
-            "start_move",
-            1
+        start_move = safe_int(
+            data.get("start_move")
         )
+
+        if start_move is None:
+            start_move = 1
+
+        end_move = data.get("end_move")
+
+        analysis_mode = data.get(
+            "analysis_mode",
+            "deep"
+        )
+
+        if analysis_mode == "general":
+            mistake_threshold = 150
+        else:
+            mistake_threshold = 40
 
         try:
 
@@ -1810,7 +1837,9 @@ def analyze_pgn():
 
                 start_move,
 
-                end_move
+                end_move,
+
+                mistake_threshold
 
             ),
 

@@ -842,8 +842,35 @@ def analyze_game(
     game,
     start_move=1,
     end_move=None,
-    progress_callback=None
+    progress_callback=None,
+    mistake_threshold=None
 ):
+
+    # ======================================================
+    # ПОРОГ ОШИБКИ ДЛЯ ТЕКУЩЕГО РЕЖИМА
+    # ======================================================
+
+    if mistake_threshold is None:
+        mistake_threshold = MISTAKE_THRESHOLD
+
+    try:
+        mistake_threshold = int(
+            mistake_threshold
+        )
+    except (
+        TypeError,
+        ValueError
+    ):
+        mistake_threshold = MISTAKE_THRESHOLD
+
+    if mistake_threshold < 0:
+        mistake_threshold = MISTAKE_THRESHOLD
+
+    print(
+        "ПОРОГ ОШИБКИ:",
+        mistake_threshold,
+        "cp"
+    )
 
     # ======================================================
     # ЗАЩИТА ОТ ПУСТОЙ ПАРТИИ
@@ -2015,7 +2042,7 @@ def analyze_game(
         # ПРОВЕРКА НА ОШИБКУ
         # ==================================================
 
-        if loss >= MISTAKE_THRESHOLD:
+        if loss >= mistake_threshold:
 
             print(
                 "!!! IF LOSS СРАБОТАЛ !!!"

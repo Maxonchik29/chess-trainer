@@ -385,12 +385,35 @@
    ></textarea>
 
    ```
-        <button
-            id="analyzeButton"
-            class="button analyze-button"
-        >
-            🔍 Анализировать партию
-        </button>
+        <div class="analysis-mode-title">
+            Выберите режим анализа
+        </div>
+
+        <div class="analysis-mode-buttons">
+
+            <button
+                id="deepAnalysisButton"
+                class="button analyze-button"
+                type="button"
+            >
+                🔬 Глубокий анализ
+                <span class="analysis-mode-description">
+                    Ошибки от 40 cp
+                </span>
+            </button>
+
+            <button
+                id="generalAnalysisButton"
+                class="button analyze-button secondary"
+                type="button"
+            >
+                📊 Общий анализ
+                <span class="analysis-mode-description">
+                    Ошибки от 150 cp
+                </span>
+            </button>
+
+        </div>
 
     </div>
 
