@@ -11,9 +11,9 @@ import uuid
 
 import psycopg2
 
-
 from app.chess_game import ChessGame
 from app.analysis import analyze_game, make_json_safe
+
 
 # ==========================================================
 # ЗАДАЧИ АНАЛИЗА
@@ -22,6 +22,7 @@ from app.analysis import analyze_game, make_json_safe
 ANALYSIS_JOBS = {}
 
 ANALYSIS_JOBS_LOCK = threading.Lock()
+
 
 # ============================================================
 # НАСТРОЙКИ
@@ -108,6 +109,141 @@ def safe_text(value):
 
 
 # ============================================================
+# ============================================================
+# ИГРЫ TELEGRAM-ПОЛЬЗОВАТЕЛЕЙ
+# ============================================================
+# ============================================================
+#
+# РАНЬШЕ:
+#
+# game = ChessGame(...)
+#
+# Была ОДНА игра на весь сервер.
+#
+# Теперь:
+#
+# games = {
+#     telegram_id: ChessGame(...)
+# }
+#
+# У каждого Telegram пользователя своя игра.
+# ============================================================
+
+games = {}
+
+
+# ============================================================
+# БЛОКИРОВКА ДОСТУПА К GAMES
+# ============================================================
+
+GAMES_LOCK = threading.Lock()
+
+
+# ============================================================
+# ПОЛУЧИТЬ TELEGRAM ID
+# ============================================================
+
+def get_telegram_id_from_data(data):
+
+    if not data:
+        return None
+
+    telegram_user = data.get(
+        "telegram_user"
+    )
+
+    if not telegram_user:
+        return None
+
+    if not isinstance(
+        telegram_user,
+        dict
+    ):
+        return None
+
+    telegram_id = telegram_user.get(
+        "id"
+    )
+
+    return safe_int(
+        telegram_id
+    )
+
+
+# ============================================================
+# ПОЛУЧИТЬ TELEGRAM USER
+# ============================================================
+
+def get_telegram_user_from_data(data):
+
+    if not data:
+        return None
+
+    telegram_user = data.get(
+        "telegram_user"
+    )
+
+    if not isinstance(
+        telegram_user,
+        dict
+    ):
+        return None
+
+    return telegram_user
+
+
+# ============================================================
+# ПОЛУЧИТЬ ИГРУ ПОЛЬЗОВАТЕЛЯ
+# ============================================================
+
+def get_user_game(telegram_id):
+
+    telegram_id = safe_int(
+        telegram_id
+    )
+
+    if telegram_id is None:
+        return None
+
+    with GAMES_LOCK:
+
+        return games.get(
+            telegram_id
+        )
+
+
+# ============================================================
+# СОЗДАТЬ ИЛИ ПОЛУЧИТЬ ИГРУ
+# ============================================================
+
+def get_or_create_user_game(
+    telegram_id
+):
+
+    telegram_id = safe_int(
+        telegram_id
+    )
+
+    if telegram_id is None:
+        return None
+
+    with GAMES_LOCK:
+
+        if telegram_id not in games:
+
+            print(
+                "Создаём новую игру для Telegram ID:",
+                telegram_id
+            )
+
+            games[telegram_id] = ChessGame(
+                player_color=chess.WHITE
+            )
+
+        return games[telegram_id]
+
+
+# ============================================================
 # СТАТИСТИКА TELEGRAM-БОТА
 # ============================================================
 
@@ -117,10 +253,6 @@ def update_bot_user(
     count_game=False,
     count_mini_app=False
 ):
-
-    # --------------------------------------------------------
-    # ПРОВЕРЯЕМ TELEGRAM USER
-    # --------------------------------------------------------
 
     if not telegram_user:
 
@@ -160,10 +292,6 @@ def update_bot_user(
 
             with conn.cursor() as cur:
 
-                # ====================================================
-                # СОЗДАЁМ ПОЛЬЗОВАТЕЛЯ, ЕСЛИ ЕГО ЕЩЁ НЕТ
-                # ====================================================
-
                 cur.execute(
                     """
                     INSERT INTO public.bot_users
@@ -190,10 +318,6 @@ def update_bot_user(
                         first_name
                     )
                 )
-
-                # ====================================================
-                # ОБНОВЛЯЕМ СЧЁТЧИКИ
-                # ====================================================
 
                 updates = []
 
@@ -261,10 +385,6 @@ def save_analysis_to_database(
     mistakes
 ):
 
-    # --------------------------------------------------------
-    # ПРОВЕРЯЕМ TELEGRAM USER
-    # --------------------------------------------------------
-
     if not telegram_user:
 
         print(
@@ -289,10 +409,6 @@ def save_analysis_to_database(
         "username"
     )
 
-    # --------------------------------------------------------
-    # ПОДКЛЮЧАЕМСЯ К SUPABASE
-    # --------------------------------------------------------
-
     conn = get_db_connection()
 
     try:
@@ -300,10 +416,6 @@ def save_analysis_to_database(
         with conn:
 
             with conn.cursor() as cur:
-
-                # ====================================================
-                # USERS
-                # ====================================================
 
                 cur.execute(
                     """
@@ -337,10 +449,6 @@ def save_analysis_to_database(
                     )
 
                 user_id = user_row[0]
-
-                # ====================================================
-                # GAMES
-                # ====================================================
 
                 game_result = (
                     parsed_game.headers.get(
@@ -382,17 +490,9 @@ def save_analysis_to_database(
 
                 game_id = game_row[0]
 
-                # ====================================================
-                # MISTAKES
-                # ====================================================
-
                 saved_count = 0
 
                 for mistake in mistakes:
-
-                    # ------------------------------------------------
-                    # НОМЕР ХОДА
-                    # ------------------------------------------------
 
                     move_number = (
                         mistake.get(
@@ -403,17 +503,9 @@ def save_analysis_to_database(
                         )
                     )
 
-                    # ------------------------------------------------
-                    # FEN
-                    # ------------------------------------------------
-
                     fen = mistake.get(
                         "position_fen"
                     )
-
-                    # ------------------------------------------------
-                    # СЫГРАННЫЙ ХОД
-                    # ------------------------------------------------
 
                     played_move = (
                         mistake.get(
@@ -430,10 +522,6 @@ def save_analysis_to_database(
                         )
                     )
 
-                    # ------------------------------------------------
-                    # ЛУЧШИЙ ХОД
-                    # ------------------------------------------------
-
                     best_move = (
                         mistake.get(
                             "best_move"
@@ -445,10 +533,6 @@ def save_analysis_to_database(
                             "move_best"
                         )
                     )
-
-                    # ------------------------------------------------
-                    # ОЦЕНКА ДО ХОДА
-                    # ------------------------------------------------
 
                     evaluation_before = (
                         mistake.get(
@@ -472,10 +556,6 @@ def save_analysis_to_database(
                             )
                         )
 
-                    # ------------------------------------------------
-                    # ОЦЕНКА ПОСЛЕ ХОДА
-                    # ------------------------------------------------
-
                     evaluation_after = (
                         mistake.get(
                             "position_evaluation_after"
@@ -490,10 +570,6 @@ def save_analysis_to_database(
                             )
                         )
 
-                    # ------------------------------------------------
-                    # LOSS
-                    # ------------------------------------------------
-
                     loss = mistake.get(
                         "loss"
                     )
@@ -504,19 +580,11 @@ def save_analysis_to_database(
                             "evaluation_loss"
                         )
 
-                    # ------------------------------------------------
-                    # ОБЪЯСНЕНИЕ
-                    # ------------------------------------------------
-
                     explanation = (
                         mistake.get(
                             "explanation"
                         )
                     )
-
-                    # ------------------------------------------------
-                    # СОХРАНЯЕМ ОШИБКУ
-                    # ------------------------------------------------
 
                     cur.execute(
                         """
@@ -598,16 +666,12 @@ def save_analysis_to_database(
 
 
 # ============================================================
-# ИГРА
+# HEALTH
 # ============================================================
-
-game = ChessGame(
-    player_color=chess.WHITE
-)
-
 
 @app.route("/health")
 def health():
+
     return "OK", 200
 
 
@@ -669,6 +733,30 @@ def track_activity():
 )
 def get_game():
 
+    telegram_id = safe_int(
+        request.args.get(
+            "telegram_id"
+        )
+    )
+
+    if telegram_id is None:
+
+        return jsonify({
+            "success": False,
+            "error": "Telegram ID не передан."
+        }), 400
+
+    game = get_or_create_user_game(
+        telegram_id
+    )
+
+    if game is None:
+
+        return jsonify({
+            "success": False,
+            "error": "Не удалось получить игру."
+        }), 500
+
     return jsonify({
 
         "fen":
@@ -703,13 +791,39 @@ def get_game():
 )
 def make_move():
 
-    data = request.get_json()
+    data = request.get_json(
+        silent=True
+    ) or {}
 
-    if not data:
+    telegram_id = get_telegram_id_from_data(
+        data
+    )
+
+    print("========================================")
+    print("MOVE REQUEST")
+    print("DATA:", data)
+    print("TELEGRAM ID:", telegram_id)
+    print("CURRENT GAMES:", list(games.keys()))
+    print("========================================")
+    
+    if telegram_id is None:
 
         return jsonify({
             "success": False,
-            "error": "Нет данных."
+            "error": "Telegram ID не передан."
+        }), 400
+
+    game = get_user_game(
+        telegram_id
+    )
+
+    if game is None:
+
+        return jsonify({
+            "success": False,
+            "error":
+                "Игра пользователя не найдена. "
+                "Сначала начните новую партию."
         }), 400
 
     uci_move = data.get(
@@ -724,10 +838,6 @@ def make_move():
         }), 400
 
     try:
-
-        # ====================================================
-        # ХОД ИГРОКА
-        # ====================================================
 
         player_result = game.make_player_move(
             uci_move
@@ -748,10 +858,6 @@ def make_move():
                     )
 
             }), 400
-
-        # ====================================================
-        # ДАННЫЕ ХОДА ИГРОКА
-        # ====================================================
 
         played_move = (
             player_result.get(
@@ -788,17 +894,9 @@ def make_move():
 
             played_san = ""
 
-        # ====================================================
-        # ПОКА ЛУЧШИЙ ХОД НЕ АНАЛИЗИРУЕМ
-        # ====================================================
-
         best_move_uci = None
 
         is_best = False
-
-        # ====================================================
-        # ИГРА ЗАКОНЧИЛАСЬ
-        # ====================================================
 
         if player_result.get(
             "game_over",
@@ -849,30 +947,15 @@ def make_move():
                     False
             })
 
-        # ====================================================
-        # ВАЖНО:
-        # ЗДЕСЬ НЕ ДЕЛАЕМ ХОД КОМПЬЮТЕРА
-        #
-        # Браузер должен сначала получить ход игрока.
-        # ====================================================
-
         return jsonify({
 
             "success": True,
-
-            # ------------------------------------------------
-            # ХОД ИГРОКА
-            # ------------------------------------------------
 
             "played_move":
                 played_move_uci,
 
             "played_san":
                 played_san,
-
-            # ------------------------------------------------
-            # ЛУЧШИЙ ХОД
-            # ------------------------------------------------
 
             "best_move":
                 best_move_uci,
@@ -883,19 +966,11 @@ def make_move():
             "is_best":
                 is_best,
 
-            # ------------------------------------------------
-            # КОМПЬЮТЕР ПОКА НЕ ХОДИЛ
-            # ------------------------------------------------
-
             "computer_move":
                 None,
 
             "computer_san":
                 None,
-
-            # ------------------------------------------------
-            # ТЕКУЩАЯ ПОЗИЦИЯ
-            # ------------------------------------------------
 
             "fen":
                 game.get_fen(),
@@ -911,11 +986,6 @@ def make_move():
 
             "status":
                 game.get_status(),
-
-            # ------------------------------------------------
-            # ГОВОРИМ JAVASCRIPT:
-            # НУЖЕН ХОД КОМПЬЮТЕРА
-            # ------------------------------------------------
 
             "need_computer_move":
                 True
@@ -948,17 +1018,45 @@ def make_move():
 
         }), 500
 
+
+# ============================================================
+# ХОД КОМПЬЮТЕРА
+# ============================================================
+
 @app.route(
     "/computer_move",
     methods=["POST"]
 )
 def computer_move():
 
-    try:
+    data = request.get_json(
+        silent=True
+    ) or {}
 
-        # ====================================================
-        # ХОД КОМПЬЮТЕРА
-        # ====================================================
+    telegram_id = get_telegram_id_from_data(
+        data
+    )
+
+    if telegram_id is None:
+
+        return jsonify({
+            "success": False,
+            "error": "Telegram ID не передан."
+        }), 400
+
+    game = get_user_game(
+        telegram_id
+    )
+
+    if game is None:
+
+        return jsonify({
+            "success": False,
+            "error":
+                "Игра пользователя не найдена."
+        }), 400
+
+    try:
 
         computer_result = (
             game.make_computer_move()
@@ -995,10 +1093,6 @@ def computer_move():
                     "san"
                 )
             )
-
-        # ====================================================
-        # ОТВЕТ
-        # ====================================================
 
         return jsonify({
 
@@ -1041,21 +1135,34 @@ def computer_move():
                 "Ошибка хода компьютера."
 
         }), 500
-    
+
+
 # ============================================================
 # НОВАЯ ПАРТИЯ
 # ============================================================
 
-@app.route("/reset", methods=["POST"])
+@app.route(
+    "/reset",
+    methods=["POST"]
+)
 def reset_game():
-    global game
+
+    data = request.get_json(
+        silent=True
+    ) or {}
+
+    telegram_id = get_telegram_id_from_data(
+        data
+    )
+
+    if telegram_id is None:
+
+        return jsonify({
+            "success": False,
+            "error": "Telegram ID не передан."
+        }), 400
 
     try:
-        data = request.get_json(silent=True) or {}
-
-        # ====================================================
-        # СТОРОНА ИГРОКА
-        # ====================================================
 
         player_color = data.get(
             "player_color",
@@ -1063,20 +1170,18 @@ def reset_game():
         )
 
         if player_color == "black":
-            color = chess.BLACK
-        else:
-            color = chess.WHITE
 
-        # ====================================================
-        # ВЫБРАННЫЙ ДЕБЮТ
-        # ====================================================
+            color = chess.BLACK
+
+        else:
+
+            color = chess.WHITE
 
         opening = data.get(
             "opening",
             "none"
         )
 
-        # Защита от неизвестного значения
         allowed_openings = {
             "none",
             "french",
@@ -1088,34 +1193,59 @@ def reset_game():
         }
 
         if opening not in allowed_openings:
+
             opening = "none"
 
         print(
             "Новая партия:",
+            "telegram_id =", telegram_id,
             "player_color =", player_color,
             "opening =", opening
         )
 
         # ====================================================
-        # ЗАКРЫВАЕМ СТАРУЮ ИГРУ
+        # ЗАБИРАЕМ СТАРУЮ ИГРУ
         # ====================================================
 
-        try:
-            game.close()
-        except Exception as error:
-            print(
-                "Не удалось закрыть старую игру:",
-                repr(error)
+        old_game = None
+
+        with GAMES_LOCK:
+
+            old_game = games.get(
+                telegram_id
             )
+
+        # ====================================================
+        # ЗАКРЫВАЕМ ТОЛЬКО ИГРУ ЭТОГО ПОЛЬЗОВАТЕЛЯ
+        # ====================================================
+
+        if old_game is not None:
+
+            try:
+
+                old_game.close()
+
+            except Exception as error:
+
+                print(
+                    "Не удалось закрыть старую игру:",
+                    repr(error)
+                )
 
         # ====================================================
         # СОЗДАЁМ НОВУЮ ИГРУ
         # ====================================================
 
-        game = ChessGame(
+        new_game = ChessGame(
             player_color=color,
             opening=opening
         )
+
+        with GAMES_LOCK:
+
+            games[telegram_id] = new_game
+
+        game = new_game
 
         computer_result = None
 
@@ -1131,24 +1261,58 @@ def reset_game():
             )
 
         # ====================================================
+        # УВЕЛИЧИВАЕМ СЧЁТЧИК ИГР
+        # ====================================================
+
+        telegram_user = data.get(
+            "telegram_user"
+        )
+
+        if telegram_user:
+
+            update_bot_user(
+                telegram_user,
+                count_game=True
+            )
+
+        # ====================================================
         # ОТВЕТ
         # ====================================================
 
         return jsonify({
+
             "success": True,
-            "fen": game.get_fen(),
-            "legal_moves": game.get_legal_moves(),
-            "player_turn": game.is_player_turn(),
-            "game_over": game.is_game_over(),
-            "status": game.get_status(),
-            "player_color": player_color,
-            "opening": game.opening,
-            "opening_active": game.opening_active,
+
+            "fen":
+                game.get_fen(),
+
+            "legal_moves":
+                game.get_legal_moves(),
+
+            "player_turn":
+                game.is_player_turn(),
+
+            "game_over":
+                game.is_game_over(),
+
+            "status":
+                game.get_status(),
+
+            "player_color":
+                player_color,
+
+            "opening":
+                game.opening,
+
+            "opening_active":
+                game.opening_active,
+
             "computer_move": (
                 computer_result.get("move")
                 if computer_result
                 else None
             ),
+
             "computer_san": (
                 computer_result.get("san")
                 if computer_result
@@ -1164,9 +1328,14 @@ def reset_game():
         )
 
         return jsonify({
+
             "success": False,
-            "error": str(error)
+
+            "error":
+                str(error)
+
         }), 500
+
 
 # ============================================================
 # ПОЛУЧИТЬ PGN ТЕКУЩЕЙ ПАРТИИ
@@ -1178,6 +1347,31 @@ def reset_game():
 )
 def get_game_pgn():
 
+    telegram_id = safe_int(
+        request.args.get(
+            "telegram_id"
+        )
+    )
+
+    if telegram_id is None:
+
+        return jsonify({
+            "success": False,
+            "error": "Telegram ID не передан."
+        }), 400
+
+    game = get_user_game(
+        telegram_id
+    )
+
+    if game is None:
+
+        return jsonify({
+            "success": False,
+            "error":
+                "Игра пользователя не найдена."
+        }), 404
+
     try:
 
         pgn = game.get_pgn()
@@ -1186,7 +1380,8 @@ def get_game_pgn():
 
             "success": True,
 
-            "pgn": pgn,
+            "pgn":
+                pgn,
 
             "result":
                 game.get_result(),
@@ -1211,6 +1406,7 @@ def get_game_pgn():
                 "Не удалось получить PGN."
 
         }), 500
+
 
 # ==========================================================
 # ОБНОВЛЕНИЕ ПРОГРЕССА АНАЛИЗА
@@ -1267,10 +1463,6 @@ def run_analysis_job(
             "========================================"
         )
 
-        # ==================================================
-        # ЧИТАЕМ PGN
-        # ==================================================
-
         pgn_file = io.StringIO(
             pgn_text
         )
@@ -1295,10 +1487,6 @@ def run_analysis_job(
 
             return
 
-        # ==================================================
-        # CALLBACK ПРОГРЕССА
-        # ==================================================
-
         def progress_callback(
             progress
         ):
@@ -1307,10 +1495,6 @@ def run_analysis_job(
                 job_id,
                 progress
             )
-
-        # ==================================================
-        # АНАЛИЗ
-        # ==================================================
 
         (
             mistakes,
@@ -1326,10 +1510,6 @@ def run_analysis_job(
             progress_callback=progress_callback,
             mistake_threshold=mistake_threshold
         )
-
-        # ==================================================
-        # ПОЗИЦИИ ХОДОВ
-        # ==================================================
 
         board = parsed_game.board()
 
@@ -1355,25 +1535,26 @@ def run_analysis_job(
 
             move_positions.append({
 
-                "move_number": move_number,
+                "move_number":
+                    move_number,
 
-                "side": side,
+                "side":
+                    side,
 
-                "uci": move.uci(),
+                "uci":
+                    move.uci(),
 
-                "san": played_san,
+                "san":
+                    played_san,
 
-                "fen": fen_before
+                "fen":
+                    fen_before
 
             })
 
             board.push(
                 move
             )
-
-        # ==================================================
-        # ДОБАВЛЯЕМ ПОЗИЦИИ К ОШИБКАМ
-        # ==================================================
 
         for mistake in mistakes:
 
@@ -1472,10 +1653,6 @@ def run_analysis_job(
                     played_uci
                 )
 
-        # ==================================================
-        # СОХРАНЕНИЕ В БД
-        # ==================================================
-
         saved_to_database = False
 
         try:
@@ -1503,10 +1680,6 @@ def run_analysis_job(
                 count_analysis=True
             )
 
-        # ==================================================
-        # ФИНАЛЬНЫЙ РЕЗУЛЬТАТ
-        # ==================================================
-
         result = {
 
             "success": True,
@@ -1518,9 +1691,6 @@ def run_analysis_job(
 
             "mistake_threshold":
                 mistake_threshold,
-
-            "saved_to_database":
-                saved_to_database,
 
             "saved_to_database":
                 saved_to_database,
@@ -1571,10 +1741,6 @@ def run_analysis_job(
         result = make_json_safe(
             result
         )
-
-        # ==================================================
-        # СОХРАНЯЕМ РЕЗУЛЬТАТ ЗАДАЧИ
-        # ==================================================
 
         with ANALYSIS_JOBS_LOCK:
 
@@ -1641,6 +1807,7 @@ def run_analysis_job(
                     "error"
                 ] = str(e)
 
+
 # ==========================================================
 # ЗАПУСК АНАЛИЗА ПАРТИИ
 # ==========================================================
@@ -1678,18 +1845,13 @@ def analyze_pgn():
                 "error": "PGN пустой."
             }), 400
 
-        # ==================================================
-        # НАЧАЛЬНЫЙ ХОД
-        # ==================================================
-
         start_move = safe_int(
             data.get("start_move")
         )
 
         if start_move is None:
-            start_move = 1
 
-        end_move = data.get("end_move")
+            start_move = 1
 
         analysis_mode = data.get(
             "analysis_mode",
@@ -1697,8 +1859,11 @@ def analyze_pgn():
         )
 
         if analysis_mode == "general":
+
             mistake_threshold = 150
+
         else:
+
             mistake_threshold = 40
 
         try:
@@ -1713,10 +1878,6 @@ def analyze_pgn():
         ):
 
             start_move = 1
-
-        # ==================================================
-        # КОНЕЧНЫЙ ХОД
-        # ==================================================
 
         end_move = data.get(
             "end_move"
@@ -1744,10 +1905,6 @@ def analyze_pgn():
             ):
 
                 end_move = None
-
-        # ==================================================
-        # ПРОВЕРЯЕМ PGN ДО ЗАПУСКА ПОТОКА
-        # ==================================================
 
         pgn_file = io.StringIO(
             pgn_text
@@ -1798,17 +1955,9 @@ def analyze_pgn():
             "========================================"
         )
 
-        # ==================================================
-        # СОЗДАЁМ ID ЗАДАЧИ
-        # ==================================================
-
         job_id = str(
             uuid.uuid4()
         )
-
-        # ==================================================
-        # СОЗДАЁМ ЗАДАЧУ
-        # ==================================================
 
         with ANALYSIS_JOBS_LOCK:
 
@@ -1823,10 +1972,6 @@ def analyze_pgn():
                 "error": None
 
             }
-
-        # ==================================================
-        # ЗАПУСКАЕМ АНАЛИЗ В ФОНОВОМ ПОТОКЕ
-        # ==================================================
 
         thread = threading.Thread(
 
@@ -1854,15 +1999,12 @@ def analyze_pgn():
 
         thread.start()
 
-        # ==================================================
-        # СРАЗУ ОТВЕЧАЕМ БРАУЗЕРУ
-        # ==================================================
-
         return jsonify({
 
             "success": True,
 
-            "job_id": job_id
+            "job_id":
+                job_id
 
         })
 
@@ -1877,9 +2019,11 @@ def analyze_pgn():
 
             "success": False,
 
-            "error": str(e)
+            "error":
+                str(e)
 
         }), 500
+
 
 # ==========================================================
 # ПРОГРЕСС АНАЛИЗА
@@ -1928,10 +2072,6 @@ def analyze_progress(
 
         }
 
-        # ==================================================
-        # АНАЛИЗ ЗАКОНЧЕН
-        # ==================================================
-
         if job.get(
             "status"
         ) == "completed":
@@ -1941,10 +2081,6 @@ def analyze_progress(
             ] = job.get(
                 "result"
             )
-
-        # ==================================================
-        # ОШИБКА
-        # ==================================================
 
         elif job.get(
             "status"
@@ -1960,6 +2096,7 @@ def analyze_progress(
         return jsonify(
             response
         )
+
 
 # ============================================================
 # ПОЛУЧИТЬ МОИ ОШИБКИ
@@ -2119,6 +2256,7 @@ def get_mistakes():
 
         conn.close()
 
+
 # ============================================================
 # УДАЛИТЬ МОЮ ОШИБКУ
 # ============================================================
@@ -2179,10 +2317,6 @@ def delete_mistake(mistake_id):
 
             with conn.cursor() as cur:
 
-                # ====================================================
-                # УДАЛЯЕМ ТОЛЬКО ОШИБКУ ТЕКУЩЕГО ПОЛЬЗОВАТЕЛЯ
-                # ====================================================
-
                 cur.execute(
                     """
                     DELETE FROM public.mistakes
@@ -2201,10 +2335,6 @@ def delete_mistake(mistake_id):
 
                 deleted = cur.rowcount
 
-        # ========================================================
-        # ОШИБКА НЕ НАЙДЕНА
-        # ========================================================
-
         if deleted == 0:
 
             return jsonify({
@@ -2212,10 +2342,6 @@ def delete_mistake(mistake_id):
                 "error":
                     "Ошибка не найдена."
             }), 404
-
-        # ========================================================
-        # УСПЕШНО
-        # ========================================================
 
         print(
             "DB: Ошибка удалена.",
@@ -2256,24 +2382,19 @@ def delete_mistake(mistake_id):
 
             conn.close()
 
+
 # ============================================================
 # ЗАПУСК
 # ============================================================
 
 if __name__ == "__main__":
 
-    try:
+    app.run(
 
-        app.run(
+        host="0.0.0.0",
 
-            host="0.0.0.0",
+        port=5000,
 
-            port=5000,
+        debug=True
 
-            debug=True
-
-        )
-
-    finally:
-
-        game.close()
+    )
