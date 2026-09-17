@@ -6022,6 +6022,25 @@ async function startPgnAnalysis(
     analysisMode
 ) {
 
+    console.log(
+        "=== START PGN ANALYSIS ==="
+    );
+
+    const user =
+        getTelegramUser();
+
+    console.log(
+        "Telegram user:",
+        user
+    );
+
+    if (analysisMessage) {
+
+        analysisMessage.textContent =
+            "Запуск анализа...";
+
+    }
+
     const pgn =
         pgnInput
             ?.value
@@ -6050,7 +6069,6 @@ async function startPgnAnalysis(
 
         return;
     }
-
 
     /* ========================================================
        НАЗВАНИЕ РЕЖИМА
