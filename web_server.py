@@ -1340,6 +1340,12 @@ def reset_game():
 )
 def get_game_pgn():
 
+    print("========================================")
+    print("GAME_PGN REQUEST")
+    print("ARGS:", request.args)
+    print("TELEGRAM ID RAW:", request.args.get("telegram_id"))
+    print("========================================")
+
     telegram_id = safe_int(
         request.args.get(
             "telegram_id"
