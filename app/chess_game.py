@@ -1,7 +1,9 @@
+
 import os
 
 import chess
 import chess.engine
+import chess.pgn
 
 
 ENGINE_DEPTH = 12
@@ -10,6 +12,7 @@ if os.name == "nt":
     ENGINE_PATH = "engine/stockfish.exe"
 else:
     ENGINE_PATH = "/usr/games/stockfish"
+
 
 # ============================================================
 # ДЕБЮТНЫЕ ЛИНИИ
@@ -65,6 +68,7 @@ OPENING_LINES = {
     ],
 }
 
+
 # ============================================================
 # ШАХМАТНАЯ ИГРА
 # ============================================================
@@ -99,7 +103,9 @@ class ChessGame:
     # ========================================================
 
     def reset(self):
+
         self.board = chess.Board()
+
         self.move_history = []
 
         self.opening_line = OPENING_LINES.get(
@@ -116,9 +122,12 @@ class ChessGame:
     # ========================================================
 
     def close(self):
+
         if self.engine:
+
             try:
                 self.engine.quit()
+
             except Exception:
                 pass
 
@@ -129,13 +138,133 @@ class ChessGame:
     # ========================================================
 
     def get_fen(self):
+
         return self.board.fen()
+
+    # ========================================================
+    # PGN
+    # ========================================================
+
+    def get_pgn(self):
+        """
+        Возвращает текущую партию в формате PGN.
+
+        Используется маршрутом /game_pgn для получения
+        законченной партии перед запуском анализа.
+        """
+
+        game = chess.pgn.Game()
+
+        # ----------------------------------------------------
+        # ЗАГОЛОВКИ PGN
+        # ----------------------------------------------------
+
+        game.headers["Event"] = "Chess Trainer"
+
+        if self.player_color == chess.WHITE:
+
+            game.headers["White"] = "Player"
+            game.headers["Black"] = "Computer"
+
+        else:
+
+            game.headers["White"] = "Computer"
+            game.headers["Black"] = "Player"
+
+        game.headers["Result"] = self.get_result()
+
+        # ----------------------------------------------------
+        # ДОБАВЛЯЕМ ВСЕ ХОДЫ
+        # ----------------------------------------------------
+
+        node = game
+
+        for move in self.board.move_stack:
+
+            node = node.add_variation(move)
+
+        # ----------------------------------------------------
+        # Возвращаем PGN строкой
+        # ----------------------------------------------------
+
+        return str(game)
+
+    # ========================================================
+    # РЕЗУЛЬТАТ ПАРТИИ
+    # ========================================================
+
+    def get_result(self):
+        """
+        Возвращает результат партии в формате PGN:
+
+        1-0      — победа белых
+        0-1      — победа чёрных
+        1/2-1/2  — ничья
+        *        — партия ещё продолжается
+        """
+
+        # ----------------------------------------------------
+        # Мат
+        # ----------------------------------------------------
+
+        if self.board.is_checkmate():
+
+            if self.board.turn == chess.WHITE:
+                return "0-1"
+
+            return "1-0"
+
+        # ----------------------------------------------------
+        # Пат
+        # ----------------------------------------------------
+
+        if self.board.is_stalemate():
+            return "1/2-1/2"
+
+        # ----------------------------------------------------
+        # Недостаточно материала
+        # ----------------------------------------------------
+
+        if self.board.is_insufficient_material():
+            return "1/2-1/2"
+
+        # ----------------------------------------------------
+        # Правило 50 ходов
+        # ----------------------------------------------------
+
+        if self.board.is_fifty_moves():
+            return "1/2-1/2"
+
+        # ----------------------------------------------------
+        # Пятикратное повторение
+        # ----------------------------------------------------
+
+        if self.board.is_fivefold_repetition():
+            return "1/2-1/2"
+
+        # ----------------------------------------------------
+        # Другие случаи окончания
+        # ----------------------------------------------------
+
+        if self.board.is_game_over(
+            claim_draw=True
+        ):
+            return self.board.result(
+                claim_draw=True
+            )
+
+        # ----------------------------------------------------
+        # Партия ещё продолжается
+        # ----------------------------------------------------
+
+        return "*"
 
     # ========================================================
     # ЛЕГАЛЬНЫЕ ХОДЫ
     # ========================================================
 
     def get_legal_moves(self):
+
         return [
             move.uci()
             for move in self.board.legal_moves
@@ -146,6 +275,7 @@ class ChessGame:
     # ========================================================
 
     def is_player_turn(self):
+
         return (
             self.board.turn == self.player_color
         )
@@ -155,6 +285,7 @@ class ChessGame:
     # ========================================================
 
     def is_game_over(self):
+
         return self.board.is_game_over()
 
     # ========================================================
@@ -167,6 +298,7 @@ class ChessGame:
 
             if self.board.turn == self.player_color:
                 return "Вы проиграли"
+
             else:
                 return "Вы победили"
 
@@ -196,11 +328,17 @@ class ChessGame:
         if not self.opening_active:
             return None
 
-        move_number = len(self.move_history)
+        move_number = len(
+            self.move_history
+        )
 
         # Вся линия уже закончилась
-        if move_number >= len(self.opening_line):
+        if move_number >= len(
+            self.opening_line
+        ):
+
             self.opening_active = False
+
             return None
 
         # Проверяем, что история партии полностью
@@ -208,23 +346,39 @@ class ChessGame:
         for index, played_move in enumerate(
             self.move_history
         ):
-            if played_move != self.opening_line[index]:
+
+            if (
+                played_move
+                != self.opening_line[index]
+            ):
+
                 self.opening_active = False
+
                 return None
 
-        expected_uci = self.opening_line[move_number]
+        expected_uci = (
+            self.opening_line[
+                move_number
+            ]
+        )
 
         try:
+
             move = chess.Move.from_uci(
                 expected_uci
             )
+
         except ValueError:
+
             self.opening_active = False
+
             return None
 
         # Ход из дебютной линии должен быть легальным
         if move not in self.board.legal_moves:
+
             self.opening_active = False
+
             return None
 
         return move
@@ -233,20 +387,34 @@ class ChessGame:
     # ПРОВЕРКА ХОДА ИГРОКА ОТНОСИТЕЛЬНО ДЕБЮТА
     # ========================================================
 
-    def _check_player_opening_move(self, move):
+    def _check_player_opening_move(
+        self,
+        move
+    ):
 
         if not self.opening_active:
             return
 
-        move_number = len(self.move_history)
+        move_number = len(
+            self.move_history
+        )
 
-        if move_number >= len(self.opening_line):
+        if move_number >= len(
+            self.opening_line
+        ):
+
             self.opening_active = False
+
             return
 
-        expected_uci = self.opening_line[move_number]
+        expected_uci = (
+            self.opening_line[
+                move_number
+            ]
+        )
 
         if move.uci() != expected_uci:
+
             # Игрок отклонился от дебютной линии.
             # Дальше компьютер играет обычным Stockfish.
             self.opening_active = False
@@ -273,25 +441,33 @@ class ChessGame:
     # ПОДГОТОВКА ХОДА ИГРОКА БЕЗ ОЖИДАНИЯ STOCKFISH
     # ========================================================
 
-    def prepare_player_move(self, uci_move):
+    def prepare_player_move(
+        self,
+        uci_move
+    ):
 
         if self.board.turn != self.player_color:
+
             return {
                 "success": False,
                 "error": "Сейчас ход компьютера."
             }
 
         try:
+
             move = chess.Move.from_uci(
                 uci_move
             )
+
         except ValueError:
+
             return {
                 "success": False,
                 "error": "Некорректный ход."
             }
 
         if move not in self.board.legal_moves:
+
             return {
                 "success": False,
                 "error": "Так сходить нельзя."
@@ -310,29 +486,52 @@ class ChessGame:
         )
 
         # SAN нужно получить ДО push
-        san = self.board.san(move)
+        san = self.board.san(
+            move
+        )
 
         # ----------------------------------------------------
         # СРАЗУ ДЕЛАЕМ ХОД
         # ----------------------------------------------------
 
-        self.board.push(move)
+        self.board.push(
+            move
+        )
 
         self.move_history.append(
             move.uci()
         )
 
         return {
+
             "success": True,
-            "move": move.uci(),
-            "played_move": move.uci(),
-            "san": san,
-            "board_before": board_before,
-            "fen": self.get_fen(),
-            "legal_moves": self.get_legal_moves(),
-            "player_turn": self.is_player_turn(),
-            "game_over": self.is_game_over(),
-            "status": self.get_status(),
+
+            "move":
+                move.uci(),
+
+            "played_move":
+                move.uci(),
+
+            "san":
+                san,
+
+            "board_before":
+                board_before,
+
+            "fen":
+                self.get_fen(),
+
+            "legal_moves":
+                self.get_legal_moves(),
+
+            "player_turn":
+                self.is_player_turn(),
+
+            "game_over":
+                self.is_game_over(),
+
+            "status":
+                self.get_status(),
         }
 
     # ========================================================
@@ -345,6 +544,7 @@ class ChessGame:
     ):
 
         if self.engine is None:
+
             return {
                 "best_move": None,
                 "best_san": None,
@@ -365,15 +565,22 @@ class ChessGame:
         )
 
         return {
-            "best_move": best_move.uci(),
-            "best_san": best_san,
+
+            "best_move":
+                best_move.uci(),
+
+            "best_san":
+                best_san,
         }
 
     # ========================================================
     # ХОД ИГРОКА
     # ========================================================
 
-    def make_player_move(self, uci_move):
+    def make_player_move(
+        self,
+        uci_move
+    ):
 
         if self.board.turn != self.player_color:
 
@@ -466,6 +673,7 @@ class ChessGame:
             "status":
                 self.get_status(),
         }
+
     # ========================================================
     # ХОД КОМПЬЮТЕРА
     # ========================================================
@@ -473,12 +681,14 @@ class ChessGame:
     def make_computer_move(self):
 
         if self.board.turn == self.player_color:
+
             return {
                 "success": False,
                 "error": "Сейчас ход игрока."
             }
 
         if self.board.is_game_over():
+
             return {
                 "success": False,
                 "error": "Партия уже закончена."
@@ -504,15 +714,21 @@ class ChessGame:
             move = self.get_best_move()
 
             if move is None:
+
                 return {
                     "success": False,
                     "error": "Stockfish не вернул ход."
                 }
 
         # Запоминаем SAN до push
-        san = self.board.san(move)
+        san = self.board.san(
+            move
+        )
 
-        self.board.push(move)
+        self.board.push(
+            move
+        )
+
         self.move_history.append(
             move.uci()
         )
@@ -524,19 +740,40 @@ class ChessGame:
             and len(self.move_history)
             >= len(self.opening_line)
         ):
+
             self.opening_active = False
 
         return {
-            "success": True,
-            "move": move.uci(),
-            "san": san,
-            "opening_move": opening_move,
-            "opening": self.opening,
-            "opening_active": self.opening_active,
-            "fen": self.get_fen(),
-            "legal_moves": self.get_legal_moves(),
-            "player_turn": self.is_player_turn(),
-            "game_over": self.is_game_over(),
-            "status": self.get_status(),
-        }
 
+            "success": True,
+
+            "move":
+                move.uci(),
+
+            "san":
+                san,
+
+            "opening_move":
+                opening_move,
+
+            "opening":
+                self.opening,
+
+            "opening_active":
+                self.opening_active,
+
+            "fen":
+                self.get_fen(),
+
+            "legal_moves":
+                self.get_legal_moves(),
+
+            "player_turn":
+                self.is_player_turn(),
+
+            "game_over":
+                self.is_game_over(),
+
+            "status":
+                self.get_status(),
+        }
