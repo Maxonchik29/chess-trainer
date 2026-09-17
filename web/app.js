@@ -2594,6 +2594,156 @@ if (newGameButton) {
     );
 }
 
+/* ============================================================
+   СДАТЬСЯ
+============================================================ */
+
+const resignButton =
+    document.getElementById(
+        "resignButton"
+    );
+
+
+if (resignButton) {
+
+    resignButton.addEventListener(
+        "click",
+        async () => {
+
+            // ------------------------------------------------
+            // Не даём сдавать уже законченную партию
+            // ------------------------------------------------
+
+            if (gameOver) {
+
+                return;
+            }
+
+            // ------------------------------------------------
+            // Получаем Telegram пользователя
+            // ------------------------------------------------
+
+            const user =
+                getTelegramUser();
+
+            if (!user) {
+
+                setMessage(
+                    "Не удалось определить Telegram пользователя."
+                );
+
+                return;
+            }
+
+            // ------------------------------------------------
+            // Подтверждение
+            // ------------------------------------------------
+
+            const confirmed =
+                window.confirm(
+                    "Сдаться и завершить партию?"
+                );
+
+            if (!confirmed) {
+
+                return;
+            }
+
+            try {
+
+                resignButton.disabled = true;
+
+                const response =
+                    await fetch(
+                        "/resign",
+                        {
+                            method: "POST",
+
+                            headers: {
+                                "Content-Type":
+                                    "application/json"
+                            },
+
+                            body: JSON.stringify({
+
+                                telegram_user:
+                                    user
+
+                            })
+                        }
+                    );
+
+                const data =
+                    await response.json();
+
+                if (!response.ok ||
+                    !data.success) {
+
+                    resignButton.disabled = false;
+
+                    setMessage(
+                        data.error ||
+                        "Не удалось завершить партию."
+                    );
+
+                    return;
+                }
+
+                // ------------------------------------------------
+                // Партия закончена
+                // ------------------------------------------------
+
+                gameOver = true;
+
+                selectedSquare = null;
+
+                lastMove = null;
+
+                playerTurn = false;
+
+                // Обновляем доску
+                if (data.fen) {
+
+                    board =
+                        fenToBoard(
+                            data.fen
+                        );
+
+                    renderBoard();
+                }
+
+                // ------------------------------------------------
+                // Показываем результат
+                // ------------------------------------------------
+
+                turnText.textContent =
+                    "Партия окончена";
+
+                resignButton.classList.add(
+                    "hidden"
+                );
+
+                setMessage(
+                    "🏳️ Вы сдались. Партия окончена."
+                );
+
+            } catch (error) {
+
+                console.error(
+                    "Ошибка сдачи:",
+                    error
+                );
+
+                resignButton.disabled = false;
+
+                setMessage(
+                    "Ошибка соединения с сервером."
+                );
+            }
+        }
+    );
+}
+
 
 /* ============================================================
    ПОКАЗ ЭКРАНА
@@ -2837,6 +2987,9 @@ async function startGame(color) {
         openingSelection.classList.add(
             "hidden"
         );
+
+        resignButton.disabled = false;
+        
         document.querySelector(
             "#gameScreen main"
         ).classList.remove("hidden");

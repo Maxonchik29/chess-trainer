@@ -1131,6 +1131,122 @@ def computer_move():
 
 
 # ============================================================
+# СДАЧА ИГРОКА
+# ============================================================
+
+@app.route(
+    "/resign",
+    methods=["POST"]
+)
+def resign_game():
+
+    data = request.get_json(
+        silent=True
+    ) or {}
+
+    telegram_id = get_telegram_id_from_data(
+        data
+    )
+
+    if telegram_id is None:
+
+        return jsonify({
+            "success": False,
+            "error": "Telegram ID не передан."
+        }), 400
+
+    game = get_user_game(
+        telegram_id
+    )
+
+    if game is None:
+
+        return jsonify({
+            "success": False,
+            "error":
+                "Игра пользователя не найдена."
+        }), 400
+
+    try:
+
+        # ----------------------------------------------------
+        # Проверяем, что партия ещё идёт
+        # ----------------------------------------------------
+
+        if game.is_game_over():
+
+            return jsonify({
+
+                "success": False,
+
+                "error":
+                    "Партия уже закончена.",
+
+                "game_over":
+                    True,
+
+                "status":
+                    game.get_status()
+
+            }), 400
+
+        # ----------------------------------------------------
+        # Игрок сдаётся
+        # ----------------------------------------------------
+
+        game.resigned_by_player = True
+
+        print(
+            "Игрок сдался:",
+            "telegram_id =",
+            telegram_id
+        )
+
+        # ----------------------------------------------------
+        # Возвращаем состояние
+        # ----------------------------------------------------
+
+        return jsonify({
+
+            "success": True,
+
+            "fen":
+                game.get_fen(),
+
+            "legal_moves":
+                [],
+
+            "player_turn":
+                False,
+
+            "game_over":
+                True,
+
+            "status":
+                game.get_status(),
+
+            "result":
+                game.get_result()
+
+        })
+
+    except Exception as error:
+
+        print(
+            "ОШИБКА /resign:",
+            repr(error)
+        )
+
+        return jsonify({
+
+            "success": False,
+
+            "error":
+                "Не удалось завершить партию."
+
+        }), 500
+
+# ============================================================
 # НОВАЯ ПАРТИЯ
 # ============================================================
 

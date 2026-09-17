@@ -94,6 +94,9 @@ class ChessGame:
         self.board = chess.Board()
         self.move_history = []
 
+        # Игрок ещё не сдавался
+        self.resigned_by_player = False
+
         self.engine = chess.engine.SimpleEngine.popen_uci(
             ENGINE_PATH
         )
@@ -107,6 +110,8 @@ class ChessGame:
         self.board = chess.Board()
 
         self.move_history = []
+
+        self.resigned_by_player = False
 
         self.opening_line = OPENING_LINES.get(
             self.opening,
@@ -204,7 +209,18 @@ class ChessGame:
         """
 
         # ----------------------------------------------------
-        # Мат
+        # СДАЧА ИГРОКА
+        # ----------------------------------------------------
+
+        if self.resigned_by_player:
+
+            if self.player_color == chess.WHITE:
+                return "0-1"
+
+            return "1-0"
+
+        # ----------------------------------------------------
+        # МАТ
         # ----------------------------------------------------
 
         if self.board.is_checkmate():
@@ -215,47 +231,44 @@ class ChessGame:
             return "1-0"
 
         # ----------------------------------------------------
-        # Пат
+        # ПАТ
         # ----------------------------------------------------
 
         if self.board.is_stalemate():
             return "1/2-1/2"
 
         # ----------------------------------------------------
-        # Недостаточно материала
+        # НЕДОСТАТОЧНО МАТЕРИАЛА
         # ----------------------------------------------------
 
         if self.board.is_insufficient_material():
             return "1/2-1/2"
 
         # ----------------------------------------------------
-        # Правило 50 ходов
+        # ПРАВИЛО 50 ХОДОВ
         # ----------------------------------------------------
 
         if self.board.is_fifty_moves():
             return "1/2-1/2"
 
         # ----------------------------------------------------
-        # Пятикратное повторение
+        # ПЯТИКРАТНОЕ ПОВТОРЕНИЕ
         # ----------------------------------------------------
 
         if self.board.is_fivefold_repetition():
             return "1/2-1/2"
 
         # ----------------------------------------------------
-        # Другие случаи окончания
+        # ДРУГИЕ СЛУЧАИ ОКОНЧАНИЯ
         # ----------------------------------------------------
 
         if self.board.is_game_over(
             claim_draw=True
         ):
+
             return self.board.result(
                 claim_draw=True
             )
-
-        # ----------------------------------------------------
-        # Партия ещё продолжается
-        # ----------------------------------------------------
 
         return "*"
 
@@ -286,6 +299,9 @@ class ChessGame:
 
     def is_game_over(self):
 
+        if self.resigned_by_player:
+            return True
+
         return self.board.is_game_over()
 
     # ========================================================
@@ -293,6 +309,14 @@ class ChessGame:
     # ========================================================
 
     def get_status(self):
+
+        # ----------------------------------------------------
+        # СДАЧА
+        # ----------------------------------------------------
+
+        if self.resigned_by_player:
+
+            return "Вы сдались"
 
         if self.board.is_checkmate():
 
@@ -582,6 +606,13 @@ class ChessGame:
         uci_move
     ):
 
+        if self.resigned_by_player:
+
+            return {
+                "success": False,
+                "error": "Партия уже закончена."
+            }
+
         if self.board.turn != self.player_color:
 
             return {
@@ -687,7 +718,7 @@ class ChessGame:
                 "error": "Сейчас ход игрока."
             }
 
-        if self.board.is_game_over():
+        if self.is_game_over():
 
             return {
                 "success": False,
