@@ -1786,15 +1786,38 @@ async function analyzeFinishedGame() {
 
     try {
 
-        /* ----------------------------------------------------
+        /* ====================================================
            ПОЛУЧАЕМ TELEGRAM USER
-        ---------------------------------------------------- */
+        ==================================================== */
 
         const user =
             getTelegramUser();
 
 
-        if (!user) {
+        console.log(
+            "========================================"
+        );
+
+        console.log(
+            "АНАЛИЗ ЗАКОНЧЕННОЙ ПАРТИИ"
+        );
+
+        console.log(
+            "Telegram user:",
+            user
+        );
+
+        console.log(
+            "Telegram ID:",
+            user?.id
+        );
+
+        console.log(
+            "========================================"
+        );
+
+
+        if (!user || !user.id) {
 
             throw new Error(
                 "Не удалось определить Telegram пользователя."
@@ -1802,18 +1825,69 @@ async function analyzeFinishedGame() {
         }
 
 
-        /* ----------------------------------------------------
+        /* ====================================================
            ПОЛУЧАЕМ PGN ЗАКОНЧЕННОЙ ПАРТИИ
-        ---------------------------------------------------- */
+        ==================================================== */
+
+        setMessage(
+            "⏳ Получаем PGN партии..."
+        );
+
+
+        const gamePgnUrl =
+            `/game_pgn?telegram_id=${encodeURIComponent(user.id)}`;
+
+
+        console.log(
+            "Запрашиваем:",
+            gamePgnUrl
+        );
+
 
         const pgnResponse =
             await fetch(
-                `/game_pgn?telegram_id=${encodeURIComponent(user.id)}`
+                gamePgnUrl
             );
 
 
-        const pgnData =
-            await pgnResponse.json();
+        console.log(
+            "Ответ /game_pgn. HTTP:",
+            pgnResponse.status
+        );
+
+
+        const pgnText =
+            await pgnResponse.text();
+
+
+        console.log(
+            "Ответ /game_pgn:",
+            pgnText
+        );
+
+
+        let pgnData;
+
+
+        try {
+
+            pgnData =
+                JSON.parse(
+                    pgnText
+                );
+
+        } catch (jsonError) {
+
+            throw new Error(
+                `Сервер /game_pgn вернул не JSON: ${pgnText}`
+            );
+        }
+
+
+        console.log(
+            "Данные PGN:",
+            pgnData
+        );
 
 
         if (
@@ -1823,7 +1897,7 @@ async function analyzeFinishedGame() {
 
             throw new Error(
                 pgnData.error ||
-                "Не удалось получить PGN."
+                `Не удалось получить PGN. HTTP ${pgnResponse.status}`
             );
         }
 
@@ -1843,9 +1917,18 @@ async function analyzeFinishedGame() {
         }
 
 
-        /* ----------------------------------------------------
+        console.log(
+            "PGN успешно получен."
+        );
+
+        console.log(
+            pgn
+        );
+
+
+        /* ====================================================
            ЗАПУСКАЕМ ФОНОВЫЙ АНАЛИЗ
-        ---------------------------------------------------- */
+        ==================================================== */
 
         setMessage(
             "⏳ Запускаем анализ..."
@@ -1870,7 +1953,10 @@ async function analyzeFinishedGame() {
                                 pgn,
 
                             telegram_user:
-                                user
+                                user,
+
+                            analysis_mode:
+                                "deep"
 
                         })
                 }
@@ -1879,6 +1965,29 @@ async function analyzeFinishedGame() {
 
         const data =
             await response.json();
+
+
+        console.log(
+            "========================================"
+        );
+
+        console.log(
+            "ОТВЕТ /analyze"
+        );
+
+        console.log(
+            "HTTP:",
+            response.status
+        );
+
+        console.log(
+            "DATA:",
+            data
+        );
+
+        console.log(
+            "========================================"
+        );
 
 
         if (
@@ -1893,9 +2002,9 @@ async function analyzeFinishedGame() {
         }
 
 
-        /* ----------------------------------------------------
+        /* ====================================================
            ПОЛУЧАЕМ ID ФОНОВОЙ ЗАДАЧИ
-        ---------------------------------------------------- */
+        ==================================================== */
 
         const jobId =
             data.job_id;
@@ -1909,15 +2018,23 @@ async function analyzeFinishedGame() {
         }
 
 
-        /* ----------------------------------------------------
+        console.log(
+            "JOB ID:",
+            jobId
+        );
+
+
+        /* ====================================================
            ОПРАШИВАЕМ ПРОГРЕСС
-        ---------------------------------------------------- */
+        ==================================================== */
 
         let analysisFinished =
             false;
 
 
-        while (!analysisFinished) {
+        while (
+            !analysisFinished
+        ) {
 
             await new Promise(
                 resolve =>
@@ -1936,6 +2053,7 @@ async function analyzeFinishedGame() {
 
             const progressData =
                 await progressResponse.json();
+
 
             console.log(
                 "========== ANALYSIS PROGRESS =========="
@@ -1988,9 +2106,9 @@ async function analyzeFinishedGame() {
             }
 
 
-            /* ------------------------------------------------
+            /* =================================================
                ПРОГРЕСС
-            ------------------------------------------------ */
+            ================================================= */
 
             const progress =
                 Number(
@@ -2007,7 +2125,9 @@ async function analyzeFinishedGame() {
                         0,
                         Math.min(
                             100,
-                            Math.round(progress)
+                            Math.round(
+                                progress
+                            )
                         )
                     );
 
@@ -2025,9 +2145,9 @@ async function analyzeFinishedGame() {
             }
 
 
-            /* ------------------------------------------------
+            /* =================================================
                АНАЛИЗ ЗАВЕРШЁН
-            ------------------------------------------------ */
+            ================================================= */
 
             if (
                 progressData.status ===
@@ -2051,7 +2171,7 @@ async function analyzeFinishedGame() {
 
 
                 /* --------------------------------------------
-                   СОХРАНЯЕМ НАСТОЯЩИЙ РЕЗУЛЬТАТ
+                   СОХРАНЯЕМ РЕЗУЛЬТАТ
                 -------------------------------------------- */
 
                 currentAnalysisData =
@@ -2071,7 +2191,7 @@ async function analyzeFinishedGame() {
 
 
                 /* --------------------------------------------
-                   УБИРАЕМ КНОПКУ "НАЧАТЬ АНАЛИЗ"
+                   УБИРАЕМ КНОПКУ
                 -------------------------------------------- */
 
                 if (button) {
@@ -2090,7 +2210,7 @@ async function analyzeFinishedGame() {
 
 
                 /* --------------------------------------------
-                   ПОКАЗЫВАЕМ КНОПКУ "МОИ ОШИБКИ"
+                   ПОКАЗЫВАЕМ МОИ ОШИБКИ
                 -------------------------------------------- */
 
                 showGameMistakesButton();
@@ -2100,9 +2220,9 @@ async function analyzeFinishedGame() {
             }
 
 
-            /* ------------------------------------------------
+            /* =================================================
                ОШИБКА ФОНОВОЙ ЗАДАЧИ
-            ------------------------------------------------ */
+            ================================================= */
 
             if (
                 progressData.status ===
@@ -2120,13 +2240,27 @@ async function analyzeFinishedGame() {
     } catch (error) {
 
         console.error(
-            "Ошибка анализа партии:",
+            "========================================"
+        );
+
+        console.error(
+            "ОШИБКА АНАЛИЗА ПАРТИИ:"
+        );
+
+        console.error(
             error
+        );
+
+        console.error(
+            "========================================"
         );
 
 
         setMessage(
-            `❌ Ошибка анализа партии: ${error.message}`
+            `❌ Ошибка анализа партии: ${
+                error.message ||
+                error
+            }`
         );
 
 
@@ -2140,8 +2274,6 @@ async function analyzeFinishedGame() {
         }
     }
 }
-
-
 
 
 /* ============================================================
