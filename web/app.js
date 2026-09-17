@@ -1763,6 +1763,8 @@ function showGameAnalysisButton() {
 
 async function analyzeFinishedGame() {
 
+    alert("НОВАЯ ВЕРСИЯ analyzeFinishedGame");
+
     const button =
         document.getElementById(
             "gameAnalysisButton"
