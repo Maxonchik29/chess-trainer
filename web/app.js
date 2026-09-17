@@ -6041,18 +6041,173 @@ async function startPgnAnalysis(
 
     }
 
+    /* ========================================================
+       ПОЛУЧАЕМ PGN ИЗ ПОЛЯ
+    ======================================================== */
+
     const pgn =
         pgnInput
             ?.value
             ?.trim() ||
         "";
 
+    /*
+       finalPgn может быть:
+       1. PGN из поля ввода
+       2. PGN текущей партии против компьютера
+    */
+
+    let finalPgn =
+        pgn;
+
+
+    /* ========================================================
+       ЕСЛИ PGN НЕ ВСТАВЛЕН —
+       ПОЛУЧАЕМ ТЕКУЩУЮ ПАРТИЮ С СЕРВЕРА
+    ======================================================== */
+
+    if (!finalPgn) {
+
+        if (!user || !user.id) {
+
+            if (analysisMessage) {
+
+                analysisMessage.textContent =
+                    "❌ Telegram пользователь не определён.";
+            }
+
+            return;
+        }
+
+
+        if (analysisMessage) {
+
+            analysisMessage.textContent =
+                "Получаем PGN текущей партии...";
+        }
+
+
+        console.log(
+            "Запрашиваем PGN для Telegram ID:",
+            user.id
+        );
+
+
+        try {
+
+            const gamePgnResponse =
+                await fetch(
+                    `/game_pgn?telegram_id=${encodeURIComponent(user.id)}`
+                );
+
+
+            const gamePgnText =
+                await gamePgnResponse.text();
+
+
+            console.log(
+                "========================================"
+            );
+
+            console.log(
+                "ОТВЕТ /game_pgn"
+            );
+
+            console.log(
+                "HTTP:",
+                gamePgnResponse.status
+            );
+
+            console.log(
+                "TEXT:",
+                gamePgnText
+            );
+
+            console.log(
+                "========================================"
+            );
+
+
+            let gamePgnData;
+
+
+            try {
+
+                gamePgnData =
+                    JSON.parse(
+                        gamePgnText
+                    );
+
+            } catch (jsonError) {
+
+                throw new Error(
+                    `Сервер вернул не JSON: ${gamePgnText}`
+                );
+            }
+
+
+            if (
+                !gamePgnResponse.ok ||
+                !gamePgnData.success
+            ) {
+
+                throw new Error(
+                    gamePgnData.error ||
+                    `Не удалось получить PGN. HTTP ${gamePgnResponse.status}`
+                );
+            }
+
+
+            finalPgn =
+                gamePgnData.pgn ||
+                "";
+
+
+            if (!finalPgn) {
+
+                throw new Error(
+                    "Сервер вернул пустой PGN."
+                );
+            }
+
+
+            console.log(
+                "PGN текущей партии успешно получен."
+            );
+
+            console.log(
+                "PGN:",
+                finalPgn
+            );
+
+
+        } catch (error) {
+
+            console.error(
+                "ОШИБКА ПОЛУЧЕНИЯ PGN:",
+                error
+            );
+
+
+            if (analysisMessage) {
+
+                analysisMessage.textContent =
+                    `❌ Не удалось получить PGN: ${
+                        error.message ||
+                        error
+                    }`;
+            }
+
+            return;
+        }
+    }
+
 
     /* ========================================================
        ПРОВЕРЯЕМ PGN
     ======================================================== */
 
-    if (!pgn) {
+    if (!finalPgn) {
 
         if (analysisMessage) {
 
@@ -6069,6 +6224,7 @@ async function startPgnAnalysis(
 
         return;
     }
+
 
     /* ========================================================
        НАЗВАНИЕ РЕЖИМА
@@ -6110,10 +6266,6 @@ async function startPgnAnalysis(
 
     try {
 
-        const user =
-            getTelegramUser();
-
-
         /* ====================================================
            ЗАПУСКАЕМ ФОНОВЫЙ АНАЛИЗ
         ==================================================== */
@@ -6133,7 +6285,7 @@ async function startPgnAnalysis(
                         JSON.stringify({
 
                             pgn:
-                                pgn,
+                                finalPgn,
 
                             telegram_user:
                                 user,
@@ -6686,79 +6838,10 @@ async function startPgnAnalysis(
         if (analysisMessage) {
 
             analysisMessage.textContent =
-                `❌ Ошибка анализа: ${error.message}`;
+                `❌ Ошибка анализа: ${
+                    error.message ||
+                    error
+                }`;
         }
     }
 }
-
-
-/* ============================================================
-   КНОПКА — ГЛУБОКИЙ АНАЛИЗ
-============================================================ */
-
-if (
-    deepAnalysisButton
-) {
-
-    deepAnalysisButton.addEventListener(
-        "click",
-        () => {
-
-            startPgnAnalysis(
-                "deep"
-            );
-
-        }
-    );
-}
-
-
-/* ============================================================
-   КНОПКА — ОБЩИЙ АНАЛИЗ
-============================================================ */
-
-if (
-    generalAnalysisButton
-) {
-
-    generalAnalysisButton.addEventListener(
-        "click",
-        () => {
-
-            startPgnAnalysis(
-                "general"
-            );
-
-        }
-    );
-}
-
-/* ============================================================
-   ИЗМЕНЕНИЕ РАЗМЕРА ДОСКИ ПОЗИЦИИ
-============================================================ */
-
-window.addEventListener(
-    "resize",
-    () => {
-
-        if (
-            positionScreen &&
-            !positionScreen.classList.contains(
-                "hidden"
-            ) &&
-            positionBoardState
-        ) {
-
-            renderPositionBoard();
-        }
-    }
-);
-
-
-/* ============================================================
-   ЗАПУСК
-============================================================ */
-
-showScreen(
-    menuScreen
-);
