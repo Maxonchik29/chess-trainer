@@ -2237,17 +2237,19 @@ def get_mistakes():
 
     except Exception as error:
 
-        print(
-            "ОШИБКА ПОЛУЧЕНИЯ ОШИБОК:",
-            repr(error)
-        )
+        print("========================================")
+        print("ОШИБКА /game_pgn")
+        print("ТИП ОШИБКИ:", type(error).__name__)
+        print("ТЕКСТ ОШИБКИ:", str(error))
+        print("REPR ОШИБКИ:", repr(error))
+        print("========================================")
 
         return jsonify({
 
-            "ok": False,
+            "success": False,
 
             "error":
-                str(error)
+                f"Ошибка получения PGN: {type(error).__name__}: {str(error)}"
 
         }), 500
 
