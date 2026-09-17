@@ -1491,6 +1491,18 @@ def get_game_pgn():
         game
     )
 
+    print(
+        "GAME_PGN player_color:",
+        game.player_color
+    )
+
+    print(
+        "GAME_PGN player_color name:",
+        "white"
+        if game.player_color == chess.WHITE
+        else "black"
+    )
+
     if game is None:
 
         print(
@@ -1541,7 +1553,13 @@ def get_game_pgn():
                 game.get_result(),
 
             "game_over":
-                game.is_game_over()
+                game.is_game_over(),
+
+            "player_color": (
+                "white"
+                if game.player_color == chess.WHITE
+                else "black"
+            )
 
         })
 
@@ -1605,7 +1623,8 @@ def run_analysis_job(
     telegram_user,
     start_move,
     end_move,
-    mistake_threshold
+    mistake_threshold,
+    player_color
 ):
 
     try:
@@ -1672,7 +1691,8 @@ def run_analysis_job(
             start_move=start_move,
             end_move=end_move,
             progress_callback=progress_callback,
-            mistake_threshold=mistake_threshold
+            mistake_threshold=mistake_threshold,
+            user_color=player_color
         )
 
         board = parsed_game.board()
@@ -2002,6 +2022,15 @@ def analyze_pgn():
             ""
         )
 
+        player_color = data.get(
+            "player_color"
+        )
+
+        print(
+            "PLAYER COLOR FROM FRONTEND:",
+            player_color
+        )
+
         if not pgn_text.strip():
 
             return jsonify({
@@ -2153,7 +2182,9 @@ def analyze_pgn():
 
                 end_move,
 
-                mistake_threshold
+                mistake_threshold,
+
+                player_color
 
             ),
 

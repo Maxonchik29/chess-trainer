@@ -1981,6 +1981,14 @@ async function analyzeFinishedGame() {
         const pgn =
             pgnData.pgn;
 
+        const playerColor =
+            pgnData.player_color;
+
+        console.log(
+            "Цвет игрока из /game_pgn:",
+            playerColor
+        );
+
 
         if (
             !pgn ||
@@ -2032,7 +2040,10 @@ async function analyzeFinishedGame() {
                                 user,
 
                             analysis_mode:
-                                "deep"
+                                "deep",
+
+                            player_color:
+                                playerColor
 
                         })
                 }

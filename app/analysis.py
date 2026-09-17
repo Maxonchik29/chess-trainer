@@ -843,7 +843,8 @@ def analyze_game(
     start_move=1,
     end_move=None,
     progress_callback=None,
-    mistake_threshold=None
+    mistake_threshold=None,
+    user_color=None
 ):
 
     # ======================================================
@@ -1068,15 +1069,26 @@ def analyze_game(
     # ОПРЕДЕЛЯЕМ ЦВЕТ ПОЛЬЗОВАТЕЛЯ
     # ======================================================
 
-    user_color = None
+    # Если цвет уже передан из ChessGame,
+    # используем именно его.
+    #
+    # Это основной вариант для игры против компьютера.
 
-    if "Maximka2912" in white_player:
+    if user_color not in (
+        "white",
+        "black"
+    ):
 
-        user_color = "white"
+        if user_color not in ("white", "black"):
 
-    elif "Maximka2912" in black_player:
+            user_color = None
 
-        user_color = "black"
+            if "Maximka2912" in white_player:
+                user_color = "white"
+
+            elif "Maximka2912" in black_player:
+                user_color = "black"
+
 
     print(
         "ЦВЕТ ПОЛЬЗОВАТЕЛЯ =",
@@ -1087,7 +1099,7 @@ def analyze_game(
 
         print(
             "!!! ВНИМАНИЕ: "
-            "Maximka2912 не найден среди игроков !!!"
+            "Не удалось определить цвет пользователя !!!"
         )
 
     # ======================================================
