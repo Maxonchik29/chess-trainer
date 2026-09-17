@@ -242,6 +242,39 @@ const analysisResult =
 
 
 /* ============================================================
+   КНОПКИ ОБЩЕГО И ГЛУБОКОГО АНАЛИЗА
+============================================================ */
+
+if (generalAnalysisButton) {
+
+    generalAnalysisButton.addEventListener(
+        "click",
+        async () => {
+
+            await startPgnAnalysis(
+                "general"
+            );
+
+        }
+    );
+}
+
+
+if (deepAnalysisButton) {
+
+    deepAnalysisButton.addEventListener(
+        "click",
+        async () => {
+
+            await startPgnAnalysis(
+                "deep"
+            );
+
+        }
+    );
+}
+
+/* ============================================================
    СОСТОЯНИЕ ИГРЫ
 ============================================================ */
 
