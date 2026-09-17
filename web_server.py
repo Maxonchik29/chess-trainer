@@ -1347,12 +1347,19 @@ def get_game_pgn():
     print("========================================")
 
     telegram_id = safe_int(
-        request.args.get(
-            "telegram_id"
-        )
+        request.args.get("telegram_id")
+    )
+
+    print(
+        "GAME_PGN telegram_id:",
+        telegram_id
     )
 
     if telegram_id is None:
+
+        print(
+            "GAME_PGN ERROR: Telegram ID is None"
+        )
 
         return jsonify({
             "success": False,
@@ -1363,7 +1370,16 @@ def get_game_pgn():
         telegram_id
     )
 
+    print(
+        "GAME_PGN game:",
+        game
+    )
+
     if game is None:
+
+        print(
+            "GAME_PGN ERROR: Игра пользователя не найдена."
+        )
 
         return jsonify({
             "success": False,
@@ -1373,7 +1389,30 @@ def get_game_pgn():
 
     try:
 
+        print(
+            "GAME_PGN: вызываем game.get_pgn()"
+        )
+
         pgn = game.get_pgn()
+
+        print(
+            "GAME_PGN: PGN получен"
+        )
+
+        print(
+            "GAME_PGN length:",
+            len(pgn) if pgn else 0
+        )
+
+        print(
+            "GAME_PGN result:",
+            game.get_result()
+        )
+
+        print(
+            "GAME_PGN game_over:",
+            game.is_game_over()
+        )
 
         return jsonify({
 
@@ -1392,21 +1431,31 @@ def get_game_pgn():
 
     except Exception as error:
 
+        print("========================================")
+        print("GAME_PGN EXCEPTION")
         print(
-            "ОШИБКА /game_pgn:",
+            "TYPE:",
+            type(error).__name__
+        )
+        print(
+            "ERROR:",
+            str(error)
+        )
+        print(
+            "REPR:",
             repr(error)
         )
+        print("========================================")
 
         return jsonify({
 
             "success": False,
 
             "error":
-                "Не удалось получить PGN."
+                f"Ошибка получения PGN: {type(error).__name__}: {str(error)}"
 
         }), 500
-
-
+    
 # ==========================================================
 # ОБНОВЛЕНИЕ ПРОГРЕССА АНАЛИЗА
 # ==========================================================
