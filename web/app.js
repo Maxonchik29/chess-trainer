@@ -101,6 +101,47 @@ const mistakesScreen =
         "mistakesScreen"
     );
 
+const analyzeGameButton =
+    document.getElementById(
+        "analyzeGameButton"
+    );
+
+/* ============================================================
+   АНАЛИЗ ЗАКОНЧЕННОЙ ПАРТИИ
+============================================================ */
+
+if (analyzeGameButton) {
+
+    analyzeGameButton.addEventListener(
+        "click",
+        async () => {
+
+            showScreen(
+                analysisScreen
+            );
+
+            if (analysisMessage) {
+
+                analysisMessage.textContent =
+                    "⏳ Получаем PGN текущей партии...";
+            }
+
+            if (analysisResult) {
+
+                analysisResult.classList.add(
+                    "hidden"
+                );
+
+                analysisResult.innerHTML =
+                    "";
+            }
+
+            await startPgnAnalysis(
+                "deep"
+            );
+        }
+    );
+}
 
 /* ============================================================
    КНОПКИ МЕНЮ
@@ -2723,6 +2764,10 @@ if (resignButton) {
                     "hidden"
                 );
 
+                analyzeGameButton.classList.remove(
+                    "hidden"
+                );
+
                 setMessage(
                     "🏳️ Вы сдались. Партия окончена."
                 );
@@ -2735,6 +2780,10 @@ if (resignButton) {
                 );
 
                 resignButton.disabled = false;
+
+                analyzeGameButton.classList.add(
+                    "hidden"
+                );
 
                 setMessage(
                     "Ошибка соединения с сервером."
@@ -2989,7 +3038,7 @@ async function startGame(color) {
         );
 
         resignButton.disabled = false;
-        
+
         document.querySelector(
             "#gameScreen main"
         ).classList.remove("hidden");
