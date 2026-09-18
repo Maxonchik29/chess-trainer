@@ -2572,6 +2572,7 @@ def analyze_game(
 
             mistake["position_evaluation"] = before_score
             mistake["position_evaluation_before"] = before_score
+            mistake["position_evaluation_best"] = best_score
             mistake["position_evaluation_after"] = after_score
 
             # ==================================================

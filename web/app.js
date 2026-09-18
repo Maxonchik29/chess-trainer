@@ -5286,6 +5286,17 @@ function updatePositionEvaluation(
 
         <div>
             <strong>
+                Оценка после лучшего хода:
+            </strong>
+
+            ${formatPositionEvaluation(
+                mistake.position_evaluation_best
+            )}
+        </div>
+
+
+        <div>
+            <strong>
                 Оценка после:
             </strong>
 
