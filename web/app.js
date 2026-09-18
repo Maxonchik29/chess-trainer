@@ -2830,13 +2830,13 @@ if (resignButton) {
                     "hidden"
                 );
 
-                analyzeGameButton.classList.remove(
-                    "hidden"
-                );
+                // ------------------------------------------------
+                // Показываем те же кнопки,
+                // что и после окончания партии матом
+                // ------------------------------------------------
 
-                mistakesButton.classList.remove(
-                    "hidden"
-                );
+                showGameAnalysisButton();
+                showGameMistakesButton();
 
                 setMessage(
                     "Вы проиграли"
