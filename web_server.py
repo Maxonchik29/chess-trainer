@@ -570,6 +570,12 @@ def save_analysis_to_database(
                             )
                         )
 
+                    evaluation_best = (
+                        mistake.get(
+                            "position_evaluation_best"
+                        )
+                    )
+
                     loss = mistake.get(
                         "loss"
                     )
@@ -597,6 +603,7 @@ def save_analysis_to_database(
                             played_move,
                             best_move,
                             evaluation_before,
+                            evaluation_best,
                             evaluation_after,
                             loss,
                             explanation,
@@ -604,6 +611,7 @@ def save_analysis_to_database(
                         )
                         VALUES
                         (
+                            %s,
                             %s,
                             %s,
                             %s,
@@ -634,6 +642,9 @@ def save_analysis_to_database(
                                 evaluation_before
                             ),
                             safe_int(
+                                evaluation_best
+                            ),
+                            safe_int(
                                 evaluation_after
                             ),
                             safe_int(
@@ -645,7 +656,6 @@ def save_analysis_to_database(
                             False
                         )
                     )
-
                     saved_count += 1
 
                 print(
@@ -801,10 +811,13 @@ def make_move():
 
     if telegram_id is None:
 
-        return jsonify({
-            "success": False,
-            "error": "Telegram ID не передан."
-        }), 400
+        telegram_id = -1
+
+        print(
+            "Telegram ID не передан.",
+            "Используем browser ID:",
+            telegram_id
+        )
 
     game = get_user_game(
         telegram_id
@@ -1032,10 +1045,13 @@ def computer_move():
 
     if telegram_id is None:
 
-        return jsonify({
-            "success": False,
-            "error": "Telegram ID не передан."
-        }), 400
+        telegram_id = -1
+
+        print(
+            "Telegram ID не передан.",
+            "Используем browser ID:",
+            telegram_id
+        )
 
     game = get_user_game(
         telegram_id
@@ -1092,6 +1108,9 @@ def computer_move():
             "success": True,
 
             "computer_move":
+                computer_move_uci,
+
+            "played_move":
                 computer_move_uci,
 
             "computer_san":
@@ -1266,10 +1285,13 @@ def reset_game():
 
     if telegram_id is None:
 
-        return jsonify({
-            "success": False,
-            "error": "Telegram ID не передан."
-        }), 400
+        telegram_id = -1
+
+        print(
+            "Telegram ID не передан.",
+            "Используем browser ID:",
+            telegram_id
+        )
 
     try:
 
@@ -1459,7 +1481,10 @@ def get_game_pgn():
     print("========================================")
     print("GAME_PGN REQUEST")
     print("ARGS:", request.args)
-    print("TELEGRAM ID RAW:", request.args.get("telegram_id"))
+    print(
+        "TELEGRAM ID RAW:",
+        request.args.get("telegram_id")
+    )
     print("========================================")
 
     telegram_id = safe_int(
@@ -1479,7 +1504,8 @@ def get_game_pgn():
 
         return jsonify({
             "success": False,
-            "error": "Telegram ID не передан."
+            "error":
+                "Telegram ID не передан."
         }), 400
 
     game = get_user_game(
@@ -1490,6 +1516,26 @@ def get_game_pgn():
         "GAME_PGN game:",
         game
     )
+
+    # ----------------------------------------------------
+    # ПРОВЕРЯЕМ, ЧТО ИГРА НАЙДЕНА
+    # ----------------------------------------------------
+
+    if game is None:
+
+        print(
+            "GAME_PGN ERROR: Игра пользователя не найдена."
+        )
+
+        return jsonify({
+            "success": False,
+            "error":
+                "Игра пользователя не найдена."
+        }), 404
+
+    # ----------------------------------------------------
+    # ДИАГНОСТИКА СОСТОЯНИЯ ПАРТИИ
+    # ----------------------------------------------------
 
     print(
         "GAME_PGN player_color:",
@@ -1503,17 +1549,39 @@ def get_game_pgn():
         else "black"
     )
 
-    if game is None:
+    print(
+        "GAME_PGN resigned_by_player:",
+        game.resigned_by_player
+    )
 
-        print(
-            "GAME_PGN ERROR: Игра пользователя не найдена."
-        )
+    print(
+        "GAME_PGN move_stack length:",
+        len(game.board.move_stack)
+    )
 
-        return jsonify({
-            "success": False,
-            "error":
-                "Игра пользователя не найдена."
-        }), 404
+    print(
+        "GAME_PGN move_stack:",
+        game.board.move_stack
+    )
+
+    print(
+        "GAME_PGN result before PGN:",
+        game.get_result()
+    )
+
+    print(
+        "GAME_PGN board.is_game_over:",
+        game.board.is_game_over()
+    )
+
+    print(
+        "GAME_PGN custom is_game_over:",
+        game.is_game_over()
+    )
+
+    # ----------------------------------------------------
+    # ПОЛУЧАЕМ PGN
+    # ----------------------------------------------------
 
     try:
 
@@ -1542,6 +1610,11 @@ def get_game_pgn():
             game.is_game_over()
         )
 
+        print("========================================")
+        print("GAME_PGN FINAL PGN:")
+        print(pgn)
+        print("========================================")
+
         return jsonify({
 
             "success": True,
@@ -1567,18 +1640,22 @@ def get_game_pgn():
 
         print("========================================")
         print("GAME_PGN EXCEPTION")
+
         print(
             "TYPE:",
             type(error).__name__
         )
+
         print(
             "ERROR:",
             str(error)
         )
+
         print(
             "REPR:",
             repr(error)
         )
+
         print("========================================")
 
         return jsonify({
@@ -1586,7 +1663,8 @@ def get_game_pgn():
             "success": False,
 
             "error":
-                f"Ошибка получения PGN: {type(error).__name__}: {str(error)}"
+                f"Ошибка получения PGN: "
+                f"{type(error).__name__}: {str(error)}"
 
         }), 500
     
@@ -2016,6 +2094,17 @@ def analyze_pgn():
         telegram_user = data.get(
             "telegram_user"
         )
+        if not telegram_user:
+
+            telegram_user = {
+                "id": -1
+            }
+
+            print(
+                "Telegram пользователь не передан.",
+                "Используем browser ID:",
+                -1
+            )
 
         pgn_text = data.get(
             "pgn",
@@ -2349,6 +2438,7 @@ def get_mistakes():
                         m.played_move,
                         m.best_move,
                         m.evaluation_before,
+                        m.evaluation_best,
                         m.evaluation_after,
                         m.loss,
                         m.explanation,
@@ -2399,23 +2489,26 @@ def get_mistakes():
                         "evaluation_before":
                             row[6],
 
-                        "evaluation_after":
+                        "evaluation_best":
                             row[7],
 
-                        "loss":
+                        "evaluation_after":
                             row[8],
 
-                        "explanation":
+                        "loss":
                             row[9],
 
-                        "solved":
+                        "explanation":
                             row[10],
 
-                        "pgn":
+                        "solved":
                             row[11],
 
+                        "pgn":
+                            row[12],
+
                         "result":
-                            row[12]
+                            row[13]
 
                     })
 

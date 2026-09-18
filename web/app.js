@@ -5262,7 +5262,7 @@ function updatePositionEvaluation(
         mistake.position_evaluation_best,
         mistake
     );
-    
+
     element.innerHTML = `
 
         <div>
@@ -5296,7 +5296,7 @@ function updatePositionEvaluation(
             </strong>
 
             ${formatPositionEvaluation(
-                mistake.position_evaluation_best
+                mistake.evaluation_best
             )}
         </div>
 
