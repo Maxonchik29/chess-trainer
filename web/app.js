@@ -5256,7 +5256,13 @@ function updatePositionEvaluation(
         mistake.loss ??
         mistake.evaluation_loss;
 
-
+    
+    console.log(
+        "DEBUG MISTAKE BEST EVAL:",
+        mistake.position_evaluation_best,
+        mistake
+    );
+    
     element.innerHTML = `
 
         <div>
