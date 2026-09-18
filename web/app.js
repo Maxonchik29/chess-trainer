@@ -2834,8 +2834,12 @@ if (resignButton) {
                     "hidden"
                 );
 
+                mistakesButton.classList.remove(
+                    "hidden"
+                );
+
                 setMessage(
-                    "🏳️ Вы сдались. Партия окончена."
+                    "Вы проиграли"
                 );
 
             } catch (error) {
