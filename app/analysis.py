@@ -2575,6 +2575,11 @@ def analyze_game(
             mistake["position_evaluation_best"] = best_score
             mistake["position_evaluation_after"] = after_score
 
+            print(
+                "BEST EVAL SAVED:",
+                mistake.get("position_evaluation_best")
+            )
+
             # ==================================================
             # РАВНОЦЕННЫЕ ХОДЫ
             # ==================================================
