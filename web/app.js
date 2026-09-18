@@ -6932,6 +6932,46 @@ async function startPgnAnalysis(
             const progressText =
                 await progressResponse.text();
 
+            console.log(
+                "========================================"
+            );
+
+            console.log(
+                "ОТВЕТ /analyze/progress"
+            );
+
+            console.log(
+                "URL:",
+                `/analyze/progress/${jobId}`
+            );
+
+            console.log(
+                "HTTP:",
+                progressResponse.status
+            );
+
+            console.log(
+                "OK:",
+                progressResponse.ok
+            );
+
+            console.log(
+                "TEXT:",
+                progressText
+            );
+
+            console.log(
+                "========================================"
+            );
+
+
+            if (!progressText.trim()) {
+
+                throw new Error(
+                    `Пустой ответ прогресса. HTTP ${progressResponse.status}`
+                );
+            }
+
 
             let progressData;
 
