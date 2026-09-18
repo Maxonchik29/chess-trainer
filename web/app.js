@@ -1294,18 +1294,11 @@ async function makeMove(uciMove) {
         const user =
             getTelegramUser();
 
-
         if (!user) {
 
-            console.error(
-                "Telegram пользователь не определён."
+            console.warn(
+                "Telegram пользователь не определён. Отправляем ход без Telegram-пользователя."
             );
-
-            setMessage(
-                "Telegram пользователь не определён."
-            );
-
-            return;
         }
 
 
@@ -1893,10 +1886,19 @@ async function analyzeFinishedGame() {
         );
 
 
-        if (!user || !user.id) {
+        let telegramId = -1;
 
-            throw new Error(
-                "Не удалось определить Telegram пользователя."
+        if (user && user.id) {
+
+            telegramId =
+                user.id;
+
+        } else {
+
+            console.warn(
+                "Telegram пользователь не определён.",
+                "Используем browser ID:",
+                telegramId
             );
         }
 
@@ -1911,7 +1913,7 @@ async function analyzeFinishedGame() {
 
 
         const gamePgnUrl =
-            `/game_pgn?telegram_id=${encodeURIComponent(user.id)}`;
+            `/game_pgn?telegram_id=${encodeURIComponent(telegramId)}`;
 
 
         console.log(
@@ -2425,20 +2427,25 @@ async function loadGame() {
     const user =
         getTelegramUser();
 
+    const telegramId =
+        user && user.id
+            ? user.id
+            : -1;
+
     if (!user) {
 
-        setMessage(
-            "Не удалось определить Telegram пользователя."
+        console.warn(
+            "Telegram пользователь не определён.",
+            "Используем browser ID:",
+            telegramId
         );
-
-        return;
     }
 
     try {
 
         const response =
             await fetch(
-                `/game?telegram_id=${encodeURIComponent(user.id)}`
+                `/game?telegram_id=${encodeURIComponent(telegramId)}`
             );
 
         const data =
@@ -2550,18 +2557,23 @@ if (hintButton) {
                 const user =
                     getTelegramUser();
 
+                const telegramId =
+                    user && user.id
+                        ? user.id
+                        : -1;
+
                 if (!user) {
 
-                    setMessage(
-                        "Не удалось определить Telegram пользователя."
+                    console.warn(
+                        "Telegram пользователь не определён.",
+                        "Используем browser ID:",
+                        telegramId
                     );
-
-                    return;
                 }
 
                 const response =
                     await fetch(
-                        `/game?telegram_id=${encodeURIComponent(user.id)}`
+                        `/game?telegram_id=${encodeURIComponent(telegramId)}`
                     );
 
                 const data =
@@ -2607,13 +2619,18 @@ if (newGameButton) {
                 const user =
                     getTelegramUser();
 
+                const telegramUser =
+                    user || {
+                        id: -1
+                    };
+
                 if (!user) {
 
-                    setMessage(
-                        "Не удалось определить Telegram пользователя."
+                    console.warn(
+                        "Telegram пользователь не определён.",
+                        "Используем browser ID:",
+                        -1
                     );
-
-                    return;
                 }
 
                 const response =
@@ -2630,7 +2647,7 @@ if (newGameButton) {
                             body: JSON.stringify({
                                 player_color: playerColor,
                                 opening: selectedOpening,
-                                telegram_user: user
+                                telegram_user: telegramUser
                             })
                         }
                     );
@@ -2711,13 +2728,18 @@ if (resignButton) {
             const user =
                 getTelegramUser();
 
+            const telegramUser =
+                user || {
+                    id: -1
+                };
+
             if (!user) {
 
-                setMessage(
-                    "Не удалось определить Telegram пользователя."
+                console.warn(
+                    "Telegram пользователь не определён.",
+                    "Используем browser ID:",
+                    -1
                 );
-
-                return;
             }
 
             // ------------------------------------------------
@@ -2752,7 +2774,7 @@ if (resignButton) {
                             body: JSON.stringify({
 
                                 telegram_user:
-                                    user
+                                    telegramUser
 
                             })
                         }
@@ -2975,6 +2997,11 @@ openingButtons.forEach(
                 // Снимаем выбор со всех кнопок
                 // --------------------------------------------
 
+                console.log(
+                    "НАЖАТА КНОПКА ДЕБЮТА:",
+                    button.dataset.opening
+                );
+
                 openingButtons.forEach(
                     (item) => {
                         item.classList.remove(
@@ -3018,25 +3045,41 @@ openingButtons.forEach(
 
 async function startGame(color) {
 
+    console.log(
+        "=== START GAME ===",
+        "color =", color,
+        "opening =", selectedOpening
+    );
+
     playerColor = color;
 
     selectedSquare = null;
     lastMove = null;
     gameOver = false;
 
-    const user =
-        getTelegramUser();
+    const user = getTelegramUser();
+
+    console.log(
+        "TELEGRAM USER:",
+        user
+    );
 
     if (!user) {
-
-        setMessage(
-            "Не удалось определить Telegram пользователя."
+        console.warn(
+            "Telegram user не найден. Запускаем игру без Telegram-пользователя."
         );
-
-        return;
     }
 
     try {
+
+        console.log(
+            "ОТПРАВЛЯЕМ /reset:",
+            {
+                player_color: color,
+                opening: selectedOpening,
+                telegram_user: user
+            }
+        );
 
         const response = await fetch(
             "/reset",
@@ -3054,6 +3097,12 @@ async function startGame(color) {
                     telegram_user: user
                 })
             }
+        );
+
+        console.log(
+            "ОТВЕТ /reset:",
+            response.status,
+            response.statusText
         );
 
         const data =
@@ -6422,6 +6471,41 @@ async function startPgnAnalysis(
     }
 
     /* ========================================================
+       ОПРЕДЕЛЯЕМ TELEGRAM ID
+    ======================================================== */
+
+    let telegramId =
+        null;
+
+    if (
+        user &&
+        user.id
+    ) {
+
+        telegramId =
+            user.id;
+
+    } else {
+
+        /*
+           Обычный браузерный режим.
+
+           Во время разработки сервер использует
+           ID -1 для игры без Telegram.
+        */
+
+        telegramId =
+            -1;
+
+        console.warn(
+            "Telegram пользователь не определён.",
+            "Используем browser ID:",
+            telegramId
+        );
+    }
+
+
+    /* ========================================================
        ПОЛУЧАЕМ PGN ИЗ ПОЛЯ
     ======================================================== */
 
@@ -6440,6 +6524,9 @@ async function startPgnAnalysis(
     let finalPgn =
         pgn;
 
+    let playerColor =
+        null;
+
 
     /* ========================================================
        ЕСЛИ PGN НЕ ВСТАВЛЕН —
@@ -6448,28 +6535,17 @@ async function startPgnAnalysis(
 
     if (!finalPgn) {
 
-        if (!user || !user.id) {
-
-            if (analysisMessage) {
-
-                analysisMessage.textContent =
-                    "❌ Telegram пользователь не определён.";
-            }
-
-            return;
-        }
-
-
         if (analysisMessage) {
 
             analysisMessage.textContent =
                 "Получаем PGN текущей партии...";
+
         }
 
 
         console.log(
             "Запрашиваем PGN для Telegram ID:",
-            user.id
+            telegramId
         );
 
 
@@ -6477,7 +6553,7 @@ async function startPgnAnalysis(
 
             const gamePgnResponse =
                 await fetch(
-                    `/game_pgn?telegram_id=${encodeURIComponent(user.id)}`
+                    `/game_pgn?telegram_id=${encodeURIComponent(telegramId)}`
                 );
 
 
@@ -6541,6 +6617,26 @@ async function startPgnAnalysis(
             finalPgn =
                 gamePgnData.pgn ||
                 "";
+
+
+            /*
+               ВАЖНО:
+
+               Здесь НЕ const.
+
+               Нам нужно записать значение
+               во внешнюю переменную playerColor,
+               чтобы оно потом попало в /analyze.
+            */
+
+            playerColor =
+                gamePgnData.player_color;
+
+
+            console.log(
+                "ЦВЕТ ИГРОКА ИЗ /game_pgn:",
+                playerColor
+            );
 
 
             if (!finalPgn) {
@@ -6650,6 +6746,39 @@ async function startPgnAnalysis(
            ЗАПУСКАЕМ ФОНОВЫЙ АНАЛИЗ
         ==================================================== */
 
+        console.log(
+            "========================================"
+        );
+
+        console.log(
+            "ОТПРАВЛЯЕМ /analyze"
+        );
+
+        console.log(
+            "Telegram user:",
+            user
+        );
+
+        console.log(
+            "Telegram ID:",
+            telegramId
+        );
+
+        console.log(
+            "Player color:",
+            playerColor
+        );
+
+        console.log(
+            "Analysis mode:",
+            analysisMode
+        );
+
+        console.log(
+            "========================================"
+        );
+
+
         const response =
             await fetch(
                 "/analyze",
@@ -6668,18 +6797,41 @@ async function startPgnAnalysis(
                                 finalPgn,
 
                             telegram_user:
-                                user,
+                                user || {
+                                    id: -1
+                                },
 
                             analysis_mode:
-                                analysisMode
+                                analysisMode,
+
+                            player_color:
+                                playerColor
 
                         })
                 }
             );
 
 
-        const data =
-            await response.json();
+        const responseText =
+            await response.text();
+
+
+        let data;
+
+
+        try {
+
+            data =
+                JSON.parse(
+                    responseText
+                );
+
+        } catch (jsonError) {
+
+            throw new Error(
+                `Сервер вернул не JSON: ${responseText}`
+            );
+        }
 
 
         console.log(
@@ -6698,6 +6850,11 @@ async function startPgnAnalysis(
         console.log(
             "Порог:",
             thresholdText
+        );
+
+        console.log(
+            "HTTP:",
+            response.status
         );
 
         console.log(
@@ -6772,8 +6929,26 @@ async function startPgnAnalysis(
                 );
 
 
-            const progressData =
-                await progressResponse.json();
+            const progressText =
+                await progressResponse.text();
+
+
+            let progressData;
+
+
+            try {
+
+                progressData =
+                    JSON.parse(
+                        progressText
+                    );
+
+            } catch (jsonError) {
+
+                throw new Error(
+                    `Ошибка JSON прогресса: ${progressText}`
+                );
+            }
 
 
             console.log(
