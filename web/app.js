@@ -5690,7 +5690,7 @@ function showMistakePosition(
     );
 
 
-    const fen =
+   const fen =
         mistake.position_fen ??
         mistake.fen;
 
@@ -5710,7 +5710,12 @@ function showMistakePosition(
     }
 
 
-    positionTrainingFen = fen;
+    /* ==================================================
+    НАЧАЛЬНАЯ ПОЗИЦИЯ ТРЕНИРОВКИ
+    ================================================== */
+
+    positionTrainingFen =
+        fen;
 
     positionBoardState =
         fenToBoard(fen);
@@ -5725,7 +5730,6 @@ function showMistakePosition(
     updatePositionEvaluation(
         mistake
     );
-
 
     const info =
         document.getElementById(
