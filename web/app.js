@@ -6221,19 +6221,16 @@ async function loadMyMistakes() {
         return;
     }
 
-
     mistakesScreen.innerHTML = `
         <div class="loading">
             ⏳ Загружаем ваши ошибки...
         </div>
     `;
 
-
     try {
 
         const user =
             getTelegramUser();
-
 
         if (!user) {
 
@@ -6247,6 +6244,10 @@ async function loadMyMistakes() {
             return;
         }
 
+        console.log(
+            "ЗАПРОС /mistakes. Telegram user:",
+            user
+        );
 
         const response =
             await fetch(
@@ -6267,16 +6268,39 @@ async function loadMyMistakes() {
                 }
             );
 
+        console.log(
+            "MISTAKES STATUS:",
+            response.status
+        );
 
-        const data =
-            await response.json();
+        const responseText =
+            await response.text();
 
+        console.log(
+            "MISTAKES RESPONSE:",
+            responseText
+        );
+
+        let data;
+
+        try {
+
+            data =
+                JSON.parse(
+                    responseText
+                );
+
+        } catch (jsonError) {
+
+            throw new Error(
+                `Сервер вернул не JSON. HTTP ${response.status}: ${responseText.substring(0, 300)}`
+            );
+        }
 
         console.log(
             "МОИ ОШИБКИ:",
             data
         );
-
 
         if (
             !response.ok ||
@@ -6287,14 +6311,13 @@ async function loadMyMistakes() {
                 <div class="analysis-empty">
                     ${
                         data.error ||
-                        "Не удалось загрузить ошибки."
+                        `Не удалось загрузить ошибки. HTTP ${response.status}`
                     }
                 </div>
             `;
 
             return;
         }
-
 
         myMistakesData =
             (
@@ -6331,49 +6354,58 @@ async function loadMyMistakes() {
                 })
             );
 
+        console.log(
+            "ЗАГРУЖЕНО ОШИБОК:",
+            myMistakesData.length
+        );
 
-        if (myMistakesData.length === 0) {
+        if (
+            myMistakesData.length === 0
+        ) {
+
+            currentMistakeSource =
+                "mistakes";
 
             renderMyMistakes();
 
         } else {
 
-            currentMistakeSource = "mistakes";
+            currentMistakeSource =
+                "mistakes";
 
             /*
-            * Сначала создаём нормальный список ошибок.
-            * Он будет скрыт при открытии позиции,
-            * но останется готовым для кнопки "Назад".
-            */
+             * Сначала создаём нормальный список ошибок.
+             * Он будет скрыт при открытии позиции,
+             * но останется готовым для кнопки "Назад".
+             */
             renderMyMistakes();
 
             /*
-            * Затем открываем первую ошибку.
-            */
+             * Затем открываем первую ошибку.
+             */
             showMistakePosition(
                 myMistakesData[0]
             );
         }
 
-
     } catch (error) {
 
         console.error(
-            "Ошибка загрузки моих ошибок:",
+            "ОШИБКА ЗАГРУЗКИ МОИХ ОШИБОК:",
             error
         );
 
-
         mistakesScreen.innerHTML = `
             <div class="analysis-empty">
-                Ошибка соединения
-                с сервером.
+                Ошибка загрузки:<br>
+                ${
+                    error.message ||
+                    error
+                }
             </div>
         `;
     }
 }
-
-
 /* ============================================================
    РЕНДЕР МОИХ ОШИБОК
 ============================================================ */
