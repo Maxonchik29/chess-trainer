@@ -1247,7 +1247,7 @@ def mistake_computer_move():
             result = engine.analyse(
                 board,
                 chess.engine.Limit(
-                    time=1.0
+                    time=0.3
                 )
             )
 
