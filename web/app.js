@@ -281,6 +281,12 @@ let positionSelectedSquare = null;
 
 let positionTrainingFen = null;
 
+let positionTrainingActive = false;
+
+let positionTrainingMoves = 0;
+
+const MAX_POSITION_TRAINING_MOVES = 5;
+
 let positionOrientation = "white";
 
 let positionBestMoveShown = false;
@@ -4645,19 +4651,13 @@ async function handlePositionSquareClick(squareName) {
     }
 
     const piece =
-        getPositionPiece(
-            squareName
-        );
+        getPositionPiece(squareName);
 
-
-    /* ========================================================
+    /* ==================================================
        ВЫБОР ФИГУРЫ
-    ======================================================== */
+    ================================================== */
 
-    if (
-        positionSelectedSquare ===
-        null
-    ) {
+    if (positionSelectedSquare === null) {
 
         if (!piece) {
 
@@ -4667,8 +4667,6 @@ async function handlePositionSquareClick(squareName) {
 
             return;
         }
-
-        /* Только фигуры пользователя */
 
         if (
             piece.color !==
@@ -4695,9 +4693,9 @@ async function handlePositionSquareClick(squareName) {
     }
 
 
-    /* ========================================================
+    /* ==================================================
        ОТМЕНА ВЫБОРА
-    ======================================================== */
+    ================================================== */
 
     if (
         positionSelectedSquare ===
@@ -4707,9 +4705,7 @@ async function handlePositionSquareClick(squareName) {
         positionSelectedSquare =
             null;
 
-        setPositionResult(
-            ""
-        );
+        setPositionResult("");
 
         renderPositionBoard();
 
@@ -4724,20 +4720,18 @@ async function handlePositionSquareClick(squareName) {
         squareName;
 
     const movingPiece =
-        getPositionPiece(
-            from
-        );
+        getPositionPiece(from);
 
 
-    /* ========================================================
-       ВЫБРАЛИ ДРУГУЮ СВОЮ ФИГУРУ
-    ======================================================== */
+    /* ==================================================
+       ВЫБОР ДРУГОЙ СВОЕЙ ФИГУРЫ
+    ================================================== */
 
     if (
         piece &&
         movingPiece &&
         piece.color ===
-            positionOrientation
+        positionOrientation
     ) {
 
         positionSelectedSquare =
@@ -4753,6 +4747,10 @@ async function handlePositionSquareClick(squareName) {
     }
 
 
+    /* ==================================================
+       ПРОВЕРКА ЛЕГАЛЬНОСТИ
+    ================================================== */
+
     if (!movingPiece) {
 
         positionSelectedSquare =
@@ -4764,10 +4762,6 @@ async function handlePositionSquareClick(squareName) {
     }
 
 
-    /* ========================================================
-       ПРОВЕРЯЕМ, ВООБЩЕ ДОПУСТИМ ЛИ ХОД
-    ======================================================== */
-
     if (
         !isPositionMoveLegal(
             positionBoardState,
@@ -4778,26 +4772,95 @@ async function handlePositionSquareClick(squareName) {
     ) {
 
         setPositionResult(
-            "✗ Так сходить нельзя."
+            "Так сходить нельзя."
         );
 
         return;
     }
 
 
-    /* ========================================================
-       СОХРАНЯЕМ СТАРУЮ ПОЗИЦИЮ
-    ======================================================== */
+    const playedMove =
+        String(
+            from + to
+        ).toLowerCase();
 
-    const oldBoard =
-        clonePositionBoard(
-            positionBoardState
+
+    /* ==================================================
+       ТРЕНИРОВОЧНЫЙ РЕЖИМ
+       ПОСЛЕ ПЕРВОГО ПРАВИЛЬНОГО ХОДА
+    ================================================== */
+
+    if (positionTrainingActive) {
+
+        positionSelectedSquare =
+            null;
+
+        positionUserMove = {
+            from,
+            to
+        };
+
+        renderPositionBoard();
+
+        positionLocked = true;
+
+        const currentFen =
+            positionTrainingFen;
+
+        const success =
+            await makePositionComputerMove(
+                currentFen,
+                playedMove
+            );
+
+        if (!success) {
+
+            positionLocked = false;
+
+            positionUserMove =
+                null;
+
+            renderPositionBoard();
+
+            return;
+        }
+
+        positionTrainingMoves++;
+
+        positionUserMove =
+            null;
+
+        if (
+            positionTrainingMoves >=
+            MAX_POSITION_TRAINING_MOVES
+        ) {
+
+            positionLocked = true;
+
+            setPositionResult(
+                "✓ Тренировка завершена. Вы сделали 5 ходов."
+            );
+
+            renderPositionBoard();
+
+            return;
+        }
+
+        positionLocked = false;
+
+        setPositionResult(
+            `Ход ${positionTrainingMoves} из ${MAX_POSITION_TRAINING_MOVES}. Ваш ход.`
         );
 
+        renderPositionBoard();
 
-    /* ========================================================
-       ПОЛУЧАЕМ ЛУЧШИЙ ХОД
-    ======================================================== */
+        return;
+    }
+
+
+    /* ==================================================
+       ПЕРВЫЙ ХОД — ПРОВЕРЯЕМ ЛУЧШИЙ ХОД
+    ================================================== */
 
     const mistake =
         positionScreen?.currentMistake;
@@ -4807,11 +4870,6 @@ async function handlePositionSquareClick(squareName) {
         mistake?.best_move ??
         mistake?.best_uci;
 
-
-    const playedMove =
-        String(from + to)
-            .toLowerCase();
-
     const normalizedBestMove =
         bestMove
             ? String(bestMove)
@@ -4820,13 +4878,23 @@ async function handlePositionSquareClick(squareName) {
             : null;
 
 
-    /* ========================================================
-       СНАЧАЛА ВИЗУАЛЬНО ДЕЛАЕМ ХОД
-    ======================================================== */
+    /* ==================================================
+       СОХРАНЯЕМ СТАРУЮ ПОЗИЦИЮ
+    ================================================== */
+
+    const oldBoard =
+        clonePositionBoard(
+            positionBoardState
+        );
+
+
+    /* ==================================================
+       ПОКАЗЫВАЕМ ХОД ПОЛЬЗОВАТЕЛЯ
+    ================================================== */
 
     positionUserMove = {
-        from: from,
-        to: to
+        from,
+        to
     };
 
     makePositionMove(
@@ -4840,26 +4908,28 @@ async function handlePositionSquareClick(squareName) {
     renderPositionBoard();
 
 
-    /* ========================================================
-       НЕБОЛЬШАЯ ЗАДЕРЖКА
-       Чтобы пользователь увидел свой ход
-    ======================================================== */
+    /* ==================================================
+       ПРОВЕРКА ПЕРВОГО ХОДА
+    ================================================== */
 
     setTimeout(
         async () => {
 
             if (
                 !normalizedBestMove ||
-                playedMove !== normalizedBestMove
+                playedMove !==
+                normalizedBestMove
             ) {
 
                 setPositionResult(
                     "✗ Неверный ход. Попробуйте ещё раз."
                 );
 
-                positionWrongMove = true;
+                positionWrongMove =
+                    true;
 
                 renderPositionBoard();
+
 
                 setTimeout(() => {
 
@@ -4881,32 +4951,61 @@ async function handlePositionSquareClick(squareName) {
 
 
             /* ==================================================
-            ПРАВИЛЬНЫЙ ХОД
+               ПЕРВЫЙ ХОД ПРАВИЛЬНЫЙ
             ================================================== */
 
             setPositionResult(
                 "✓ Правильно! Компьютер думает..."
             );
 
-            positionLocked = true;
+            positionLocked =
+                true;
 
             renderPositionBoard();
 
+
             const currentFen =
                 positionTrainingFen;
+
 
             const success =
                 await makePositionComputerMove(
                     currentFen,
                     playedMove
-            );
+                );
+
 
             if (!success) {
 
-                positionLocked = false;
+                positionLocked =
+                    false;
 
                 return;
             }
+
+
+            /* ==================================================
+               ВКЛЮЧАЕМ ТРЕНИРОВКУ
+            ================================================== */
+
+            positionTrainingActive =
+                true;
+
+            positionTrainingMoves =
+                1;
+
+            positionUserMove =
+                null;
+
+            positionLocked =
+                false;
+
+
+            setPositionResult(
+                `Ход 1 из ${MAX_POSITION_TRAINING_MOVES}. Ваш ход.`
+            );
+
+            renderPositionBoard();
 
         },
         450
@@ -5509,7 +5608,16 @@ function showMistakePosition(
     РЕАЛЬНЫЙ ОШИБОЧНЫЙ ХОД ИЗ ПАРТИИ
     ======================================================== */
 
-    positionMistakeMove = null;
+    positionMistakeMove = 
+        null;
+
+    positionTrainingActive = 
+        false;
+
+    positionTrainingMoves = 0;
+
+    positionTrainingFen = 
+        fen;
 
     const playedMoveUci =
         mistake.position_played_uci ??
