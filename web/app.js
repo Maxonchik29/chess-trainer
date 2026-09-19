@@ -5616,9 +5616,6 @@ function showMistakePosition(
 
     positionTrainingMoves = 0;
 
-    positionTrainingFen = 
-        fen;
-
     const playedMoveUci =
         mistake.position_played_uci ??
         mistake.played_move_uci ??
