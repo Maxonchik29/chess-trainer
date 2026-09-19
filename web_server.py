@@ -11,13 +11,8 @@ import uuid
 
 import psycopg2
 
-from app.chess_game import ChessGame
+from app.chess_game import ChessGame, ENGINE_PATH
 from app.analysis import analyze_game, make_json_safe
-
-BASE_DIR = os.path.dirname(
-    os.path.abspath(__file__)
-)
-
 
 # ==========================================================
 # ЗАДАЧИ АНАЛИЗА
@@ -1243,14 +1238,8 @@ def mistake_computer_move():
         # STOCKFISH
         # ------------------------------------------------
 
-        engine_path = os.path.join(
-            BASE_DIR,
-            "engine",
-            "stockfish.exe"
-        )
-
         engine = chess.engine.SimpleEngine.popen_uci(
-            engine_path
+            ENGINE_PATH
         )
 
         try:
