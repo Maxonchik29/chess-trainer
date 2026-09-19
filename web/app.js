@@ -279,6 +279,8 @@ let positionBoardState = null;
 
 let positionSelectedSquare = null;
 
+let positionTrainingFen = null;
+
 let positionOrientation = "white";
 
 let positionBestMoveShown = false;
@@ -4525,9 +4527,118 @@ function makePositionMove(
    НАЖАТИЕ НА ДОСКУ ПОЗИЦИИ
 ============================================================ */
 
-function handlePositionSquareClick(
-    squareName
+async function makePositionComputerMove(
+    fen,
+    playerMove
 ) {
+
+    try {
+
+        setPositionResult(
+            "✓ Правильно! Компьютер думает..."
+        );
+
+        const response = await fetch(
+            "/mistake/computer_move",
+            {
+                method: "POST",
+
+                headers: {
+                    "Content-Type":
+                        "application/json"
+                },
+
+                body: JSON.stringify({
+
+                    fen: fen,
+
+                    player_move:
+                        playerMove
+                })
+            }
+        );
+
+        const data =
+            await response.json();
+
+        if (!response.ok ||
+            !data.success) {
+
+            console.error(
+                "Ошибка хода компьютера:",
+                data
+            );
+
+            setPositionResult(
+                data.error ||
+                "Ошибка ответа компьютера."
+            );
+
+            return false;
+        }
+
+        console.log(
+            "Ход компьютера:",
+            data.computer_move,
+            data.computer_san
+        );
+
+        // Новый FEN становится
+        // текущей тренировочной позицией
+        positionTrainingFen =
+            data.fen;
+
+        // Полностью пересобираем доску
+        // из FEN, который вернул сервер
+        positionBoardState =
+            fenToBoard(data.fen);
+
+        positionSelectedSquare =
+            null;
+
+        positionUserMove =
+            null;
+
+        positionWrongMove =
+            false;
+
+        renderPositionBoard();
+
+        if (data.game_over) {
+
+            positionLocked = true;
+
+            setPositionResult(
+                "Партия в этой позиции закончена."
+            );
+
+        } else {
+
+            positionLocked = false;
+
+            setPositionResult(
+                `Компьютер: ${data.computer_san || data.computer_move}. Ваш ход.`
+            );
+        }
+
+        return true;
+
+    } catch (error) {
+
+        console.error(
+            "Ошибка /mistake/computer_move:",
+            error
+        );
+
+        setPositionResult(
+            "Ошибка связи с сервером."
+        );
+
+        return false;
+    }
+}
+
+async function handlePositionSquareClick(squareName) {
 
     if (positionLocked) {
         return;
@@ -4735,80 +4846,69 @@ function handlePositionSquareClick(
     ======================================================== */
 
     setTimeout(
-        () => {
-
-            /* ==================================================
-               НЕПРАВИЛЬНЫЙ ХОД
-            ================================================== */
+        async () => {
 
             if (
                 !normalizedBestMove ||
-                playedMove !==
-                    normalizedBestMove
+                playedMove !== normalizedBestMove
             ) {
 
                 setPositionResult(
                     "✗ Неверный ход. Попробуйте ещё раз."
                 );
 
-                /*
-                * Показываем неправильный ход красным
-                */
-
-                positionWrongMove =
-                    true;
+                positionWrongMove = true;
 
                 renderPositionBoard();
 
-                /*
-                * Через некоторое время
-                * возвращаем исходную позицию
-                */
+                setTimeout(() => {
 
-                setTimeout(
-                    () => {
+                    positionBoardState =
+                        oldBoard;
 
-                        positionBoardState =
-                            oldBoard;
+                    positionUserMove =
+                        null;
 
-                        positionUserMove =
-                            null;
+                    positionWrongMove =
+                        false;
 
-                        positionWrongMove =
-                            false;
+                    renderPositionBoard();
 
-                        renderPositionBoard();
-
-                    },
-                    800
-                );
+                }, 800);
 
                 return;
             }
 
 
             /* ==================================================
-               ПРАВИЛЬНЫЙ ХОД
+            ПРАВИЛЬНЫЙ ХОД
             ================================================== */
 
             setPositionResult(
-                "✓ Правильно! Это лучший ход."
+                "✓ Правильно! Компьютер думает..."
             );
 
-
-            /*
-             * Оставляем новую позицию
-             * и блокируем доску.
-             */
-
-            positionLocked =
-                true;
-
+            positionLocked = true;
 
             renderPositionBoard();
 
-        },
+            const currentFen =
+                positionTrainingFen;
 
+            const success =
+                await makePositionComputerMove(
+                    currentFen,
+                    playedMove
+            );
+
+            if (!success) {
+
+                positionLocked = false;
+
+                return;
+            }
+
+        },
         450
     );
 }
@@ -5502,10 +5602,10 @@ function showMistakePosition(
     }
 
 
+    positionTrainingFen = fen;
+
     positionBoardState =
-        fenToBoard(
-            fen
-        );
+        fenToBoard(fen);
 
 
     positionCastlingRights =

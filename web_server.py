@@ -14,6 +14,10 @@ import psycopg2
 from app.chess_game import ChessGame
 from app.analysis import analyze_game, make_json_safe
 
+BASE_DIR = os.path.dirname(
+    os.path.abspath(__file__)
+)
+
 
 # ==========================================================
 # ЗАДАЧИ АНАЛИЗА
@@ -1148,6 +1152,172 @@ def computer_move():
 
         }), 500
 
+@app.route(
+    "/mistake/computer_move",
+    methods=["POST"]
+)
+def mistake_computer_move():
+
+    data = request.get_json(
+        silent=True
+    ) or {}
+
+    fen = data.get("fen")
+    player_move = data.get("player_move")
+
+    if not fen:
+        return jsonify({
+            "success": False,
+            "error": "FEN не передан."
+        }), 400
+
+    if not player_move:
+        return jsonify({
+            "success": False,
+            "error": "Ход пользователя не передан."
+        }), 400
+
+    try:
+
+        import chess
+        import chess.engine
+
+        board = chess.Board(fen)
+
+        # ------------------------------------------------
+        # ХОД ПОЛЬЗОВАТЕЛЯ
+        # ------------------------------------------------
+
+        try:
+            move = chess.Move.from_uci(
+                player_move
+            )
+        except Exception:
+
+            return jsonify({
+                "success": False,
+                "error": "Некорректный ход."
+            }), 400
+
+        if move not in board.legal_moves:
+
+            return jsonify({
+                "success": False,
+                "error": "Этот ход нелегален."
+            }), 400
+
+        player_san = board.san(move)
+
+        board.push(move)
+
+        # ------------------------------------------------
+        # ЕСЛИ ПОСЛЕ ХОДА ПОЛЬЗОВАТЕЛЯ ИГРА ЗАКОНЧИЛАСЬ
+        # ------------------------------------------------
+
+        if board.is_game_over():
+
+            return jsonify({
+
+                "success": True,
+
+                "player_move":
+                    player_move,
+
+                "player_san":
+                    player_san,
+
+                "computer_move":
+                    None,
+
+                "computer_san":
+                    None,
+
+                "fen":
+                    board.fen(),
+
+                "game_over":
+                    True
+            })
+
+        # ------------------------------------------------
+        # STOCKFISH
+        # ------------------------------------------------
+
+        engine_path = os.path.join(
+            BASE_DIR,
+            "engine",
+            "stockfish.exe"
+        )
+
+        engine = chess.engine.SimpleEngine.popen_uci(
+            engine_path
+        )
+
+        try:
+
+            result = engine.analyse(
+                board,
+                chess.engine.Limit(
+                    depth=12
+                )
+            )
+
+            computer_move = result["pv"][0]
+
+            computer_san = board.san(
+                computer_move
+            )
+
+            board.push(
+                computer_move
+            )
+
+        finally:
+
+            engine.quit()
+
+        # ------------------------------------------------
+        # РЕЗУЛЬТАТ
+        # ------------------------------------------------
+
+        return jsonify({
+
+            "success": True,
+
+            "player_move":
+                player_move,
+
+            "player_san":
+                player_san,
+
+            "computer_move":
+                computer_move.uci(),
+
+            "computer_san":
+                computer_san,
+
+            "fen":
+                board.fen(),
+
+            "game_over":
+                board.is_game_over()
+        })
+
+    except Exception as e:
+
+        print(
+            "ОШИБКА /mistake/computer_move:",
+            repr(e)
+        )
+
+        return jsonify({
+
+            "success": False,
+
+            "error":
+                "Ошибка хода компьютера."
+
+        }), 500
 
 # ============================================================
 # СДАЧА ИГРОКА
