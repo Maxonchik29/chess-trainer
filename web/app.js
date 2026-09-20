@@ -316,6 +316,16 @@ let positionLocked = false;
 
 let positionCastlingRights = "-";
 
+/* ============================================================
+   СОСТОЯНИЕ «ПЕРЕИГРАТЬ ОШИБКУ»
+============================================================ */
+
+let replayMistakeCurrent = null;
+
+let replayMistakeBoardState = null;
+
+let replayMistakeOrientation = "white";
+
 
 /* ============================================================
    КООРДИНАТЫ
@@ -6752,20 +6762,374 @@ async function loadReplayMistakes() {
 }
 
 /* ============================================================
-   ЗАПУСК ПЕРЕИГРЫВАНИЯ ОШИБКИ
+   ЗАПУСК «ПЕРЕИГРАТЬ ОШИБКУ»
 ============================================================ */
 
 function startReplayMistake(mistake) {
 
     console.log(
-        "ВЫБРАНА ОШИБКА ДЛЯ ПЕРЕИГРЫВАНИЯ:",
+        "=== ПЕРЕИГРАТЬ ОШИБКУ ==="
+    );
+
+    console.log(
+        "Выбрана ошибка:",
         mistake
     );
 
-    alert(
-        "Ошибка выбрана. Следующим шагом запустим позицию перед ошибкой."
+
+    if (!mistake) {
+
+        console.error(
+            "Ошибка не передана."
+        );
+
+        return;
+    }
+
+
+    /*
+     * Позиция ДО ошибочного хода.
+     */
+
+    const fen =
+        mistake.position_fen ??
+        mistake.fen;
+
+
+    if (!fen) {
+
+        console.error(
+            "У ошибки отсутствует FEN:",
+            mistake
+        );
+
+        return;
+    }
+
+
+    /*
+     * Сохраняем выбранную ошибку.
+     */
+
+    replayMistakeCurrent =
+        mistake;
+
+
+    /*
+     * Создаём состояние доски.
+     */
+
+    replayMistakeBoardState =
+        fenToBoard(
+            fen
+        );
+
+
+    /*
+     * Определяем сторону,
+     * за которую играл пользователь.
+     */
+
+    replayMistakeOrientation =
+        getMistakeSide(
+            mistake
+        );
+
+
+    console.log(
+        "FEN позиции:",
+        fen
+    );
+
+    console.log(
+        "Сторона пользователя:",
+        replayMistakeOrientation
+    );
+
+
+    /*
+     * Скрываем список ошибок.
+     */
+
+    const list =
+        document.getElementById(
+            "replayMistakeList"
+        );
+
+
+    if (list) {
+
+        list.classList.add(
+            "hidden"
+        );
+    }
+
+
+    /*
+     * Показываем игровую область.
+     */
+
+    const game =
+        document.getElementById(
+            "replayMistakeGame"
+        );
+
+
+    if (game) {
+
+        game.classList.remove(
+            "hidden"
+        );
+    }
+
+
+    /*
+     * Заголовок.
+     */
+
+    const title =
+        document.getElementById(
+            "replayMistakeTitle"
+        );
+
+
+    if (title) {
+
+        title.textContent =
+            "♻️ Переиграть ошибку";
+    }
+
+
+    /*
+     * Информация об ошибке.
+     */
+
+    const message =
+        document.getElementById(
+            "replayMistakeMessage"
+        );
+
+
+    if (message) {
+
+        const playedMove =
+            mistake.position_played_uci ??
+            mistake.played_move ??
+            "?";
+
+        const bestMove =
+            mistake.best_move_uci ??
+            mistake.best_move ??
+            "?";
+
+        message.textContent =
+            `Позиция перед ошибкой: ${playedMove}  →  ${bestMove}`;
+    }
+
+
+    /*
+     * Рисуем новую доску.
+     */
+
+    renderReplayMistakeBoard();
+}
+
+/* ============================================================
+   ОТРИСОВКА ДОСКИ «ПЕРЕИГРАТЬ ОШИБКУ»
+============================================================ */
+
+function renderReplayMistakeBoard() {
+
+    const boardElement =
+        document.getElementById(
+            "replayMistakeBoard"
+        );
+
+
+    if (!boardElement) {
+        return;
+    }
+
+
+    if (!replayMistakeBoardState) {
+        return;
+    }
+
+
+    boardElement.innerHTML = "";
+
+
+    const isBlack =
+        replayMistakeOrientation ===
+        "black";
+
+
+    const rows =
+        isBlack
+            ? [
+                7,
+                6,
+                5,
+                4,
+                3,
+                2,
+                1,
+                0
+            ]
+            : [
+                0,
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7
+            ];
+
+
+    const cols =
+        isBlack
+            ? [
+                7,
+                6,
+                5,
+                4,
+                3,
+                2,
+                1,
+                0
+            ]
+            : [
+                0,
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7
+            ];
+
+
+    for (
+        let displayRow = 0;
+        displayRow < 8;
+        displayRow++
+    ) {
+
+        const row =
+            rows[displayRow];
+
+
+        for (
+            let displayCol = 0;
+            displayCol < 8;
+            displayCol++
+        ) {
+
+            const col =
+                cols[displayCol];
+
+
+            const square =
+                document.createElement(
+                    "div"
+                );
+
+
+            square.className =
+                "square";
+
+
+            /*
+             * Цвет клетки.
+             */
+
+            if (
+                (row + col) % 2 === 0
+            ) {
+
+                square.classList.add(
+                    "light"
+                );
+
+            } else {
+
+                square.classList.add(
+                    "dark"
+                );
+            }
+
+
+            /*
+             * Название клетки.
+             */
+
+            const squareName =
+                FILES[col] +
+                (8 - row);
+
+
+            square.dataset.square =
+                squareName;
+
+
+            /*
+             * Фигура.
+             */
+
+            const piece =
+                replayMistakeBoardState[
+                    row
+                ]?.[
+                    col
+                ];
+
+
+            if (piece) {
+
+                const pieceElement =
+                    document.createElement(
+                        "img"
+                    );
+
+
+                pieceElement.className =
+                    "piece-image";
+
+
+                pieceElement.src =
+                    `pieces/${piece.color}/${piece.type.charAt(0).toUpperCase() + piece.type.slice(1)}.svg?v=5`;
+
+
+                pieceElement.alt =
+                    `${piece.color} ${piece.type}`;
+
+
+                pieceElement.draggable =
+                    false;
+
+
+                square.appendChild(
+                    pieceElement
+                );
+            }
+
+
+            boardElement.appendChild(
+                square
+            );
+        }
+    }
+
+
+    console.log(
+        "Доска переигрывания отрисована."
     );
 }
+
+
 
 /* ============================================================
    РЕНДЕР МОИХ ОШИБОК
