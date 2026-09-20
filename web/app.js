@@ -7066,7 +7066,9 @@ function finishReplayMistake() {
    ОТРИСОВКА ДОСКИ «ПЕРЕИГРАТЬ ОШИБКУ»
 ============================================================ */
 
+
 function renderReplayMistakeBoard() {
+
     const boardElement =
         document.getElementById("replayMistakeBoard");
 
@@ -7080,13 +7082,13 @@ function renderReplayMistakeBoard() {
 
     const rows =
         isBlack
-            ? [7,6,5,4,3,2,1,0]
-            : [0,1,2,3,4,5,6,7];
+            ? [7, 6, 5, 4, 3, 2, 1, 0]
+            : [0, 1, 2, 3, 4, 5, 6, 7];
 
     const cols =
         isBlack
-            ? [7,6,5,4,3,2,1,0]
-            : [0,1,2,3,4,5,6,7];
+            ? [7, 6, 5, 4, 3, 2, 1, 0]
+            : [0, 1, 2, 3, 4, 5, 6, 7];
 
     for (
         let displayRow = 0;
@@ -7107,12 +7109,20 @@ function renderReplayMistakeBoard() {
             const square =
                 document.createElement("div");
 
-            square.className = "square";
+            square.className =
+                "square";
 
             if ((row + col) % 2 === 0) {
-                square.classList.add("light");
+
+                square.classList.add(
+                    "light"
+                );
+
             } else {
-                square.classList.add("dark");
+
+                square.classList.add(
+                    "dark"
+                );
             }
 
             const squareName =
@@ -7120,6 +7130,49 @@ function renderReplayMistakeBoard() {
 
             square.dataset.square =
                 squareName;
+
+
+            /* ====================================================
+               КООРДИНАТЫ — ЦИФРЫ
+            ==================================================== */
+
+            if (displayCol === 0) {
+
+                const rankLabel =
+                    document.createElement("span");
+
+                rankLabel.className =
+                    "board-coordinate rank-coordinate";
+
+                rankLabel.textContent =
+                    8 - row;
+
+                square.appendChild(
+                    rankLabel
+                );
+            }
+
+
+            /* ====================================================
+               КООРДИНАТЫ — БУКВЫ
+            ==================================================== */
+
+            if (displayRow === 7) {
+
+                const fileLabel =
+                    document.createElement("span");
+
+                fileLabel.className =
+                    "board-coordinate file-coordinate";
+
+                fileLabel.textContent =
+                    FILES[col];
+
+                square.appendChild(
+                    fileLabel
+                );
+            }
+
 
             /* ====================================================
                ВЫДЕЛЕНИЕ ВЫБРАННОЙ КЛЕТКИ
@@ -7129,10 +7182,16 @@ function renderReplayMistakeBoard() {
                 replayMistakeSelectedSquare ===
                 squareName
             ) {
+
                 square.classList.add(
                     "selected"
                 );
             }
+
+
+            /* ====================================================
+               ФИГУРА
+            ==================================================== */
 
             const piece =
                 replayMistakeBoardState[row]?.[col];
@@ -7151,16 +7210,23 @@ function renderReplayMistakeBoard() {
                 pieceElement.alt =
                     `${piece.color} ${piece.type}`;
 
-                pieceElement.draggable = false;
+                pieceElement.draggable =
+                    false;
 
                 square.appendChild(
                     pieceElement
                 );
             }
 
+
+            /* ====================================================
+               КЛИК ПО КЛЕТКЕ
+            ==================================================== */
+
             square.addEventListener(
                 "click",
                 () => {
+
                     handleReplayMistakeSquareClick(
                         squareName
                     );
@@ -7177,6 +7243,8 @@ function renderReplayMistakeBoard() {
         "Доска переигрывания отрисована."
     );
 }
+
+
 
 async function handleReplayMistakeSquareClick(
     squareName
