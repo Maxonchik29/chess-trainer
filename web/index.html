@@ -74,6 +74,14 @@
             <span>Мои ошибки</span>
         </button>
 
+        <button
+            id="replayMistakeButton"
+            class="menu-button secondary"
+        >
+            <span class="menu-button-icon">♻️</span>
+            <span>Переиграть ошибку</span>
+        </button>
+
     </div>
 
 </section>
@@ -375,8 +383,7 @@
         </div>
 
     </header>
-
-
+    
     <div class="analysis-card">
 
         <textarea
@@ -486,6 +493,90 @@
    ```
 
     </section>
+
+<!-- =====================================================
+     ЭКРАН ПЕРЕИГРАТЬ ОШИБКУ
+     ===================================================== -->
+
+<section
+    id="replayMistakeScreen"
+    class="screen hidden"
+>
+
+    <header class="page-header">
+
+        <button
+            id="backFromReplayMistakeButton"
+            class="back-button"
+        >
+            ← Меню
+        </button>
+
+        <h1>
+            ♻️ Переиграть ошибку
+        </h1>
+
+        <div class="page-description">
+            Выбери свою ошибку и сыграй позицию
+            заново против компьютера.
+        </div>
+
+    </header>
+
+
+    <div
+        id="replayMistakeList"
+        class="mistakes-list"
+    >
+    </div>
+
+
+    <div
+        id="replayMistakeGame"
+        class="hidden"
+    >
+
+        <div
+            id="replayMistakeTitle"
+            class="position-title"
+        >
+            Переиграть ошибку
+        </div>
+
+
+        <div
+            id="replayMistakeMessage"
+            class="position-result"
+        >
+            Ваш ход
+        </div>
+
+
+        <div class="board-wrapper">
+
+            <div
+                id="replayMistakeBoard"
+                class="board"
+            ></div>
+
+        </div>
+
+
+        <div class="buttons">
+
+            <button
+                id="finishReplayMistakeButton"
+                class="button secondary"
+                type="button"
+            >
+                🏁 Завершить партию
+            </button>
+
+        </div>
+
+    </div>
+
+</section>
 
 </div>
 

@@ -101,6 +101,10 @@ const mistakesScreen =
         "mistakesScreen"
     );
 
+const replayMistakeScreen =
+    document.getElementById(
+        "replayMistakeScreen"
+    );
 
 /* ============================================================
    КНОПКИ МЕНЮ
@@ -121,6 +125,11 @@ const mistakesButton =
         "mistakesButton"
     );
 
+const replayMistakeButton =
+    document.getElementById(
+        "replayMistakeButton"
+    );
+
 const backFromGameButton =
     document.getElementById(
         "backFromGameButton"
@@ -134,6 +143,11 @@ const backFromAnalysisButton =
 const backFromMistakesButton =
     document.getElementById(
         "backFromMistakesButton"
+    );
+
+const backFromReplayMistakeButton =
+    document.getElementById(
+        "backFromReplayMistakeButton"
     );
 
 
@@ -3226,6 +3240,24 @@ if (mistakesButton) {
     );
 }
 
+/* ============================================================
+   МЕНЮ → ПЕРЕИГРАТЬ ОШИБКУ
+============================================================ */
+
+if (replayMistakeButton) {
+
+    replayMistakeButton.addEventListener(
+        "click",
+        () => {
+
+            showScreen(
+                replayMistakeScreen
+            );
+
+            loadReplayMistakes();
+        }
+    );
+}
 
 /* ============================================================
    НАЗАД ИЗ ИГРЫ
@@ -3280,6 +3312,22 @@ if (backFromMistakesButton) {
     );
 }
 
+/* ============================================================
+   НАЗАД ИЗ ПЕРЕИГРАТЬ ОШИБКУ
+============================================================ */
+
+if (backFromReplayMistakeButton) {
+
+    backFromReplayMistakeButton.addEventListener(
+        "click",
+        () => {
+
+            showScreen(
+                menuScreen
+            );
+        }
+    );
+}
 
 /* ============================================================
    СОЗДАНИЕ ЭКРАНА ПОЗИЦИИ
@@ -6407,6 +6455,318 @@ async function loadMyMistakes() {
         `;
     }
 }
+
+/* ============================================================
+   ЗАГРУЗКА ОШИБОК ДЛЯ «ПЕРЕИГРАТЬ ОШИБКУ»
+============================================================ */
+
+async function loadReplayMistakes() {
+
+    const list =
+        document.getElementById(
+            "replayMistakeList"
+        );
+
+    if (!list) {
+        return;
+    }
+
+    list.innerHTML = `
+        <div class="loading">
+            ⏳ Загружаем ваши ошибки...
+        </div>
+    `;
+
+    try {
+
+        const user =
+            getTelegramUser();
+
+        if (!user) {
+
+            list.innerHTML = `
+                <div class="analysis-empty">
+                    Telegram пользователь
+                    не определён.
+                </div>
+            `;
+
+            return;
+        }
+
+        const response =
+            await fetch(
+                "/mistakes",
+                {
+                    method: "POST",
+
+                    headers: {
+                        "Content-Type":
+                            "application/json"
+                    },
+
+                    body:
+                        JSON.stringify({
+                            telegram_user:
+                                user
+                        })
+                }
+            );
+
+        const data =
+            await response.json();
+
+        console.log(
+            "ОШИБКИ ДЛЯ ПЕРЕИГРЫВАНИЯ:",
+            data
+        );
+
+        if (
+            !response.ok ||
+            !data.ok
+        ) {
+
+            list.innerHTML = `
+                <div class="analysis-empty">
+                    ${
+                        data.error ||
+                        "Не удалось загрузить ошибки."
+                    }
+                </div>
+            `;
+
+            return;
+        }
+
+        const mistakes =
+            data.mistakes || [];
+
+        if (
+            mistakes.length === 0
+        ) {
+
+            list.innerHTML = `
+                <div class="analysis-empty">
+                    У вас пока нет сохранённых ошибок.
+                </div>
+            `;
+
+            return;
+        }
+
+        /*
+         * Сохраняем нормализованные данные.
+         * Используем отдельный массив,
+         * чтобы не ломать «Мои ошибки».
+         */
+
+        const replayMistakes =
+            mistakes.map(
+                mistake => ({
+
+                    ...mistake,
+
+                    position_fen:
+                        mistake.position_fen ??
+                        mistake.fen,
+
+                    position_played_uci:
+                        mistake.position_played_uci ??
+                        mistake.played_move,
+
+                    best_move_uci:
+                        mistake.best_move_uci ??
+                        mistake.best_move,
+
+                    user_side:
+                        mistake.user_side ??
+                        (
+                            String(
+                                mistake.fen ||
+                                ""
+                            ).split(" ")[1] ===
+                            "b"
+                                ? "black"
+                                : "white"
+                        )
+
+                })
+            );
+
+
+        /*
+         * Сохраняем отдельно для нового режима.
+         */
+
+        window.replayMistakesData =
+            replayMistakes;
+
+
+        /*
+         * Рисуем список.
+         */
+
+        list.innerHTML = "";
+
+
+        replayMistakes.forEach(
+            (mistake, index) => {
+
+                const item =
+                    document.createElement(
+                        "button"
+                    );
+
+                item.type =
+                    "button";
+
+                item.className =
+                    "mistake-item";
+
+
+                const side =
+                    getMistakeSide(
+                        mistake
+                    );
+
+                const moveNumber =
+                    mistake.move_number ||
+                    "?";
+
+                const playedMove =
+                    mistake.position_played_uci ||
+                    mistake.played_move ||
+                    "?";
+
+                const bestMove =
+                    mistake.best_move_uci ||
+                    mistake.best_move ||
+                    "?";
+
+                const loss =
+                    Number(
+                        mistake.loss
+                    );
+
+
+                let lossText =
+                    "";
+
+                if (
+                    Number.isFinite(loss)
+                ) {
+
+                    lossText =
+                        `${Math.round(loss)} cp`;
+                }
+
+
+                item.innerHTML = `
+
+                    <div class="mistake-item-main">
+
+                        <div class="mistake-item-title">
+
+                            Ошибка ${index + 1}
+
+                        </div>
+
+                        <div class="mistake-item-info">
+
+                            ${side === "black"
+                                ? "⚫ Чёрные"
+                                : "⚪ Белые"
+                            }
+
+                            · Ход ${moveNumber}
+
+                        </div>
+
+                    </div>
+
+
+                    <div class="mistake-item-moves">
+
+                        <span>
+                            ${playedMove}
+                        </span>
+
+                        <span>
+                            →
+                        </span>
+
+                        <span>
+                            ${bestMove}
+                        </span>
+
+                    </div>
+
+
+                    ${
+                        lossText
+                            ? `
+                                <div class="mistake-item-loss">
+                                    −${lossText}
+                                </div>
+                            `
+                            : ""
+                    }
+
+                `;
+
+
+                item.addEventListener(
+                    "click",
+                    () => {
+
+                        startReplayMistake(
+                            mistake
+                        );
+
+                    }
+                );
+
+
+                list.appendChild(
+                    item
+                );
+
+            }
+        );
+
+
+    } catch (error) {
+
+        console.error(
+            "Ошибка загрузки ошибок для переигрывания:",
+            error
+        );
+
+        list.innerHTML = `
+            <div class="analysis-empty">
+                Ошибка соединения
+                с сервером.
+            </div>
+        `;
+    }
+}
+
+/* ============================================================
+   ЗАПУСК ПЕРЕИГРЫВАНИЯ ОШИБКИ
+============================================================ */
+
+function startReplayMistake(mistake) {
+
+    console.log(
+        "ВЫБРАНА ОШИБКА ДЛЯ ПЕРЕИГРЫВАНИЯ:",
+        mistake
+    );
+
+    alert(
+        "Ошибка выбрана. Следующим шагом запустим позицию перед ошибкой."
+    );
+}
+
 /* ============================================================
    РЕНДЕР МОИХ ОШИБОК
 ============================================================ */
