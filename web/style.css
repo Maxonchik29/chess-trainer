@@ -1432,3 +1432,12 @@ and (max-height: 600px) {
 .position-info strong {
     font-size: 13px;
 }
+
+/* ============================================================
+   ПЕРЕИГРЫВАНИЕ ОШИБКИ — КОМПЬЮТЕР ДУМАЕТ
+============================================================ */
+
+#replayMistakeBoard.replay-thinking {
+    pointer-events: none;
+    opacity: 0.75;
+}

@@ -326,6 +326,8 @@ let replayMistakeBoardState = null;
 
 let replayMistakeOrientation = "white";
 
+let replayMistakeSelectedSquare = null;
+
 
 /* ============================================================
    КООРДИНАТЫ
@@ -6835,6 +6837,9 @@ function startReplayMistake(mistake) {
             mistake
         );
 
+    replayMistakeSelectedSquare = 
+        null;
+
 
     console.log(
         "FEN позиции:",
@@ -6939,78 +6944,26 @@ function startReplayMistake(mistake) {
 ============================================================ */
 
 function renderReplayMistakeBoard() {
-
     const boardElement =
-        document.getElementById(
-            "replayMistakeBoard"
-        );
+        document.getElementById("replayMistakeBoard");
 
-
-    if (!boardElement) {
-        return;
-    }
-
-
-    if (!replayMistakeBoardState) {
-        return;
-    }
-
+    if (!boardElement) return;
+    if (!replayMistakeBoardState) return;
 
     boardElement.innerHTML = "";
 
-
     const isBlack =
-        replayMistakeOrientation ===
-        "black";
-
+        replayMistakeOrientation === "black";
 
     const rows =
         isBlack
-            ? [
-                7,
-                6,
-                5,
-                4,
-                3,
-                2,
-                1,
-                0
-            ]
-            : [
-                0,
-                1,
-                2,
-                3,
-                4,
-                5,
-                6,
-                7
-            ];
-
+            ? [7,6,5,4,3,2,1,0]
+            : [0,1,2,3,4,5,6,7];
 
     const cols =
         isBlack
-            ? [
-                7,
-                6,
-                5,
-                4,
-                3,
-                2,
-                1,
-                0
-            ]
-            : [
-                0,
-                1,
-                2,
-                3,
-                4,
-                5,
-                6,
-                7
-            ];
-
+            ? [7,6,5,4,3,2,1,0]
+            : [0,1,2,3,4,5,6,7];
 
     for (
         let displayRow = 0;
@@ -7018,9 +6971,7 @@ function renderReplayMistakeBoard() {
         displayRow++
     ) {
 
-        const row =
-            rows[displayRow];
-
+        const row = rows[displayRow];
 
         for (
             let displayCol = 0;
@@ -7028,94 +6979,70 @@ function renderReplayMistakeBoard() {
             displayCol++
         ) {
 
-            const col =
-                cols[displayCol];
-
+            const col = cols[displayCol];
 
             const square =
-                document.createElement(
-                    "div"
-                );
+                document.createElement("div");
 
+            square.className = "square";
 
-            square.className =
-                "square";
-
-
-            /*
-             * Цвет клетки.
-             */
-
-            if (
-                (row + col) % 2 === 0
-            ) {
-
-                square.classList.add(
-                    "light"
-                );
-
+            if ((row + col) % 2 === 0) {
+                square.classList.add("light");
             } else {
-
-                square.classList.add(
-                    "dark"
-                );
+                square.classList.add("dark");
             }
 
-
-            /*
-             * Название клетки.
-             */
-
             const squareName =
-                FILES[col] +
-                (8 - row);
-
+                FILES[col] + (8 - row);
 
             square.dataset.square =
                 squareName;
 
+            /* ====================================================
+               ВЫДЕЛЕНИЕ ВЫБРАННОЙ КЛЕТКИ
+            ==================================================== */
 
-            /*
-             * Фигура.
-             */
+            if (
+                replayMistakeSelectedSquare ===
+                squareName
+            ) {
+                square.classList.add(
+                    "selected"
+                );
+            }
 
             const piece =
-                replayMistakeBoardState[
-                    row
-                ]?.[
-                    col
-                ];
-
+                replayMistakeBoardState[row]?.[col];
 
             if (piece) {
 
                 const pieceElement =
-                    document.createElement(
-                        "img"
-                    );
-
+                    document.createElement("img");
 
                 pieceElement.className =
                     "piece-image";
 
-
                 pieceElement.src =
                     `pieces/${piece.color}/${piece.type.charAt(0).toUpperCase() + piece.type.slice(1)}.svg?v=5`;
-
 
                 pieceElement.alt =
                     `${piece.color} ${piece.type}`;
 
-
-                pieceElement.draggable =
-                    false;
-
+                pieceElement.draggable = false;
 
                 square.appendChild(
                     pieceElement
                 );
             }
 
+            square.addEventListener(
+                "click",
+                () => {
+                    handleReplayMistakeSquareClick(
+                        squareName
+                    );
+                }
+            );
 
             boardElement.appendChild(
                 square
@@ -7123,13 +7050,248 @@ function renderReplayMistakeBoard() {
         }
     }
 
-
     console.log(
         "Доска переигрывания отрисована."
     );
 }
 
+async function handleReplayMistakeSquareClick(
+    squareName
+) {
 
+    if (!replayMistakeBoardState) {
+        return;
+    }
+
+    const coords =
+        squareToCoords(squareName);
+
+    if (!coords) {
+        return;
+    }
+
+    const piece =
+        replayMistakeBoardState[
+            coords.row
+        ]?.[
+            coords.col
+        ];
+
+    /* ========================================================
+       ПЕРВЫЙ КЛИК — ВЫБИРАЕМ СВОЮ ФИГУРУ
+    ======================================================== */
+
+    if (
+        replayMistakeSelectedSquare ===
+        null
+    ) {
+
+        if (!piece) {
+            return;
+        }
+
+        if (
+            piece.color !==
+            replayMistakeOrientation
+        ) {
+            return;
+        }
+
+        replayMistakeSelectedSquare =
+            squareName;
+
+        renderReplayMistakeBoard();
+
+        return;
+    }
+
+    /* ========================================================
+       ПОВТОРНЫЙ КЛИК ПО ТОЙ ЖЕ КЛЕТКЕ
+    ======================================================== */
+
+    if (
+        replayMistakeSelectedSquare ===
+        squareName
+    ) {
+
+        replayMistakeSelectedSquare =
+            null;
+
+        renderReplayMistakeBoard();
+
+        return;
+    }
+
+    /* ========================================================
+       СОЗДАЁМ UCI
+    ======================================================== */
+
+    const fromSquare =
+        replayMistakeSelectedSquare;
+
+    const toSquare =
+        squareName;
+
+    const playerMove =
+        fromSquare +
+        toSquare;
+
+    console.log(
+        "ХОД ПЕРЕИГРЫВАНИЯ:",
+        playerMove
+    );
+
+    /* ========================================================
+       СНИМАЕМ ВЫДЕЛЕНИЕ
+    ======================================================== */
+
+    replayMistakeSelectedSquare =
+        null;
+
+    const message =
+        document.getElementById(
+            "replayMistakeMessage"
+        );
+
+    if (message) {
+        message.textContent =
+            "⏳ Компьютер думает...";
+    }
+
+    /* ========================================================
+       БЛОКИРУЕМ ДОСКУ НА ВРЕМЯ ЗАПРОСА
+    ======================================================== */
+
+    const boardElement =
+        document.getElementById(
+            "replayMistakeBoard"
+        );
+
+    if (boardElement) {
+        boardElement.classList.add(
+            "replay-thinking"
+        );
+    }
+
+    try {
+
+        const response =
+            await fetch(
+                "/replay_mistake_move",
+                {
+                    method: "POST",
+
+                    headers: {
+                        "Content-Type":
+                            "application/json"
+                    },
+
+                    body: JSON.stringify({
+                        telegram_user:
+                            getTelegramUser(),
+
+                        fen:
+                            replayMistakeCurrent
+                                ?.position_fen ??
+                            replayMistakeCurrent
+                                ?.fen,
+
+                        player_move:
+                            playerMove,
+
+                        player_color:
+                            replayMistakeOrientation
+                    })
+                }
+            );
+
+        const data =
+            await response.json();
+
+        console.log(
+            "ОТВЕТ ПЕРЕИГРЫВАНИЯ:",
+            data
+        );
+
+        /* ====================================================
+           ОШИБКА / НЕЛЕГАЛЬНЫЙ ХОД
+        ==================================================== */
+
+        if (
+            !response.ok ||
+            !data.success
+        ) {
+
+            if (message) {
+                message.textContent =
+                    data.error ||
+                    "Неверный ход.";
+            }
+
+            replayMistakeSelectedSquare =
+                null;
+
+            renderReplayMistakeBoard();
+
+            return;
+        }
+
+        /* ====================================================
+           СЕРВЕР ВЕРНУЛ НОВУЮ ПОЗИЦИЮ
+        ==================================================== */
+
+        if (data.fen) {
+
+            replayMistakeBoardState =
+                fenToBoard(
+                    data.fen
+                );
+        }
+
+        /* ====================================================
+           СООБЩЕНИЕ
+        ==================================================== */
+
+        if (message) {
+
+            if (data.game_over) {
+
+                message.textContent =
+                    "🏁 Партия закончена.";
+
+            } else {
+
+                message.textContent =
+                    `Ваш ход. Компьютер: ${
+                        data.computer_san ||
+                        "—"
+                    }`;
+            }
+        }
+
+        renderReplayMistakeBoard();
+
+    } catch (error) {
+
+        console.error(
+            "Ошибка хода переигрывания:",
+            error
+        );
+
+        if (message) {
+            message.textContent =
+                "❌ Ошибка соединения с сервером.";
+        }
+
+    } finally {
+
+        if (boardElement) {
+            boardElement.classList.remove(
+                "replay-thinking"
+            );
+        }
+    }
+}
 
 /* ============================================================
    РЕНДЕР МОИХ ОШИБОК

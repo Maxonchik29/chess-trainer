@@ -22,6 +22,12 @@ ANALYSIS_JOBS = {}
 
 ANALYSIS_JOBS_LOCK = threading.Lock()
 
+# ==========================================================
+# СОСТОЯНИЕ «ПЕРЕИГРАТЬ ОШИБКУ»
+# ==========================================================
+
+REPLAY_MISTAKE_GAMES = {}
+
 
 # ============================================================
 # НАСТРОЙКИ
@@ -2831,6 +2837,217 @@ def delete_mistake(mistake_id):
 
             conn.close()
 
+
+# ============================================================
+# ПЕРЕИГРАТЬ ОШИБКУ — ХОД ПОЛЬЗОВАТЕЛЯ + ОТВЕТ КОМПЬЮТЕРА
+# ============================================================
+
+@app.route("/replay_mistake_move", methods=["POST"])
+def replay_mistake_move():
+
+    data = request.get_json(silent=True) or {}
+
+    telegram_id = get_telegram_id_from_data(data)
+
+    if telegram_id is None:
+        telegram_id = -1
+
+    fen = data.get("fen")
+    player_move = data.get("player_move")
+    player_color = data.get("player_color")
+
+    if not fen:
+        return jsonify({
+            "success": False,
+            "error": "FEN не передан."
+        }), 400
+
+    if not player_move:
+        return jsonify({
+            "success": False,
+            "error": "Ход не передан."
+        }), 400
+
+    try:
+
+        import chess
+        import chess.engine
+
+        # ----------------------------------------------------
+        # Получаем существующую тренировочную партию
+        # ----------------------------------------------------
+
+        game = REPLAY_MISTAKE_GAMES.get(telegram_id)
+
+        # ----------------------------------------------------
+        # Если партии ещё нет — создаём её из начальной FEN
+        # ----------------------------------------------------
+
+        if game is None:
+
+            board = chess.Board(fen)
+
+            engine = chess.engine.SimpleEngine.popen_uci(
+                ENGINE_PATH
+            )
+
+            game = {
+                "board": board,
+                "engine": engine,
+                "start_fen": fen,
+                "moves": []
+            }
+
+            REPLAY_MISTAKE_GAMES[telegram_id] = game
+
+        else:
+
+            board = game["board"]
+            engine = game["engine"]
+
+        # ----------------------------------------------------
+        # Проверяем, что сейчас действительно ход пользователя
+        # ----------------------------------------------------
+
+        if player_color == "black":
+            expected_color = chess.BLACK
+        else:
+            expected_color = chess.WHITE
+
+        if board.turn != expected_color:
+
+            return jsonify({
+                "success": False,
+                "error": "Сейчас не ваш ход."
+            }), 400
+
+        # ----------------------------------------------------
+        # Преобразуем UCI
+        # ----------------------------------------------------
+
+        try:
+            move = chess.Move.from_uci(
+                player_move
+            )
+        except Exception:
+
+            return jsonify({
+                "success": False,
+                "error": "Некорректный ход."
+            }), 400
+
+        # ----------------------------------------------------
+        # Проверяем легальность
+        # ----------------------------------------------------
+
+        if move not in board.legal_moves:
+
+            return jsonify({
+                "success": False,
+                "error": "Этот ход нелегален.",
+                "fen": board.fen()
+            }), 400
+
+        # ----------------------------------------------------
+        # SAN пользователя
+        # ----------------------------------------------------
+
+        player_san = board.san(move)
+
+        # ----------------------------------------------------
+        # Делаем ход пользователя
+        # ----------------------------------------------------
+
+        board.push(move)
+
+        game["moves"].append({
+            "color": "white"
+                if expected_color == chess.WHITE
+                else "black",
+            "uci": move.uci(),
+            "san": player_san
+        })
+
+        # ----------------------------------------------------
+        # Проверяем конец партии
+        # ----------------------------------------------------
+
+        if board.is_game_over():
+
+            return jsonify({
+                "success": True,
+                "player_move": move.uci(),
+                "player_san": player_san,
+                "computer_move": None,
+                "computer_san": None,
+                "fen": board.fen(),
+                "game_over": True
+            })
+
+        # ----------------------------------------------------
+        # ХОД КОМПЬЮТЕРА
+        # ----------------------------------------------------
+
+        result = engine.analyse(
+            board,
+            chess.engine.Limit(time=0.3)
+        )
+
+        computer_move = result["pv"][0]
+
+        computer_san = board.san(
+            computer_move
+        )
+
+        board.push(
+            computer_move
+        )
+
+        game["moves"].append({
+            "color": "white"
+                if board.turn == chess.BLACK
+                else "black",
+            "uci": computer_move.uci(),
+            "san": computer_san
+        })
+
+        # ----------------------------------------------------
+        # Ответ
+        # ----------------------------------------------------
+
+        return jsonify({
+            "success": True,
+
+            "player_move":
+                move.uci(),
+
+            "player_san":
+                player_san,
+
+            "computer_move":
+                computer_move.uci(),
+
+            "computer_san":
+                computer_san,
+
+            "fen":
+                board.fen(),
+
+            "game_over":
+                board.is_game_over()
+        })
+
+    except Exception as e:
+
+        print(
+            "ОШИБКА /replay_mistake_move:",
+            repr(e)
+        )
+
+        return jsonify({
+            "success": False,
+            "error": "Ошибка обработки хода."
+        }), 500
 
 # ============================================================
 # ЗАПУСК
