@@ -2880,13 +2880,32 @@ def replay_mistake_move():
         game = REPLAY_MISTAKE_GAMES.get(telegram_id)
 
         # ----------------------------------------------------
-        # Если партии ещё нет — создаём её из начальной FEN
+        # Создаём новую партию, если:
+        #
+        # 1. партии ещё нет
+        # 2. пользователь выбрал ДРУГУЮ ошибку
+        #
+        # Это важно: одна и та же позиция не должна
+        # использовать состояние предыдущей ошибки.
         # ----------------------------------------------------
 
-        if game is None:
+        if (
+            game is None
+            or game.get("start_fen") != fen
+        ):
 
+            # Закрываем старый Stockfish
+            if game is not None:
+
+                try:
+                    game["engine"].quit()
+                except Exception:
+                    pass
+
+            # Создаём доску именно из текущей ошибки
             board = chess.Board(fen)
 
+            # Запускаем новый Stockfish
             engine = chess.engine.SimpleEngine.popen_uci(
                 ENGINE_PATH
             )
@@ -2904,7 +2923,6 @@ def replay_mistake_move():
 
             board = game["board"]
             engine = game["engine"]
-
         # ----------------------------------------------------
         # Проверяем, что сейчас действительно ход пользователя
         # ----------------------------------------------------
