@@ -246,6 +246,26 @@ const replayPgnPositions =
         "replayPgnPositions"
     );
 
+const replayPgnResult =
+    document.getElementById(
+        "replayPgnResult"
+    );
+
+const replayPgnResultText =
+    document.getElementById(
+        "replayPgnResultText"
+    );
+
+const copyReplayPgnButton =
+    document.getElementById(
+        "copyReplayPgnButton"
+    );
+
+const closeReplayPgnResultButton =
+    document.getElementById(
+        "closeReplayPgnResultButton"
+    );
+
 /* ============================================================
    МЕНЮ → ИГРАТЬ С КОМПЬЮТЕРОМ
 ============================================================ */
@@ -539,6 +559,10 @@ let replayMistakeSelectedSquare = null;
 let replayMistakeHighlightedMove = null;
 
 let replayMistakeCurrentFen = null;
+
+let replayMistakeMoves = [];
+
+let replayMistakeStartFen = null;
 
 
 
@@ -3723,6 +3747,97 @@ if (finishReplayMistakeButton) {
     );
 }
 
+if (copyReplayPgnButton) {
+
+    copyReplayPgnButton.addEventListener(
+        "click",
+        async () => {
+
+            const pgn =
+                replayPgnResultText?.value ||
+                "";
+
+            if (!pgn) {
+                return;
+            }
+
+            try {
+
+                await navigator.clipboard.writeText(
+                    pgn
+                );
+
+                copyReplayPgnButton.textContent =
+                    "✅ PGN скопирован";
+
+                setTimeout(
+                    () => {
+
+                        copyReplayPgnButton.textContent =
+                            "📋 Скопировать PGN";
+
+                    },
+                    1500
+                );
+
+            } catch (error) {
+
+                console.error(
+                    "Ошибка копирования PGN:",
+                    error
+                );
+
+                alert(
+                    "Не удалось скопировать PGN."
+                );
+            }
+        }
+    );
+}
+
+if (closeReplayPgnResultButton) {
+
+    closeReplayPgnResultButton.addEventListener(
+        "click",
+        () => {
+
+            if (replayPgnResult) {
+                replayPgnResult.classList.add(
+                    "hidden"
+                );
+            }
+
+            if (replayMistakeList) {
+                replayMistakeList.classList.remove(
+                    "hidden"
+                );
+            }
+
+            /*
+               Сбрасываем состояние
+            */
+
+            replayMistakeCurrent = null;
+
+            replayMistakeBoardState = null;
+
+            replayMistakeSelectedSquare = null;
+
+            replayMistakeOrientation =
+                "white";
+
+            replayMistakeCurrentFen = null;
+
+            replayMistakeStartFen = null;
+
+            replayMistakeMoves = [];
+
+            replayMistakeHighlightedMove =
+                null;
+        }
+    );
+}
+
 function selectReplayPgnPosition(
     position
 ) {
@@ -3784,6 +3899,11 @@ function selectReplayPgnPosition(
 
     replayMistakeCurrentFen =
         position.fen;
+    
+    replayMistakeStartFen =
+        position.fen;
+
+    replayMistakeMoves = [];
 
     replayMistakeBoardState =
         fenToBoard(
@@ -7241,6 +7361,11 @@ function startReplayMistake(mistake) {
         mistake.fen ??
         null;
 
+    replayMistakeStartFen =
+        replayMistakeCurrentFen;
+
+    replayMistakeMoves = [];
+
     replayMistakeHighlightedMove =
         mistake.position_played_uci ??
         mistake.played_move ??
@@ -7375,20 +7500,35 @@ function finishReplayMistake() {
         "=== ЗАВЕРШЕНИЕ ПЕРЕИГРЫВАНИЯ ==="
     );
 
+    const pgn =
+        generateReplayPgn();
+
+    console.log(
+        "PGN ПЕРЕИГРЫВАНИЯ:",
+        pgn
+    );
+
+    if (!pgn) {
+
+        alert(
+            "Вы ещё не сделали ни одного хода."
+        );
+
+        return;
+    }
+
     /*
-       Сбрасываем текущее состояние.
+       Показываем PGN
     */
 
-    replayMistakeCurrent = null;
+    if (replayPgnResultText) {
 
-    replayMistakeBoardState = null;
-
-    replayMistakeSelectedSquare = null;
-
-    replayMistakeOrientation = "white";
+        replayPgnResultText.value =
+            pgn;
+    }
 
     /*
-       Скрываем игровую доску.
+       Скрываем игровую доску
     */
 
     const game =
@@ -7397,11 +7537,13 @@ function finishReplayMistake() {
         );
 
     if (game) {
-        game.classList.add("hidden");
+        game.classList.add(
+            "hidden"
+        );
     }
 
     /*
-       Возвращаем список ошибок.
+       Скрываем список позиций
     */
 
     const list =
@@ -7410,35 +7552,153 @@ function finishReplayMistake() {
         );
 
     if (list) {
-        list.classList.remove("hidden");
+        list.classList.add(
+            "hidden"
+        );
     }
 
     /*
-       Возвращаем стандартное сообщение.
+       Показываем результат
     */
 
-    const message =
-        document.getElementById(
-            "replayMistakeMessage"
-        );
+    if (replayPgnResult) {
 
-    if (message) {
-        message.textContent =
-            "Ваш ход";
+        replayPgnResult.classList.remove(
+            "hidden"
+        );
     }
+}
+
+function generateReplayPgn() {
+
+    if (
+        !replayMistakeMoves ||
+        replayMistakeMoves.length === 0
+    ) {
+
+        return "";
+    }
+
+
+    let pgn = "";
+
 
     /*
-       Очищаем доску.
+       Если есть стартовая FEN,
+       указываем, что партия начинается
+       с заданной позиции.
     */
 
-    const board =
-        document.getElementById(
-            "replayMistakeBoard"
-        );
+    if (replayMistakeStartFen) {
 
-    if (board) {
-        board.innerHTML = "";
+        pgn +=
+            `[Event "Chess Trainer - Replay Position"]\n`;
+
+        pgn +=
+            `[SetUp "1"]\n`;
+
+        pgn +=
+            `[FEN "${replayMistakeStartFen}"]\n`;
+
+        pgn +=
+            `[Result "*"]\n\n`;
     }
+
+
+    /*
+       Определяем начальный цвет
+       по стартовой FEN.
+    */
+
+    let whiteToMove = true;
+
+    if (replayMistakeStartFen) {
+
+        const parts =
+            replayMistakeStartFen.split(" ");
+
+        if (
+            parts.length > 1 &&
+            parts[1] === "b"
+        ) {
+
+            whiteToMove = false;
+        }
+    }
+
+
+    /*
+       Номер хода.
+    */
+
+    let moveNumber = 1;
+
+
+    for (
+        let i = 0;
+        i < replayMistakeMoves.length;
+        i++
+    ) {
+
+        const move =
+            replayMistakeMoves[i];
+
+        if (!move || !move.san) {
+            continue;
+        }
+
+
+        /*
+           Белые
+        */
+
+        if (
+            move.color === "white"
+        ) {
+
+            if (!whiteToMove) {
+
+                pgn +=
+                    `${moveNumber}... `;
+            }
+            else {
+
+                pgn +=
+                    `${moveNumber}. `;
+            }
+
+            pgn +=
+                `${move.san} `;
+
+            whiteToMove = false;
+        }
+
+
+        /*
+           Чёрные
+        */
+
+        else {
+
+            if (whiteToMove) {
+
+                pgn +=
+                    `${moveNumber}... `;
+            }
+
+            pgn +=
+                `${move.san} `;
+
+            whiteToMove = true;
+
+            moveNumber++;
+        }
+    }
+
+
+    pgn += "*";
+
+    return pgn.trim();
 }
 
 /* ============================================================
@@ -7947,6 +8207,48 @@ async function handleReplayMistakeSquareClick(
                     data.fen
                 );
         }
+
+        /* ====================================================
+        СОХРАНЯЕМ ХОДЫ ПЕРЕИГРЫВАНИЯ
+        ==================================================== */
+
+        if (data.player_move) {
+
+            replayMistakeMoves.push({
+                color:
+                    replayMistakeOrientation,
+
+                uci:
+                    data.player_move,
+
+                san:
+                    data.player_san ||
+                    ""
+            });
+        }
+
+        if (data.computer_move) {
+
+            replayMistakeMoves.push({
+                color:
+                    replayMistakeOrientation ===
+                    "white"
+                        ? "black"
+                        : "white",
+
+                uci:
+                    data.computer_move,
+
+                san:
+                    data.computer_san ||
+                    ""
+            });
+        }
+
+        console.log(
+            "ИСТОРИЯ ПЕРЕИГРЫВАНИЯ:",
+            replayMistakeMoves
+        );
 
         /* ====================================================
            СООБЩЕНИЕ

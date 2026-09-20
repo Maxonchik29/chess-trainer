@@ -590,7 +590,7 @@
     </div>
 
 
-    <div
+        <div
         id="replayMistakeGame"
         class="hidden"
     >
@@ -636,6 +636,51 @@
             </button>
 
         </div>
+
+    </div>
+
+
+    <!-- ВОТ СЮДА -->
+
+
+    <div
+        id="replayPgnResult"
+        class="hidden"
+    >
+
+        <div class="position-title">
+            📋 PGN переигранной партии
+        </div>
+
+        <textarea
+            id="replayPgnResultText"
+            class="pgn-textarea"
+            readonly
+            rows="10"
+        ></textarea>
+
+        <div class="buttons">
+
+            <button
+                id="copyReplayPgnButton"
+                class="button"
+                type="button"
+            >
+                📋 Скопировать PGN
+            </button>
+
+            <button
+                id="closeReplayPgnResultButton"
+                class="button secondary"
+                type="button"
+            >
+                ← Назад
+            </button>
+
+        </div>
+
+    </div>
+        
 
     </div>
 
