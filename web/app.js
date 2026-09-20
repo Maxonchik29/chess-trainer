@@ -106,6 +106,67 @@ const replayMistakeScreen =
         "replayMistakeScreen"
     );
 
+ /* ============================================================
+   ВЫБОР ДЕБЮТА
+============================================================ */
+
+openingButtons.forEach(
+    button => {
+
+        button.addEventListener(
+            "click",
+            () => {
+
+                selectedOpening =
+                    button.dataset.opening ||
+                    "none";
+
+                console.log(
+                    "Выбран дебют:",
+                    selectedOpening
+                );
+
+                console.log(
+                    "Цвет игрока:",
+                    playerColor
+                );
+
+                startGame(
+                    playerColor
+                );
+            }
+        );
+    }
+);   
+
+/* ============================================================
+   НАЗАД К ВЫБОРУ СТОРОНЫ
+============================================================ */
+
+if (backToSideSelectionButton) {
+
+    backToSideSelectionButton.addEventListener(
+        "click",
+        () => {
+
+            console.log(
+                "Возврат к выбору стороны"
+            );
+
+            openingSelection.classList.add(
+                "hidden"
+            );
+
+            sideSelection.classList.remove(
+                "hidden"
+            );
+
+            turnText.textContent =
+                "Выберите сторону";
+        }
+    );
+}
+
 /* ============================================================
    КНОПКИ МЕНЮ
 ============================================================ */
@@ -154,6 +215,119 @@ const finishReplayMistakeButton =
     document.getElementById(
         "finishReplayMistakeButton"
     );
+
+/* ============================================================
+   МЕНЮ → ИГРАТЬ С КОМПЬЮТЕРОМ
+============================================================ */
+
+if (playButton) {
+
+    playButton.addEventListener(
+        "click",
+        () => {
+
+            showScreen(
+                gameScreen
+            );
+
+            sideSelection.classList.remove(
+                "hidden"
+            );
+
+            openingSelection.classList.add(
+                "hidden"
+            );
+
+            document
+                .querySelector(
+                    "#gameScreen main"
+                )
+                .classList.add(
+                    "hidden"
+                );
+
+            document
+                .querySelector(
+                    "#gameScreen .info"
+                )
+                .classList.add(
+                    "hidden"
+                );
+
+            document
+                .querySelector(
+                    "#gameScreen .buttons"
+                )
+                .classList.add(
+                    "hidden"
+                );
+
+            turnText.textContent =
+                "Выберите сторону";
+        }
+    );
+}
+
+/* ============================================================
+   ВЫБОР СТОРОНЫ — БЕЛЫЕ
+============================================================ */
+
+if (playWhiteButton) {
+
+    playWhiteButton.addEventListener(
+        "click",
+        () => {
+
+            console.log(
+                "Выбраны БЕЛЫЕ"
+            );
+
+            playerColor = "white";
+
+            sideSelection.classList.add(
+                "hidden"
+            );
+
+            openingSelection.classList.remove(
+                "hidden"
+            );
+
+            turnText.textContent =
+                "Выберите дебют";
+        }
+    );
+}
+
+
+/* ============================================================
+   ВЫБОР СТОРОНЫ — ЧЁРНЫЕ
+============================================================ */
+
+if (playBlackButton) {
+
+    playBlackButton.addEventListener(
+        "click",
+        () => {
+
+            console.log(
+                "Выбраны ЧЁРНЫЕ"
+            );
+
+            playerColor = "black";
+
+            sideSelection.classList.add(
+                "hidden"
+            );
+
+            openingSelection.classList.remove(
+                "hidden"
+            );
+
+            turnText.textContent =
+                "Выберите дебют";
+        }
+    );
+}
 
 /* ============================================================
    ИГРА
@@ -3079,7 +3253,91 @@ async function startGame(color) {
     }
 }
 
+
 /* ============================================================
+   НАВИГАЦИЯ МЕЖДУ ОШИБКАМИ
+============================================================ */
+
+function navigateMistake(
+    direction
+) {
+
+    let mistakes = [];
+
+
+    if (
+        currentMistakeSource ===
+        "mistakes"
+    ) {
+
+        mistakes =
+            myMistakesData;
+
+    } else if (
+        currentAnalysisData &&
+        Array.isArray(
+            currentAnalysisData.mistakes
+        )
+    ) {
+
+        mistakes =
+            currentAnalysisData.mistakes;
+    }
+
+
+    if (
+        !mistakes.length
+    ) {
+        return;
+    }
+
+
+    const current =
+        positionScreen
+            ?.currentMistake;
+
+
+    let currentIndex =
+        mistakes.indexOf(
+            current
+        );
+
+
+    if (
+        currentIndex < 0
+    ) {
+
+        currentIndex = 0;
+    }
+
+
+    let newIndex =
+        currentIndex +
+        direction;
+
+
+    if (
+        newIndex < 0
+    ) {
+
+        newIndex =
+            mistakes.length - 1;
+    }
+
+
+    if (
+        newIndex >=
+        mistakes.length
+    ) {
+
+        newIndex = 0;
+    }
+
+
+    showMistakePosition(
+        mistakes[newIndex]
+    );
+}/* ============================================================
    МЕНЮ → АНАЛИЗ
 ============================================================ */
 
@@ -6064,92 +6322,6 @@ async function deleteCurrentMistake() {
         }
     }
 }
-
-/* ============================================================
-   НАВИГАЦИЯ МЕЖДУ ОШИБКАМИ
-============================================================ */
-
-function navigateMistake(
-    direction
-) {
-
-    let mistakes = [];
-
-
-    if (
-        currentMistakeSource ===
-        "mistakes"
-    ) {
-
-        mistakes =
-            myMistakesData;
-
-    } else if (
-        currentAnalysisData &&
-        Array.isArray(
-            currentAnalysisData.mistakes
-        )
-    ) {
-
-        mistakes =
-            currentAnalysisData.mistakes;
-    }
-
-
-    if (
-        !mistakes.length
-    ) {
-        return;
-    }
-
-
-    const current =
-        positionScreen
-            ?.currentMistake;
-
-
-    let currentIndex =
-        mistakes.indexOf(
-            current
-        );
-
-
-    if (
-        currentIndex < 0
-    ) {
-
-        currentIndex = 0;
-    }
-
-
-    let newIndex =
-        currentIndex +
-        direction;
-
-
-    if (
-        newIndex < 0
-    ) {
-
-        newIndex =
-            mistakes.length - 1;
-    }
-
-
-    if (
-        newIndex >=
-        mistakes.length
-    ) {
-
-        newIndex = 0;
-    }
-
-
-    showMistakePosition(
-        mistakes[newIndex]
-    );
-}
-
 
 /* ============================================================
    ЗАГРУЗКА МОИХ ОШИБОК
