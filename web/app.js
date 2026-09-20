@@ -538,6 +538,10 @@ let replayMistakeSelectedSquare = null;
 
 let replayMistakeHighlightedMove = null;
 
+let replayMistakeCurrentFen = null;
+
+
+
 
 
 /* ============================================================
@@ -3475,6 +3479,171 @@ if (backFromReplayPgnButton) {
     );
 }
 
+if (parseReplayPgnButton) {
+
+    parseReplayPgnButton.addEventListener(
+        "click",
+        async () => {
+
+            const pgn =
+                replayPgnInput.value.trim();
+
+            if (!pgn) {
+
+                alert(
+                    "Вставь PGN партии."
+                );
+
+                return;
+            }
+
+            try {
+
+                const response =
+                    await fetch(
+                        "/replay_pgn_positions",
+                        {
+                            method: "POST",
+
+                            headers: {
+                                "Content-Type":
+                                    "application/json"
+                            },
+
+                            body: JSON.stringify({
+                                pgn: pgn
+                            })
+                        }
+                    );
+
+                const data =
+                    await response.json();
+
+                if (!data.success) {
+
+                    alert(
+                        data.error ||
+                        "Не удалось разобрать PGN."
+                    );
+
+                    return;
+                }
+
+                renderReplayPgnPositions(
+                    data.positions
+                );
+
+            } catch (error) {
+
+                console.error(
+                    "Ошибка разбора PGN:",
+                    error
+                );
+
+                alert(
+                    "Ошибка при обработке PGN."
+                );
+            }
+        }
+    );
+}
+
+function renderReplayPgnPositions(
+    positions
+) {
+
+    if (!replayPgnPositions) {
+        return;
+    }
+
+    replayPgnPositions.innerHTML = "";
+
+    if (
+        !positions ||
+        positions.length === 0
+    ) {
+
+        replayPgnPositions.innerHTML =
+            `
+            <div class="page-description">
+                В PGN не найдено позиций.
+            </div>
+            `;
+
+        replayPgnPositions.classList.remove(
+            "hidden"
+        );
+
+        return;
+    }
+
+
+    const title =
+        document.createElement("div");
+
+    title.className =
+        "position-title";
+
+    title.textContent =
+        "Выберите позицию";
+
+    replayPgnPositions.appendChild(
+        title
+    );
+
+
+    positions.forEach(
+        (position, index) => {
+
+            const button =
+                document.createElement(
+                    "button"
+                );
+
+            button.type =
+                "button";
+
+            button.className =
+                "mistake-item";
+
+            button.innerHTML =
+                `
+                <div>
+                    <strong>
+                        ${index + 1}.
+                        ${position.move_number}.
+                        ${position.san}
+                    </strong>
+                </div>
+
+                <div class="mistake-details">
+                    После хода
+                    ${position.move_number}.
+                    ${position.san}
+                </div>
+                `;
+
+            button.addEventListener(
+                "click",
+                () => {
+
+                    selectReplayPgnPosition(
+                        position
+                    );
+                }
+            );
+
+            replayPgnPositions.appendChild(
+                button
+            );
+        }
+    );
+
+    replayPgnPositions.classList.remove(
+        "hidden"
+    );
+}
+
 /* ============================================================
    НАЗАД ИЗ ИГРЫ
 ============================================================ */
@@ -3551,6 +3720,130 @@ if (finishReplayMistakeButton) {
         () => {
             finishReplayMistake();
         }
+    );
+}
+
+function selectReplayPgnPosition(
+    position
+) {
+
+    console.log(
+        "Выбрана позиция из PGN:",
+        position
+    );
+
+    if (!position || !position.fen) {
+
+        alert(
+            "У выбранной позиции отсутствует FEN."
+        );
+
+        return;
+    }
+
+
+    /* ========================================================
+       СОХРАНЯЕМ ВЫБРАННУЮ ПОЗИЦИЮ
+    ======================================================== */
+
+    replayMistakeCurrent = {
+        position_fen:
+            position.fen,
+
+        position_played_uci:
+            null,
+
+        best_move_uci:
+            null,
+
+        user_side:
+            position.side_to_move,
+
+        source:
+            "pgn",
+
+        move_number:
+            position.move_number,
+
+        san:
+            position.san
+    };
+
+
+    /* ========================================================
+       НАПРАВЛЕНИЕ ДОСКИ
+    ======================================================== */
+
+    replayMistakeOrientation =
+        position.side_to_move;
+
+
+    /* ========================================================
+       СОЗДАЁМ СОСТОЯНИЕ ДОСКИ
+    ======================================================== */
+
+    replayMistakeCurrentFen =
+        position.fen;
+
+    replayMistakeBoardState =
+        fenToBoard(
+            position.fen
+        );
+
+
+    replayMistakeSelectedSquare =
+        null;
+
+    replayMistakeHighlightedMove =
+        null;
+
+
+    /* ========================================================
+       ПЕРЕКЛЮЧАЕМ ЭКРАН
+    ======================================================== */
+
+    replayPgnPanel.classList.add(
+        "hidden"
+    );
+
+    replayMistakeList.classList.add(
+        "hidden"
+    );
+
+    replayMistakeGame.classList.remove(
+        "hidden"
+    );
+
+
+    /* ========================================================
+       ЗАГОЛОВОК
+    ======================================================== */
+
+    if (replayMistakeTitle) {
+
+        replayMistakeTitle.textContent =
+            `Позиция после ${position.move_number} ${position.san}`;
+    }
+
+
+    if (replayMistakeMessage) {
+
+        replayMistakeMessage.textContent =
+            position.side_to_move === "white"
+                ? "Ход белых"
+                : "Ход чёрных";
+    }
+
+
+    /* ========================================================
+       РИСУЕМ ДОСКУ
+    ======================================================== */
+
+    renderReplayMistakeBoard();
+
+
+    console.log(
+        "Позиция из PGN открыта."
     );
 }
 
@@ -6943,6 +7236,11 @@ function startReplayMistake(mistake) {
     replayMistakeCurrent =
         mistake;
 
+    replayMistakeCurrentFen =
+        mistake.position_fen ??
+        mistake.fen ??
+        null;
+
     replayMistakeHighlightedMove =
         mistake.position_played_uci ??
         mistake.played_move ??
@@ -7593,10 +7891,7 @@ async function handleReplayMistakeSquareClick(
                             getTelegramUser(),
 
                         fen:
-                            replayMistakeCurrent
-                                ?.position_fen ??
-                            replayMistakeCurrent
-                                ?.fen,
+                            replayMistakeCurrentFen,
 
                         player_move:
                             playerMove,
@@ -7643,6 +7938,9 @@ async function handleReplayMistakeSquareClick(
         ==================================================== */
 
         if (data.fen) {
+
+            replayMistakeCurrentFen =
+                data.fen;
 
             replayMistakeBoardState =
                 fenToBoard(

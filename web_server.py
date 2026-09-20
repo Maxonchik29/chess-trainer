@@ -2839,6 +2839,112 @@ def delete_mistake(mistake_id):
 
 
 # ============================================================
+# РАЗБОР PGN ДЛЯ «ПЕРЕИГРАТЬ ПОЗИЦИЮ»
+# ============================================================
+
+@app.route(
+    "/replay_pgn_positions",
+    methods=["POST"]
+)
+def replay_pgn_positions():
+
+    data = request.get_json(
+        silent=True
+    ) or {}
+
+    pgn_text = (
+        data.get("pgn") or ""
+    ).strip()
+
+    if not pgn_text:
+
+        return jsonify({
+            "success": False,
+            "error": "PGN не передан."
+        }), 400
+
+    try:
+
+        import chess
+        import chess.pgn
+        import io
+
+        game = chess.pgn.read_game(
+            io.StringIO(pgn_text)
+        )
+
+        if game is None:
+
+            return jsonify({
+                "success": False,
+                "error": "Не удалось прочитать PGN."
+            }), 400
+
+        board = game.board()
+
+        positions = []
+
+        for move in game.mainline_moves():
+
+            move_number = (
+                board.fullmove_number
+            )
+
+            is_white_move = (
+                board.turn == chess.WHITE
+            )
+
+            san = board.san(move)
+
+            board.push(move)
+
+            positions.append({
+                "move_number":
+                    (
+                        f"{move_number}."
+                        if is_white_move
+                        else
+                        f"{move_number}..."
+                    ),
+
+                "san": san,
+
+                "uci":
+                    move.uci(),
+
+                "fen":
+                    board.fen(),
+
+                "side_to_move":
+                    (
+                        "white"
+                        if board.turn == chess.WHITE
+                        else
+                        "black"
+                    )
+            })
+
+
+        return jsonify({
+            "success": True,
+            "positions": positions
+        })
+
+
+    except Exception as e:
+
+        print(
+            "ОШИБКА /replay_pgn_positions:",
+            repr(e)
+        )
+
+        return jsonify({
+            "success": False,
+            "error":
+                "Ошибка при разборе PGN."
+        }), 500
+
+# ============================================================
 # ПЕРЕИГРАТЬ ОШИБКУ — ХОД ПОЛЬЗОВАТЕЛЯ + ОТВЕТ КОМПЬЮТЕРА
 # ============================================================
 
