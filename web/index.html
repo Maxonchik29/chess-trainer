@@ -541,6 +541,56 @@
 
 
     <div
+        id="replayPgnPanel"
+        class="hidden"
+    >
+
+        <div class="position-title">
+            📋 Переиграть из PGN
+        </div>
+
+        <div class="page-description">
+            Вставь PGN партии, чтобы выбрать
+            позицию для переигрывания.
+        </div>
+
+        <textarea
+            id="replayPgnInput"
+            class="pgn-textarea"
+            placeholder="1. e4 e5 2. Nf3 Nc6 3. Bb5 a6 ..."
+            rows="10"
+        ></textarea>
+
+        <div class="buttons">
+
+            <button
+                id="parseReplayPgnButton"
+                class="button"
+                type="button"
+            >
+                Продолжить
+            </button>
+
+            <button
+                id="backFromReplayPgnButton"
+                class="button secondary"
+                type="button"
+            >
+                ← Назад
+            </button>
+
+        </div>
+
+        <div
+            id="replayPgnPositions"
+            class="hidden"
+        >
+        </div>
+
+    </div>
+
+
+    <div
         id="replayMistakeGame"
         class="hidden"
     >

@@ -216,6 +216,36 @@ const finishReplayMistakeButton =
         "finishReplayMistakeButton"
     );
 
+const replayPgnButton =
+    document.getElementById(
+        "replayPgnButton"
+    );
+
+const replayPgnPanel =
+    document.getElementById(
+        "replayPgnPanel"
+    );
+
+const replayPgnInput =
+    document.getElementById(
+        "replayPgnInput"
+    );
+
+const parseReplayPgnButton =
+    document.getElementById(
+        "parseReplayPgnButton"
+    );
+
+const backFromReplayPgnButton =
+    document.getElementById(
+        "backFromReplayPgnButton"
+    );
+
+const replayPgnPositions =
+    document.getElementById(
+        "replayPgnPositions"
+    );
+
 /* ============================================================
    МЕНЮ → ИГРАТЬ С КОМПЬЮТЕРОМ
 ============================================================ */
@@ -3398,6 +3428,49 @@ if (replayMistakeButton) {
             );
 
             loadReplayMistakes();
+        }
+    );
+}
+
+if (replayPgnButton) {
+
+    replayPgnButton.addEventListener(
+        "click",
+        () => {
+
+            replayMistakeList.classList.add(
+                "hidden"
+            );
+
+            replayPgnPanel.classList.remove(
+                "hidden"
+            );
+
+            replayPgnInput.value = "";
+
+            replayPgnPositions.classList.add(
+                "hidden"
+            );
+
+            replayPgnPositions.innerHTML =
+                "";
+        }
+    );
+}
+
+if (backFromReplayPgnButton) {
+
+    backFromReplayPgnButton.addEventListener(
+        "click",
+        () => {
+
+            replayPgnPanel.classList.add(
+                "hidden"
+            );
+
+            replayMistakeList.classList.remove(
+                "hidden"
+            );
         }
     );
 }
