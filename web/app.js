@@ -506,6 +506,9 @@ let replayMistakeOrientation = "white";
 
 let replayMistakeSelectedSquare = null;
 
+let replayMistakeHighlightedMove = null;
+
+
 
 /* ============================================================
    КООРДИНАТЫ
@@ -6867,6 +6870,11 @@ function startReplayMistake(mistake) {
     replayMistakeCurrent =
         mistake;
 
+    replayMistakeHighlightedMove =
+        mistake.position_played_uci ??
+        mistake.played_move ??
+        null;
+
 
     /*
      * Создаём состояние доски.
@@ -7165,6 +7173,34 @@ function renderReplayMistakeBoard() {
                 );
             }
 
+            /* =================================================
+            ПОДСВЕТКА НЕПРАВИЛЬНОГО ХОДА
+            ================================================= */
+
+            if (
+                replayMistakeHighlightedMove
+            ) {
+
+                const move =
+                    replayMistakeHighlightedMove;
+
+                const fromSquare =
+                    move.slice(0, 2);
+
+                const toSquare =
+                    move.slice(2, 4);
+
+                if (
+                    squareName === fromSquare ||
+                    squareName === toSquare
+                ) {
+
+                    square.classList.add(
+                        "replay-mistake-move"
+                    );
+                }
+            }
+
 
             /* =================================================
                ФИГУРА
@@ -7390,6 +7426,8 @@ async function handleReplayMistakeSquareClick(
 
         replayMistakeSelectedSquare =
             squareName;
+
+        replayMistakeHighlightedMove = null;
 
         renderReplayMistakeBoard();
 
