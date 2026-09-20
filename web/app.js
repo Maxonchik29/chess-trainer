@@ -7090,13 +7090,19 @@ function renderReplayMistakeBoard() {
             ? [7, 6, 5, 4, 3, 2, 1, 0]
             : [0, 1, 2, 3, 4, 5, 6, 7];
 
+
+    /* ========================================================
+       СОЗДАЁМ КЛЕТКИ
+    ======================================================== */
+
     for (
         let displayRow = 0;
         displayRow < 8;
         displayRow++
     ) {
 
-        const row = rows[displayRow];
+        const row =
+            rows[displayRow];
 
         for (
             let displayCol = 0;
@@ -7104,7 +7110,8 @@ function renderReplayMistakeBoard() {
             displayCol++
         ) {
 
-            const col = cols[displayCol];
+            const col =
+                cols[displayCol];
 
             const square =
                 document.createElement("div");
@@ -7112,7 +7119,13 @@ function renderReplayMistakeBoard() {
             square.className =
                 "square";
 
-            if ((row + col) % 2 === 0) {
+            /* =================================================
+               ЦВЕТ КЛЕТКИ
+            ================================================= */
+
+            if (
+                (row + col) % 2 === 0
+            ) {
 
                 square.classList.add(
                     "light"
@@ -7125,58 +7138,22 @@ function renderReplayMistakeBoard() {
                 );
             }
 
+
+            /* =================================================
+               НАЗВАНИЕ КЛЕТКИ
+            ================================================= */
+
             const squareName =
-                FILES[col] + (8 - row);
+                FILES[col] +
+                (8 - row);
 
             square.dataset.square =
                 squareName;
 
 
-            /* ====================================================
-               КООРДИНАТЫ — ЦИФРЫ
-            ==================================================== */
-
-            if (displayCol === 0) {
-
-                const rankLabel =
-                    document.createElement("span");
-
-                rankLabel.className =
-                    "board-coordinate rank-coordinate";
-
-                rankLabel.textContent =
-                    8 - row;
-
-                square.appendChild(
-                    rankLabel
-                );
-            }
-
-
-            /* ====================================================
-               КООРДИНАТЫ — БУКВЫ
-            ==================================================== */
-
-            if (displayRow === 7) {
-
-                const fileLabel =
-                    document.createElement("span");
-
-                fileLabel.className =
-                    "board-coordinate file-coordinate";
-
-                fileLabel.textContent =
-                    FILES[col];
-
-                square.appendChild(
-                    fileLabel
-                );
-            }
-
-
-            /* ====================================================
-               ВЫДЕЛЕНИЕ ВЫБРАННОЙ КЛЕТКИ
-            ==================================================== */
+            /* =================================================
+               ВЫБРАННАЯ КЛЕТКА
+            ================================================= */
 
             if (
                 replayMistakeSelectedSquare ===
@@ -7189,9 +7166,9 @@ function renderReplayMistakeBoard() {
             }
 
 
-            /* ====================================================
+            /* =================================================
                ФИГУРА
-            ==================================================== */
+            ================================================= */
 
             const piece =
                 replayMistakeBoardState[row]?.[col];
@@ -7219,9 +7196,9 @@ function renderReplayMistakeBoard() {
             }
 
 
-            /* ====================================================
+            /* =================================================
                КЛИК ПО КЛЕТКЕ
-            ==================================================== */
+            ================================================= */
 
             square.addEventListener(
                 "click",
@@ -7239,12 +7216,135 @@ function renderReplayMistakeBoard() {
         }
     }
 
+
+    /* ========================================================
+       КООРДИНАТЫ
+    ======================================================== */
+
+    const boardWrapper =
+        boardElement.closest(
+            ".board-wrapper"
+        );
+
+    if (!boardWrapper) {
+        return;
+    }
+
+
+    /* ========================================================
+       ЦИФРЫ СЛЕВА
+    ======================================================== */
+
+    const rankLabels =
+        boardWrapper.querySelector(
+            ".rank-labels"
+        );
+
+    if (rankLabels) {
+
+        rankLabels.innerHTML = "";
+
+        const ranks =
+            isBlack
+                ? [
+                    1,
+                    2,
+                    3,
+                    4,
+                    5,
+                    6,
+                    7,
+                    8
+                ]
+                : [
+                    8,
+                    7,
+                    6,
+                    5,
+                    4,
+                    3,
+                    2,
+                    1
+                ];
+
+        ranks.forEach(
+            rank => {
+
+                const span =
+                    document.createElement(
+                        "span"
+                    );
+
+                span.textContent =
+                    rank;
+
+                rankLabels.appendChild(
+                    span
+                );
+            }
+        );
+    }
+
+
+    /* ========================================================
+       БУКВЫ СНИЗУ
+    ======================================================== */
+
+    const fileLabels =
+        boardWrapper.querySelector(
+            ".file-labels"
+        );
+
+    if (fileLabels) {
+
+        fileLabels.innerHTML = "";
+
+        const files =
+            isBlack
+                ? [
+                    "h",
+                    "g",
+                    "f",
+                    "e",
+                    "d",
+                    "c",
+                    "b",
+                    "a"
+                ]
+                : [
+                    "a",
+                    "b",
+                    "c",
+                    "d",
+                    "e",
+                    "f",
+                    "g",
+                    "h"
+                ];
+
+        files.forEach(
+            file => {
+
+                const span =
+                    document.createElement(
+                        "span"
+                    );
+
+                span.textContent =
+                    file;
+
+                fileLabels.appendChild(
+                    span
+                );
+            }
+        );
+    }
+
+
     console.log(
         "Доска переигрывания отрисована."
     );
 }
-
-
 
 async function handleReplayMistakeSquareClick(
     squareName

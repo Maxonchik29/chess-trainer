@@ -1442,20 +1442,3 @@ and (max-height: 600px) {
     opacity: 0.75;
 }
 
-.board-coordinate {
-    position: absolute;
-    font-size: 12px;
-    font-weight: 700;
-    pointer-events: none;
-    z-index: 5;
-}
-
-.rank-coordinate {
-    left: 3px;
-    top: 2px;
-}
-
-.file-coordinate {
-    right: 3px;
-    bottom: 2px;
-}
