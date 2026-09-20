@@ -74,12 +74,9 @@
             <span>Мои ошибки</span>
         </button>
 
-        <button
-            id="replayMistakeButton"
-            class="menu-button secondary"
-        >
+        <button id="replayMistakeButton" class="menu-button secondary">
             <span class="menu-button-icon">♻️</span>
-            <span>Переиграть ошибку</span>
+            <span>Переиграть позицию</span>
         </button>
 
     </div>
@@ -513,12 +510,12 @@
         </button>
 
         <h1>
-            ♻️ Переиграть ошибку
+            ♻️ Переиграть позицию
         </h1>
 
         <div class="page-description">
-            Выбери свою ошибку и сыграй позицию
-            заново против компьютера.
+            Выбери позицию и сыграй её заново
+            против компьютера.
         </div>
 
     </header>
@@ -528,6 +525,18 @@
         id="replayMistakeList"
         class="mistakes-list"
     >
+    </div>
+
+    <div
+        class="replay-source-buttons"
+    >
+        <button
+            id="replayPgnButton"
+            class="button secondary"
+            type="button"
+        >
+            📋 Из PGN
+        </button>
     </div>
 
 
@@ -540,7 +549,7 @@
             id="replayMistakeTitle"
             class="position-title"
         >
-            Переиграть ошибку
+            Переиграть позицию
         </div>
 
 
