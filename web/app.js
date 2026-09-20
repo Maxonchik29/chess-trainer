@@ -150,6 +150,10 @@ const backFromReplayMistakeButton =
         "backFromReplayMistakeButton"
     );
 
+const finishReplayMistakeButton =
+    document.getElementById(
+        "finishReplayMistakeButton"
+    );
 
 /* ============================================================
    ИГРА
@@ -3337,6 +3341,15 @@ if (backFromReplayMistakeButton) {
             showScreen(
                 menuScreen
             );
+        }
+    );
+}
+
+if (finishReplayMistakeButton) {
+    finishReplayMistakeButton.addEventListener(
+        "click",
+        () => {
+            finishReplayMistake();
         }
     );
 }
@@ -6937,6 +6950,78 @@ function startReplayMistake(mistake) {
      */
 
     renderReplayMistakeBoard();
+}
+
+function finishReplayMistake() {
+
+    console.log(
+        "=== ЗАВЕРШЕНИЕ ПЕРЕИГРЫВАНИЯ ==="
+    );
+
+    /*
+       Сбрасываем текущее состояние.
+    */
+
+    replayMistakeCurrent = null;
+
+    replayMistakeBoardState = null;
+
+    replayMistakeSelectedSquare = null;
+
+    replayMistakeOrientation = "white";
+
+    /*
+       Скрываем игровую доску.
+    */
+
+    const game =
+        document.getElementById(
+            "replayMistakeGame"
+        );
+
+    if (game) {
+        game.classList.add("hidden");
+    }
+
+    /*
+       Возвращаем список ошибок.
+    */
+
+    const list =
+        document.getElementById(
+            "replayMistakeList"
+        );
+
+    if (list) {
+        list.classList.remove("hidden");
+    }
+
+    /*
+       Возвращаем стандартное сообщение.
+    */
+
+    const message =
+        document.getElementById(
+            "replayMistakeMessage"
+        );
+
+    if (message) {
+        message.textContent =
+            "Ваш ход";
+    }
+
+    /*
+       Очищаем доску.
+    */
+
+    const board =
+        document.getElementById(
+            "replayMistakeBoard"
+        );
+
+    if (board) {
+        board.innerHTML = "";
+    }
 }
 
 /* ============================================================
