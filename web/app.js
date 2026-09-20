@@ -2893,152 +2893,18 @@ function showScreen(screen) {
         );
     }
 
+    if (replayMistakeScreen) {
+        replayMistakeScreen.classList.add(
+            "hidden"
+        );
+    }
+
     if (screen) {
         screen.classList.remove(
             "hidden"
         );
     }
 }
-
-
-/* ============================================================
-   МЕНЮ → ИГРА
-============================================================ */
-
-if (playButton) {
-
-    playButton.addEventListener("click", () => {
-
-        showScreen(gameScreen);
-
-        // Показываем выбор стороны
-        sideSelection.classList.remove("hidden");
-
-        // Скрываем выбор дебюта
-        openingSelection.classList.add("hidden");
-
-        // Скрываем саму шахматную доску
-        document
-            .querySelector("#gameScreen main")
-            .classList.add("hidden");
-
-        document
-            .querySelector("#gameScreen .info")
-            .classList.add("hidden");
-
-        document
-            .querySelector("#gameScreen .buttons")
-            .classList.add("hidden");
-
-        turnText.textContent =
-            "Выберите сторону";
-    });
-
-}
-
-// ============================================================
-// ВЫБОР СТОРОНЫ
-// ============================================================
-
-playWhiteButton.addEventListener(
-    "click",
-    () => {
-
-        playerColor = "white";
-
-        sideSelection.classList.add(
-            "hidden"
-        );
-
-        openingSelection.classList.remove(
-            "hidden"
-        );
-
-        turnText.textContent =
-            "Выберите дебют";
-    }
-);
-
-
-playBlackButton.addEventListener(
-    "click",
-    () => {
-
-        playerColor = "black";
-
-        sideSelection.classList.add(
-            "hidden"
-        );
-
-        openingSelection.classList.remove(
-            "hidden"
-        );
-
-        turnText.textContent =
-            "Выберите дебют";
-    }
-);
-
-// ============================================================
-// ВЫБОР ДЕБЮТА
-// ============================================================
-
-openingButtons.forEach(
-    (button) => {
-
-        button.addEventListener(
-            "click",
-            () => {
-
-                // --------------------------------------------
-                // Снимаем выбор со всех кнопок
-                // --------------------------------------------
-
-                console.log(
-                    "НАЖАТА КНОПКА ДЕБЮТА:",
-                    button.dataset.opening
-                );
-
-                openingButtons.forEach(
-                    (item) => {
-                        item.classList.remove(
-                            "selected"
-                        );
-                    }
-                );
-
-                // --------------------------------------------
-                // Выбираем текущую кнопку
-                // --------------------------------------------
-
-                button.classList.add(
-                    "selected"
-                );
-
-                // --------------------------------------------
-                // Сохраняем выбранный дебют
-                // --------------------------------------------
-
-                selectedOpening =
-                    button.dataset.opening;
-
-                console.log(
-                    "Выбран дебют:",
-                    selectedOpening
-                );
-
-                // --------------------------------------------
-                // Сразу запускаем партию
-                // --------------------------------------------
-
-                startGame(
-                    playerColor
-                );
-            }
-        );
-
-    }
-);
 
 async function startGame(color) {
 
