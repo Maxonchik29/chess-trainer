@@ -7497,6 +7497,10 @@ function startReplayMistake(mistake) {
 async function finishReplayMistake() {
 
     console.log(
+        "!!! НОВАЯ ВЕРСИЯ finishReplayMistake !!!"
+    );
+
+    console.log(
         "=== ЗАВЕРШЕНИЕ ПЕРЕИГРЫВАНИЯ ==="
     );
 
