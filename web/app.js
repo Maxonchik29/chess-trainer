@@ -7570,6 +7570,15 @@ async function finishReplayMistake() {
         const data =
             await response.json();
 
+        alert(
+            "ОТВЕТ СЕРВЕРА:\n\n" +
+            JSON.stringify(
+                data,
+                null,
+                2
+            )
+        );
+
         console.log(
             "ОТВЕТ /replay_finish:",
             data
