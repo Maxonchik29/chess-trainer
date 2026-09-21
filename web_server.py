@@ -3174,6 +3174,291 @@ def replay_mistake_move():
         }), 500
 
 # ============================================================
+# ЗАВЕРШЕНИЕ И СОХРАНЕНИЕ «ПЕРЕИГРАТЬ ПОЗИЦИЮ»
+# ============================================================
+
+@app.route(
+    "/replay_finish",
+    methods=["POST"]
+)
+def replay_finish():
+
+    data = request.get_json(
+        silent=True
+    ) or {}
+
+    telegram_user = data.get(
+        "telegram_user"
+    )
+
+    pgn = (
+        data.get("pgn") or ""
+    ).strip()
+
+    # --------------------------------------------------------
+    # Проверяем PGN
+    # --------------------------------------------------------
+
+    if not pgn:
+
+        return jsonify({
+            "success": False,
+            "error": "PGN не передан."
+        }), 400
+
+    print(
+        "=== ЗАВЕРШЕНИЕ ПЕРЕИГРЫВАНИЯ ==="
+    )
+
+    print(
+        "Telegram user:",
+        telegram_user
+    )
+
+    print(
+        "PGN:",
+        pgn
+    )
+
+    # --------------------------------------------------------
+    # Telegram ID
+    # --------------------------------------------------------
+
+    telegram_id = None
+
+    if isinstance(
+        telegram_user,
+        dict
+    ):
+
+        telegram_id = safe_int(
+            telegram_user.get("id")
+        )
+
+    print(
+        "Replay Telegram ID:",
+        telegram_id
+    )
+
+    # --------------------------------------------------------
+    # Сохраняем партию в базу
+    # --------------------------------------------------------
+
+    saved_to_database = False
+    game_id = None
+
+    if telegram_id is not None:
+
+        conn = None
+
+        try:
+
+            conn = get_db_connection()
+
+            with conn:
+
+                with conn.cursor() as cur:
+
+                    username = (
+                        telegram_user.get(
+                            "username"
+                        )
+                        if isinstance(
+                            telegram_user,
+                            dict
+                        )
+                        else None
+                    )
+
+                    # ----------------------------------------
+                    # Получаем / создаём пользователя
+                    # ----------------------------------------
+
+                    cur.execute(
+                        """
+                        INSERT INTO public.users
+                        (
+                            telegram_id,
+                            username
+                        )
+                        VALUES
+                        (
+                            %s,
+                            %s
+                        )
+                        ON CONFLICT (telegram_id)
+                        DO UPDATE SET
+                            username =
+                                EXCLUDED.username
+                        RETURNING id
+                        """,
+                        (
+                            telegram_id,
+                            username
+                        )
+                    )
+
+                    user_row =cur.fetchone()
+
+                    if not user_row:
+
+                        raise RuntimeError(
+                            "Не удалось получить user_id."
+                        )
+
+                    user_id =user_row[0]
+
+                    # ----------------------------------------
+                    # Определяем результат
+                    # ----------------------------------------
+
+                    result = "*"
+
+                    try:
+
+                        parsed_game = chess.pgn.read_game(
+                                io.StringIO(pgn)
+                            )
+
+                        if parsed_game:
+
+                            result = (
+                                parsed_game.headers.get(
+                                    "Result",
+                                    "*"
+                                )
+                                or "*"
+                            )
+
+                    except Exception:
+
+                        result = "*"
+
+                    # ----------------------------------------
+                    # Сохраняем партию
+                    # ----------------------------------------
+
+                    cur.execute(
+                        """
+                        INSERT INTO public.games
+                        (
+                            user_id,
+                            pgn,
+                            result
+                        )
+                        VALUES
+                        (
+                            %s,
+                            %s,
+                            %s
+                        )
+                        RETURNING id
+                        """,
+                        (
+                            user_id,
+                            pgn,
+                            result
+                        )
+                    )
+
+                    game_row =cur.fetchone()
+
+                    if not game_row:
+
+                        raise RuntimeError(
+                            "Не удалось получить game_id."
+                        )
+
+                    game_id =game_row[0]
+
+                    saved_to_database = True
+
+                    print(
+                        "DB: Переигранная партия сохранена.",
+                        "user_id =",
+                        user_id,
+                        "game_id =",
+                        game_id
+                    )
+
+        except Exception as db_error:
+
+            print(
+                "ОШИБКА СОХРАНЕНИЯ ПЕРЕИГРАННОЙ ПАРТИИ:",
+                repr(db_error)
+            )
+
+        finally:
+
+            if conn:
+
+                conn.close()
+
+    else:
+
+        print(
+            "DB: Telegram ID отсутствует.",
+            "Партия не сохранена."
+        )
+
+    # --------------------------------------------------------
+    # Закрываем серверную игровую сессию
+    # --------------------------------------------------------
+
+    if telegram_id is not None:
+
+        game = (
+            REPLAY_MISTAKE_GAMES.get(
+                telegram_id
+            )
+        )
+
+        if game is not None:
+
+            try:
+
+                game["engine"].quit()
+
+                print(
+                    "Replay Stockfish закрыт.",
+                    "telegram_id =",
+                    telegram_id
+                )
+
+            except Exception as error:
+
+                print(
+                    "Не удалось закрыть Replay Stockfish:",
+                    repr(error)
+                )
+
+            del REPLAY_MISTAKE_GAMES[
+                telegram_id
+            ]
+
+    # --------------------------------------------------------
+    # Ответ
+    # --------------------------------------------------------
+
+    return jsonify({
+
+        "success": True,
+
+        "message":
+            "Переигранная партия завершена.",
+
+        "pgn":
+            pgn,
+
+        "saved_to_database":
+            saved_to_database,
+
+        "game_id":
+            game_id
+
+    })
+
+# ============================================================
 # ЗАПУСК
 # ============================================================
 

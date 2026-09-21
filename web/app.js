@@ -7494,7 +7494,7 @@ function startReplayMistake(mistake) {
     renderReplayMistakeBoard();
 }
 
-function finishReplayMistake() {
+async function finishReplayMistake() {
 
     console.log(
         "=== ЗАВЕРШЕНИЕ ПЕРЕИГРЫВАНИЯ ==="
@@ -7512,6 +7512,73 @@ function finishReplayMistake() {
 
         alert(
             "Вы ещё не сделали ни одного хода."
+        );
+
+        return;
+    }
+
+    /*
+       Отправляем завершение на сервер
+    */
+
+    try {
+
+        const response =
+            await fetch(
+                "/replay_finish",
+                {
+                    method: "POST",
+
+                    headers: {
+                        "Content-Type":
+                            "application/json"
+                    },
+
+                    body: JSON.stringify({
+                        telegram_user:
+                            getTelegramUser(),
+
+                        pgn:
+                            pgn
+                    })
+                }
+            );
+
+        const data =
+            await response.json();
+
+        console.log(
+            "ОТВЕТ /replay_finish:",
+            data
+        );
+
+        if (
+            !response.ok ||
+            !data.success
+        ) {
+
+            console.error(
+                "Ошибка завершения:",
+                data
+            );
+
+            alert(
+                data.error ||
+                "Не удалось завершить партию."
+            );
+
+            return;
+        }
+
+    } catch (error) {
+
+        console.error(
+            "Ошибка соединения при завершении:",
+            error
+        );
+
+        alert(
+            "Ошибка соединения с сервером."
         );
 
         return;
@@ -7537,6 +7604,7 @@ function finishReplayMistake() {
         );
 
     if (game) {
+
         game.classList.add(
             "hidden"
         );
@@ -7552,6 +7620,7 @@ function finishReplayMistake() {
         );
 
     if (list) {
+
         list.classList.add(
             "hidden"
         );
