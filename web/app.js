@@ -7496,6 +7496,16 @@ function startReplayMistake(mistake) {
 
 async function finishReplayMistake() {
 
+    const finishButton =
+        document.getElementById(
+            "finishReplayMistakeButton"
+        );
+
+    if (finishButton) {
+        finishButton.textContent =
+            "ТЕСТ: КНОПКА РАБОТАЕТ";
+    }
+
     console.log(
         "!!! НОВАЯ ВЕРСИЯ finishReplayMistake !!!"
     );
@@ -7597,6 +7607,20 @@ async function finishReplayMistake() {
         replayPgnResultText.value =
             pgn;
     }
+
+    alert(
+        "Сохранение в БД: " +
+        (
+            data.saved_to_database
+                ? "УСПЕШНО"
+                : "НЕ СОХРАНЕНО"
+        ) +
+        "\nGame ID: " +
+        (
+            data.game_id ??
+            "нет"
+        )
+    );
 
     /*
        Скрываем игровую доску
