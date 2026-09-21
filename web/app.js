@@ -106,6 +106,46 @@ const replayMistakeScreen =
         "replayMistakeScreen"
     );
 
+const myGamesButton =
+    document.getElementById(
+        "myGamesButton"
+    );
+
+const myGamesScreen =
+    document.getElementById(
+        "myGamesScreen"
+    );
+
+const backFromMyGamesButton =
+    document.getElementById(
+        "backFromMyGamesButton"
+    );
+
+const myGamesList =
+    document.getElementById(
+        "myGamesList"
+    );
+
+const myGamePgn =
+    document.getElementById(
+        "myGamePgn"
+    );
+
+const myGamePgnText =
+    document.getElementById(
+        "myGamePgnText"
+    );
+
+const copyMyGamePgnButton =
+    document.getElementById(
+        "copyMyGamePgnButton"
+    );
+
+const backFromMyGamePgnButton =
+    document.getElementById(
+        "backFromMyGamePgnButton"
+    );
+
  /* ============================================================
    ВЫБОР ДЕБЮТА
 ============================================================ */
@@ -3456,6 +3496,133 @@ if (replayMistakeButton) {
             );
 
             loadReplayMistakes();
+        }
+    );
+}
+
+// =====================================================
+// МОИ ПАРТИИ
+// =====================================================
+
+if (myGamesButton) {
+
+    myGamesButton.addEventListener(
+        "click",
+        () => {
+
+            console.log(
+                "Открываем Мои партии"
+            );
+
+            myGamesScreen.classList.remove(
+                "hidden"
+            );
+
+            document
+                .querySelectorAll(
+                    ".screen"
+                )
+                .forEach(
+                    screen => {
+
+                        if (
+                            screen !==
+                            myGamesScreen
+                        ) {
+                            screen.classList.add(
+                                "hidden"
+                            );
+                        }
+                    }
+                );
+
+            if (myGamePgn) {
+                myGamePgn.classList.add(
+                    "hidden"
+                );
+            }
+
+            if (myGamesList) {
+                myGamesList.classList.remove(
+                    "hidden"
+                );
+            }
+
+            loadMyGames();
+        }
+    );
+}
+
+
+// =====================================================
+// ПУНКТ 10 — НАЗАД В МЕНЮ
+// =====================================================
+
+if (backFromMyGamesButton) {
+
+    backFromMyGamesButton.addEventListener(
+        "click",
+        () => {
+
+            myGamesScreen.classList.add(
+                "hidden"
+            );
+
+            document
+                .querySelectorAll(
+                    ".screen"
+                )
+                .forEach(
+                    screen => {
+
+                        if (
+                            screen.id !==
+                            "menuScreen"
+                        ) {
+                            screen.classList.add(
+                                "hidden"
+                            );
+                        }
+                    }
+                );
+
+            document
+                .getElementById(
+                    "menuScreen"
+                )
+                .classList.remove(
+                    "hidden"
+                );
+        }
+    );
+}
+
+
+// =====================================================
+// ПУНКТ 11 — НАЗАД К СПИСКУ ПАРТИЙ
+// =====================================================
+
+if (backFromMyGamePgnButton) {
+
+    backFromMyGamePgnButton.addEventListener(
+        "click",
+        () => {
+
+            if (myGamePgn) {
+
+                myGamePgn.classList.add(
+                    "hidden"
+                );
+
+            }
+
+            if (myGamesList) {
+
+                myGamesList.classList.remove(
+                    "hidden"
+                );
+
+            }
         }
     );
 }
@@ -8455,6 +8622,196 @@ async function handleReplayMistakeSquareClick(
                 "replay-thinking"
             );
         }
+    }
+}
+
+async function loadMyGames() {
+
+    console.log(
+        "=== ЗАГРУЗКА МОИХ ПАРТИЙ ==="
+    );
+
+    if (!myGamesList) {
+        return;
+    }
+
+    myGamesList.innerHTML =
+        `
+        <div class="page-description">
+            ⏳ Загружаем партии...
+        </div>
+        `;
+
+    try {
+
+        const response =
+            await fetch(
+                "/my_games",
+                {
+                    method: "POST",
+
+                    headers: {
+                        "Content-Type":
+                            "application/json"
+                    },
+
+                    body: JSON.stringify({
+                        telegram_user:
+                            getTelegramUser()
+                    })
+                }
+            );
+
+        const data =
+            await response.json();
+
+        console.log(
+            "ОТВЕТ /my_games:",
+            data
+        );
+
+        if (
+            !response.ok ||
+            !data.success
+        ) {
+
+            myGamesList.innerHTML =
+                `
+                <div class="page-description">
+                    ❌ ${
+                        data.error ||
+                        "Не удалось загрузить партии."
+                    }
+                </div>
+                `;
+
+            return;
+        }
+
+        renderMyGames(
+            data.games || []
+        );
+
+    } catch (error) {
+
+        console.error(
+            "Ошибка загрузки моих партий:",
+            error
+        );
+
+        myGamesList.innerHTML =
+            `
+            <div class="page-description">
+                ❌ Ошибка соединения с сервером.
+            </div>
+            `;
+    }
+}
+
+function renderMyGames(games) {
+
+    if (!myGamesList) {
+        return;
+    }
+
+    myGamesList.innerHTML = "";
+
+    if (
+        !games ||
+        games.length === 0
+    ) {
+
+        myGamesList.innerHTML =
+            `
+            <div class="page-description">
+                Пока сохранённых партий нет.
+            </div>
+            `;
+
+        return;
+    }
+
+    games.forEach(
+        (game, index) => {
+
+            const button =
+                document.createElement(
+                    "button"
+                );
+
+            button.type = "button";
+
+            button.className =
+                "mistake-item";
+
+            let title =
+                `Партия #${game.id}`;
+
+            let description =
+                "Сохранённая партия";
+
+            if (game.result) {
+
+                description +=
+                    ` · Результат: ${game.result}`;
+            }
+
+            button.innerHTML =
+                `
+                <div>
+                    <strong>
+                        ♟️ ${title}
+                    </strong>
+                </div>
+
+                <div class="mistake-details">
+                    ${description}
+                </div>
+                `;
+
+            button.addEventListener(
+                "click",
+                () => {
+
+                    openMyGame(
+                        game
+                    );
+                }
+            );
+
+            myGamesList.appendChild(
+                button
+            );
+        }
+    );
+}
+
+function openMyGame(game) {
+
+    console.log(
+        "Открыта партия:",
+        game
+    );
+
+    if (!game) {
+        return;
+    }
+
+    if (myGamesList) {
+        myGamesList.classList.add(
+            "hidden"
+        );
+    }
+
+    if (myGamePgn) {
+        myGamePgn.classList.remove(
+            "hidden"
+        );
+    }
+
+    if (myGamePgnText) {
+        myGamePgnText.value =
+            game.pgn || "";
     }
 }
 

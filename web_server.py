@@ -3475,6 +3475,107 @@ def replay_finish():
 
     })
 
+@app.route(
+    "/my_games",
+    methods=["POST"]
+)
+def my_games():
+
+    data = request.get_json(
+        silent=True
+    ) or {}
+
+    telegram_user = data.get(
+        "telegram_user"
+    )
+
+    if not isinstance(
+        telegram_user,
+        dict
+    ):
+        return jsonify({
+            "success": False,
+            "error": "Telegram пользователь не передан."
+        }), 400
+
+    telegram_id = safe_int(
+        telegram_user.get("id")
+    )
+
+    if telegram_id is None:
+        return jsonify({
+            "success": False,
+            "error": "Telegram ID не найден."
+        }), 400
+
+    conn = None
+
+    try:
+
+        conn = get_db_connection()
+
+        with conn:
+            with conn.cursor() as cur:
+
+                cur.execute(
+                    """
+                    SELECT
+                        g.id,
+                        g.pgn,
+                        g.result
+                    FROM public.games g
+                    JOIN public.users u
+                        ON u.id = g.user_id
+                    WHERE u.telegram_id = %s
+                    ORDER BY g.id DESC
+                    """,
+                    (
+                        telegram_id,
+                    )
+                )
+
+                rows = cur.fetchall()
+
+        games = []
+
+        for row in rows:
+
+            games.append({
+                "id": row[0],
+                "pgn": row[1],
+                "result": row[2]
+            })
+
+        print(
+            "Мои партии:",
+            telegram_id,
+            "найдено:",
+            len(games)
+        )
+
+        return jsonify({
+            "success": True,
+            "games": games
+        })
+
+    except Exception as e:
+
+        print(
+            "ОШИБКА /my_games:",
+            repr(e)
+        )
+
+        return jsonify({
+            "success": False,
+            "error":
+                "Ошибка загрузки партий."
+        }), 500
+
+    finally:
+
+        if conn:
+            conn.close()
+
 # ============================================================
 # ЗАПУСК
 # ============================================================

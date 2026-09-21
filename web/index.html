@@ -3,9 +3,10 @@
 <html lang="ru">
 
 <head>
-    <meta charset="UTF-8">
 
 ```
+<meta charset="UTF-8">
+
 <meta
     name="viewport"
     content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
@@ -22,67 +23,84 @@
 
 <div class="app">
 
-```
 <!-- =====================================================
      ГЛАВНОЕ МЕНЮ
      ===================================================== -->
 
-<section id="menuScreen" class="screen">
+<section
+    id="menuScreen"
+    class="screen"
+>
 
-    <header class="menu-header">
+```
+<header class="menu-header">
 
-        <div class="menu-logo">
-            ♟
-        </div>
-
-        <div class="menu-title">
-            Chess Trainer
-        </div>
-
-        <div class="menu-subtitle">
-            Тренируйся. Анализируй. Улучшайся.
-        </div>
-
-    </header>
-
-
-    <div class="menu-buttons">
-
-        <button
-            id="playButton"
-            class="menu-button"
-        >
-            <span class="menu-button-icon">🎮</span>
-            <span>Играть</span>
-        </button>
-
-
-        <button
-            id="analysisButton"
-            class="menu-button"
-        >
-            <span class="menu-button-icon">🔍</span>
-            <span>Анализ партии</span>
-        </button>
-
-
-        <button
-            id="mistakesButton"
-            class="menu-button secondary"
-        >
-            <span class="menu-button-icon">📚</span>
-            <span>Мои ошибки</span>
-        </button>
-
-        <button id="replayMistakeButton" class="menu-button secondary">
-            <span class="menu-button-icon">♻️</span>
-            <span>Переиграть позицию</span>
-        </button>
-
+    <div class="menu-logo">
+        ♟
     </div>
 
-</section>
+    <div class="menu-title">
+        Chess Trainer
+    </div>
 
+    <div class="menu-subtitle">
+        Тренируйся. Анализируй. Улучшайся.
+    </div>
+
+</header>
+
+
+<div class="menu-buttons">
+
+    <button
+        id="playButton"
+        class="menu-button"
+    >
+        <span class="menu-button-icon">🎮</span>
+        <span>Играть</span>
+    </button>
+
+
+    <button
+        id="analysisButton"
+        class="menu-button"
+    >
+        <span class="menu-button-icon">🔍</span>
+        <span>Анализ партии</span>
+    </button>
+
+
+    <button
+        id="mistakesButton"
+        class="menu-button secondary"
+    >
+        <span class="menu-button-icon">📚</span>
+        <span>Мои ошибки</span>
+    </button>
+
+
+    <button
+        id="replayMistakeButton"
+        class="menu-button secondary"
+    >
+        <span class="menu-button-icon">♻️</span>
+        <span>Переиграть позицию</span>
+    </button>
+
+
+    <button
+        id="myGamesButton"
+        class="menu-button secondary"
+        type="button"
+    >
+        <span class="menu-button-icon">♟️</span>
+        <span>Мои партии</span>
+    </button>
+
+</div>
+```
+
+</section>
 
 <!-- =====================================================
      ЭКРАН ИГРЫ
@@ -93,265 +111,272 @@
     class="screen hidden"
 >
 
-    <header class="header">
+```
+<header class="header">
 
-        <button
-            id="backFromGameButton"
-            class="back-button"
-        >
-            ← Меню
-        </button>
+    <button
+        id="backFromGameButton"
+        class="back-button"
+    >
+        ← Меню
+    </button>
 
-        <div class="title">
-            ♟ Chess Trainer
-        </div>
-
-        <div
-            id="turnText"
-            class="turn-text"
-        >
-            Ваш ход
-        </div>
-
-    </header>
-
-
-    <!-- =================================================
-         ВЫБОР СТОРОНЫ
-         ================================================= -->
+    <div class="title">
+        ♟ Chess Trainer
+    </div>
 
     <div
-        id="sideSelection"
-        class="side-selection"
+        id="turnText"
+        class="turn-text"
     >
+        Ваш ход
+    </div>
 
-        <div class="side-selection-title">
-            За кого играть?
-        </div>
-
-        <div class="side-selection-buttons">
-
-            <button
-                id="playWhiteButton"
-                class="side-button"
-                type="button"
-            >
-                <span class="side-button-piece">♔</span>
-                <span>Белыми</span>
-            </button>
+</header>
 
 
-            <button
-                id="playBlackButton"
-                class="side-button"
-                type="button"
-            >
-                <span class="side-button-piece">♚</span>
-                <span>Чёрными</span>
-            </button>
+<!-- =================================================
+     ВЫБОР СТОРОНЫ
+     ================================================= -->
 
-        </div>
+<div
+    id="sideSelection"
+    class="side-selection"
+>
+
+    <div class="side-selection-title">
+        За кого играть?
+    </div>
+
+    <div class="side-selection-buttons">
+
+        <button
+            id="playWhiteButton"
+            class="side-button"
+            type="button"
+        >
+            <span class="side-button-piece">♔</span>
+            <span>Белыми</span>
+        </button>
+
+
+        <button
+            id="playBlackButton"
+            class="side-button"
+            type="button"
+        >
+            <span class="side-button-piece">♚</span>
+            <span>Чёрными</span>
+        </button>
 
     </div>
 
-
-    <!-- =================================================
-         ВЫБОР ДЕБЮТА
-         ================================================= -->
-
-    <div
-        id="openingSelection"
-        class="side-selection hidden"
-    >
-
-        <div class="side-selection-title">
-            Какой дебют играет компьютер?
-        </div>
+</div>
 
 
-        <div class="opening-buttons">
 
-            <button
-                type="button"
-                class="opening-button"
-                data-opening="none"
-            >
-                <strong>Без дебюта</strong>
-                <span>Обычная игра Stockfish</span>
-            </button>
+<!-- =================================================
+     ВЫБОР ДЕБЮТА
+     ================================================= -->
 
+<div
+    id="openingSelection"
+    class="side-selection hidden"
+>
 
-            <button
-                type="button"
-                class="opening-button"
-                data-opening="french"
-            >
-                <strong>Французская защита</strong>
-                <span>1.e4 e6</span>
-            </button>
+    <div class="side-selection-title">
+        Какой дебют играет компьютер?
+    </div>
 
 
-            <button
-                type="button"
-                class="opening-button"
-                data-opening="old_indian"
-            >
-                <strong>Староиндийская защита</strong>
-                <span>1.d4 Nf6 2.c4 d6</span>
-            </button>
+    <div class="opening-buttons">
 
-
-            <button
-                type="button"
-                class="opening-button"
-                data-opening="kings_indian"
-            >
-                <strong>Королевско-индийская защита</strong>
-                <span>1.d4 Nf6 2.c4 g6</span>
-            </button>
-
-
-            <button
-                type="button"
-                class="opening-button"
-                data-opening="sicilian"
-            >
-                <strong>Сицилианская защита</strong>
-                <span>1.e4 c5</span>
-            </button>
-
-
-            <button
-                type="button"
-                class="opening-button"
-                data-opening="queens_gambit"
-            >
-                <strong>Ферзевый гамбит</strong>
-                <span>1.d4 d5 2.c4 e6</span>
-            </button>
-
-
-            <button
-                type="button"
-                class="opening-button"
-                data-opening="catalan"
-            >
-                <strong>Каталонское начало</strong>
-                <span>1.d4 Nf6 2.c4 e6 3.g3 d5</span>
-            </button>
-
-        </div>
+        <button
+            type="button"
+            class="opening-button"
+            data-opening="none"
+        >
+            <strong>Без дебюта</strong>
+            <span>Обычная игра Stockfish</span>
+        </button>
 
 
         <button
             type="button"
-            id="backToSideSelectionButton"
-            class="menu-button opening-back-button"
+            class="opening-button"
+            data-opening="french"
         >
-            ← Назад
+            <strong>Французская защита</strong>
+            <span>1.e4 e6</span>
+        </button>
+
+
+        <button
+            type="button"
+            class="opening-button"
+            data-opening="old_indian"
+        >
+            <strong>Староиндийская защита</strong>
+            <span>1.d4 Nf6 2.c4 d6</span>
+        </button>
+
+
+        <button
+            type="button"
+            class="opening-button"
+            data-opening="kings_indian"
+        >
+            <strong>Королевско-индийская защита</strong>
+            <span>1.d4 Nf6 2.c4 g6</span>
+        </button>
+
+
+        <button
+            type="button"
+            class="opening-button"
+            data-opening="sicilian"
+        >
+            <strong>Сицилианская защита</strong>
+            <span>1.e4 c5</span>
+        </button>
+
+
+        <button
+            type="button"
+            class="opening-button"
+            data-opening="queens_gambit"
+        >
+            <strong>Ферзевый гамбит</strong>
+            <span>1.d4 d5 2.c4 e6</span>
+        </button>
+
+
+        <button
+            type="button"
+            class="opening-button"
+            data-opening="catalan"
+        >
+            <strong>Каталонское начало</strong>
+            <span>1.d4 Nf6 2.c4 e6 3.g3 d5</span>
         </button>
 
     </div>
 
 
-    <!-- =================================================
-         ДОСКА
-         ================================================= -->
+    <button
+        type="button"
+        id="backToSideSelectionButton"
+        class="menu-button opening-back-button"
+    >
+        ← Назад
+    </button>
 
-    <main>
-
-        <div class="board-wrapper">
-
-            <div class="rank-labels">
-
-                <span>8</span>
-                <span>7</span>
-                <span>6</span>
-                <span>5</span>
-                <span>4</span>
-                <span>3</span>
-                <span>2</span>
-                <span>1</span>
-
-            </div>
+</div>
 
 
-            <div>
 
-                <div
-                    id="board"
-                    class="board"
-                ></div>
+<!-- =================================================
+     ДОСКА
+     ================================================= -->
+
+<main>
+
+    <div class="board-wrapper">
+
+        <div class="rank-labels">
+
+            <span>8</span>
+            <span>7</span>
+            <span>6</span>
+            <span>5</span>
+            <span>4</span>
+            <span>3</span>
+            <span>2</span>
+            <span>1</span>
+
+        </div>
 
 
-                <div class="file-labels">
+        <div>
 
-                    <span>a</span>
-                    <span>b</span>
-                    <span>c</span>
-                    <span>d</span>
-                    <span>e</span>
-                    <span>f</span>
-                    <span>g</span>
-                    <span>h</span>
+            <div
+                id="board"
+                class="board"
+            ></div>
 
-                </div>
+
+            <div class="file-labels">
+
+                <span>a</span>
+                <span>b</span>
+                <span>c</span>
+                <span>d</span>
+                <span>e</span>
+                <span>f</span>
+                <span>g</span>
+                <span>h</span>
 
             </div>
 
         </div>
 
-    </main>
+    </div>
+
+</main>
 
 
-    <!-- =================================================
-         СООБЩЕНИЕ
-         ================================================= -->
 
-    <section class="info">
+<!-- =================================================
+     СООБЩЕНИЕ
+     ================================================= -->
 
-        <div
-            id="message"
-            class="message"
-        >
-            Выберите фигуру
-        </div>
+<section class="info">
 
-    </section>
-
-
-    <!-- =================================================
-         КНОПКИ
-         ================================================= -->
-
-    <section class="buttons">
-
-        <button
-            id="hintButton"
-            class="button"
-        >
-            💡 Подсказка
-        </button>
-
-        <button
-            id="resignButton"
-            class="button secondary"
-            type="button"
-        >
-            🏳️ Сдаться
-        </button>
-
-        <button
-            id="newGameButton"
-            class="button secondary"
-        >
-            🔄 Новая игра
-        </button>
-
-    </section>
+    <div
+        id="message"
+        class="message"
+    >
+        Выберите фигуру
+    </div>
 
 </section>
 
+
+
+<!-- =================================================
+     КНОПКИ
+     ================================================= -->
+
+<section class="buttons">
+
+    <button
+        id="hintButton"
+        class="button"
+    >
+        💡 Подсказка
+    </button>
+
+
+    <button
+        id="resignButton"
+        class="button secondary"
+        type="button"
+    >
+        🏳️ Сдаться
+    </button>
+
+
+    <button
+        id="newGameButton"
+        class="button secondary"
+    >
+        🔄 Новая игра
+    </button>
+
+</section>
+```
+
+</section>
 
 <!-- =====================================================
      ЭКРАН АНАЛИЗА
@@ -362,31 +387,33 @@
     class="screen hidden"
 >
 
-    <header class="page-header">
+```
+<header class="page-header">
 
-        <button
-            id="backFromAnalysisButton"
-            class="back-button"
-        >
-            ← Меню
-        </button>
+    <button
+        id="backFromAnalysisButton"
+        class="back-button"
+    >
+        ← Меню
+    </button>
 
-        <h1>
-            🔍 Анализ партии
-        </h1>
+    <h1>
+        🔍 Анализ партии
+    </h1>
 
-        <div class="page-description">
-            Вставь PGN партии, чтобы разобрать свои ошибки.
-        </div>
+    <div class="page-description">
+        Вставь PGN партии, чтобы разобрать свои ошибки.
+    </div>
 
-    </header>
-    
-    <div class="analysis-card">
+</header>
 
-        <textarea
-            id="pgnInput"
-            class="pgn-input"
-            placeholder='[Event "Live Chess"]
+
+<div class="analysis-card">
+
+    <textarea
+        id="pgnInput"
+        class="pgn-input"
+        placeholder='[Event "Live Chess"]
 ```
 
 [White "Player"]
@@ -396,38 +423,44 @@
    ></textarea>
 
    ```
-        <div class="analysis-mode-title">
-            Выберите режим анализа
-        </div>
-
-        <div class="analysis-mode-buttons">
-
-            <button
-                id="deepAnalysisButton"
-                class="button analyze-button"
-                type="button"
-            >
-                🔬 Глубокий анализ
-                <span class="analysis-mode-description">
-                    Ошибки от 40 cp
-                </span>
-            </button>
-
-            <button
-                id="generalAnalysisButton"
-                class="button analyze-button secondary"
-                type="button"
-            >
-                📊 Общий анализ
-                <span class="analysis-mode-description">
-                    Ошибки от 150 cp
-                </span>
-            </button>
-
-        </div>
-
+    <div class="analysis-mode-title">
+        Выберите режим анализа
     </div>
 
+
+    <div class="analysis-mode-buttons">
+
+        <button
+            id="deepAnalysisButton"
+            class="button analyze-button"
+            type="button"
+        >
+            🔬 Глубокий анализ
+
+            <span class="analysis-mode-description">
+                Ошибки от 40 cp
+            </span>
+
+        </button>
+
+
+        <button
+            id="generalAnalysisButton"
+            class="button analyze-button secondary"
+            type="button"
+        >
+            📊 Общий анализ
+
+            <span class="analysis-mode-description">
+                Ошибки от 150 cp
+            </span>
+
+        </button>
+
+    </div>
+   ```
+
+    </div>
 
     <div
         id="analysisMessage"
@@ -436,63 +469,61 @@
         Вставьте PGN партии.
     </div>
 
-
     <div
         id="analysisResult"
         class="analysis-result hidden"
     ></div>
-   ```
 
-    </section>
-
-    <!-- =====================================================
-         ЭКРАН МОИХ ОШИБОК
-         ===================================================== -->
-
-    <section
-        id="mistakesScreen"
-        class="screen hidden"
-    >
-
-   ```
-    <header class="page-header">
-
-        <button
-            id="backFromMistakesButton"
-            class="back-button"
-        >
-            ← Меню
-        </button>
-
-        <h1>
-            📚 Мои ошибки
-        </h1>
-
-    </header>
-
-
-    <div class="empty-state">
-
-        <div class="empty-icon">
-            ♟
-        </div>
-
-        <div class="empty-title">
-            Раздел готовится
-        </div>
-
-        <div class="empty-text">
-            Здесь будут сохраняться твои ошибки
-            из анализа партий.
-        </div>
-
-    </div>
-   ```
-
-    </section>
+</section>
 
 <!-- =====================================================
-     ЭКРАН ПЕРЕИГРАТЬ ОШИБКУ
+     ЭКРАН МОИХ ОШИБОК
+     ===================================================== -->
+
+<section
+    id="mistakesScreen"
+    class="screen hidden"
+>
+
+```
+<header class="page-header">
+
+    <button
+        id="backFromMistakesButton"
+        class="back-button"
+    >
+        ← Меню
+    </button>
+
+    <h1>
+        📚 Мои ошибки
+    </h1>
+
+</header>
+
+
+<div class="empty-state">
+
+    <div class="empty-icon">
+        ♟
+    </div>
+
+    <div class="empty-title">
+        Раздел готовится
+    </div>
+
+    <div class="empty-text">
+        Здесь будут сохраняться твои ошибки
+        из анализа партий.
+    </div>
+
+</div>
+```
+
+</section>
+
+<!-- =====================================================
+     ЭКРАН ПЕРЕИГРАТЬ ПОЗИЦИЮ
      ===================================================== -->
 
 <section
@@ -500,189 +531,309 @@
     class="screen hidden"
 >
 
-    <header class="page-header">
+```
+<header class="page-header">
 
-        <button
-            id="backFromReplayMistakeButton"
-            class="back-button"
-        >
-            ← Меню
-        </button>
-
-        <h1>
-            ♻️ Переиграть позицию
-        </h1>
-
-        <div class="page-description">
-            Выбери позицию и сыграй её заново
-            против компьютера.
-        </div>
-
-    </header>
-
-
-    <div
-        id="replayMistakeList"
-        class="mistakes-list"
+    <button
+        id="backFromReplayMistakeButton"
+        class="back-button"
     >
+        ← Меню
+    </button>
+
+    <h1>
+        ♻️ Переиграть позицию
+    </h1>
+
+    <div class="page-description">
+        Выбери позицию и сыграй её заново
+        против компьютера.
     </div>
 
-    <div
-        class="replay-source-buttons"
+</header>
+
+
+<div
+    id="replayMistakeList"
+    class="mistakes-list"
+>
+</div>
+
+
+<div
+    class="replay-source-buttons"
+>
+
+    <button
+        id="replayPgnButton"
+        class="button secondary"
+        type="button"
     >
+        📋 Из PGN
+    </button>
+
+</div>
+
+
+
+<!-- =================================================
+     ПЕРЕИГРАТЬ ИЗ PGN
+     ================================================= -->
+
+<div
+    id="replayPgnPanel"
+    class="hidden"
+>
+
+    <div class="position-title">
+        📋 Переиграть из PGN
+    </div>
+
+
+    <div class="page-description">
+        Вставь PGN партии, чтобы выбрать
+        позицию для переигрывания.
+    </div>
+
+
+    <textarea
+        id="replayPgnInput"
+        class="pgn-textarea"
+        placeholder="1. e4 e5 2. Nf3 Nc6 3. Bb5 a6 ..."
+        rows="10"
+    ></textarea>
+
+
+    <div class="buttons">
+
         <button
-            id="replayPgnButton"
+            id="parseReplayPgnButton"
+            class="button"
+            type="button"
+        >
+            Продолжить
+        </button>
+
+
+        <button
+            id="backFromReplayPgnButton"
             class="button secondary"
             type="button"
         >
-            📋 Из PGN
+            ← Назад
         </button>
+
     </div>
 
 
     <div
-        id="replayPgnPanel"
+        id="replayPgnPositions"
         class="hidden"
     >
-
-        <div class="position-title">
-            📋 Переиграть из PGN
-        </div>
-
-        <div class="page-description">
-            Вставь PGN партии, чтобы выбрать
-            позицию для переигрывания.
-        </div>
-
-        <textarea
-            id="replayPgnInput"
-            class="pgn-textarea"
-            placeholder="1. e4 e5 2. Nf3 Nc6 3. Bb5 a6 ..."
-            rows="10"
-        ></textarea>
-
-        <div class="buttons">
-
-            <button
-                id="parseReplayPgnButton"
-                class="button"
-                type="button"
-            >
-                Продолжить
-            </button>
-
-            <button
-                id="backFromReplayPgnButton"
-                class="button secondary"
-                type="button"
-            >
-                ← Назад
-            </button>
-
-        </div>
-
-        <div
-            id="replayPgnPositions"
-            class="hidden"
-        >
-        </div>
-
     </div>
 
+</div>
 
-        <div
-        id="replayMistakeGame"
-        class="hidden"
+
+
+<!-- =================================================
+     ДОСКА ПЕРЕИГРЫВАНИЯ
+     ================================================= -->
+
+<div
+    id="replayMistakeGame"
+    class="hidden"
+>
+
+    <div
+        id="replayMistakeTitle"
+        class="position-title"
     >
-
-        <div
-            id="replayMistakeTitle"
-            class="position-title"
-        >
-            Переиграть позицию
-        </div>
-
-
-        <div
-            id="replayMistakeMessage"
-            class="position-result"
-        >
-            Ваш ход
-        </div>
-
-
-        <div class="board-wrapper">
-
-            <div class="rank-labels"></div>
-
-            <div class="board-area">
-
-                <div id="replayMistakeBoard" class="board"></div>
-
-                <div class="file-labels"></div>
-
-            </div>
-
-        </div>
-
-        <div class="buttons">
-
-            <button
-                id="finishReplayMistakeButton"
-                class="button secondary"
-                type="button"
-            >
-                🏁 Завершить партию
-            </button>
-
-        </div>
-
+        Переиграть позицию
     </div>
-
-
-    <!-- ВОТ СЮДА -->
 
 
     <div
-        id="replayPgnResult"
-        class="hidden"
+        id="replayMistakeMessage"
+        class="position-result"
     >
+        Ваш ход
+    </div>
 
-        <div class="position-title">
-            📋 PGN переигранной партии
-        </div>
 
-        <textarea
-            id="replayPgnResultText"
-            class="pgn-textarea"
-            readonly
-            rows="10"
-        ></textarea>
+    <div class="board-wrapper">
 
-        <div class="buttons">
+        <div class="rank-labels"></div>
 
-            <button
-                id="copyReplayPgnButton"
-                class="button"
-                type="button"
-            >
-                📋 Скопировать PGN
-            </button>
 
-            <button
-                id="closeReplayPgnResultButton"
-                class="button secondary"
-                type="button"
-            >
-                ← Назад
-            </button>
+        <div class="board-area">
+
+            <div
+                id="replayMistakeBoard"
+                class="board"
+            ></div>
+
+
+            <div class="file-labels"></div>
 
         </div>
 
     </div>
-        
+
+
+    <div class="buttons">
+
+        <button
+            id="finishReplayMistakeButton"
+            class="button secondary"
+            type="button"
+        >
+            🏁 Завершить партию
+        </button>
 
     </div>
+
+</div>
+
+
+
+<!-- =================================================
+     РЕЗУЛЬТАТ ПЕРЕИГРЫВАНИЯ
+     ================================================= -->
+
+<div
+    id="replayPgnResult"
+    class="hidden"
+>
+
+    <div class="position-title">
+        📋 PGN переигранной партии
+    </div>
+
+
+    <textarea
+        id="replayPgnResultText"
+        class="pgn-textarea"
+        readonly
+        rows="10"
+    ></textarea>
+
+
+    <div class="buttons">
+
+        <button
+            id="copyReplayPgnButton"
+            class="button"
+            type="button"
+        >
+            📋 Скопировать PGN
+        </button>
+
+
+        <button
+            id="closeReplayPgnResultButton"
+            class="button secondary"
+            type="button"
+        >
+            ← Назад
+        </button>
+
+    </div>
+
+</div>
+```
+
+</section>
+
+<!-- =====================================================
+     ЭКРАН МОИХ ПАРТИЙ
+     ===================================================== -->
+
+<section
+    id="myGamesScreen"
+    class="screen hidden"
+>
+
+```
+<header class="page-header">
+
+    <button
+        id="backFromMyGamesButton"
+        class="back-button"
+    >
+        ← Меню
+    </button>
+
+
+    <h1>
+        ♟️ Мои партии
+    </h1>
+
+
+    <div class="page-description">
+        Здесь сохраняются сыгранные партии.
+    </div>
+
+</header>
+
+
+
+<!-- =================================================
+     СПИСОК ПАРТИЙ
+     ================================================= -->
+
+<div
+    id="myGamesList"
+    class="mistakes-list"
+></div>
+
+
+
+<!-- =================================================
+     ПРОСМОТР PGN
+     ================================================= -->
+
+<div
+    id="myGamePgn"
+    class="hidden"
+>
+
+    <div class="position-title">
+        📋 PGN партии
+    </div>
+
+
+    <textarea
+        id="myGamePgnText"
+        class="pgn-textarea"
+        readonly
+        rows="12"
+    ></textarea>
+
+
+    <div class="buttons">
+
+        <button
+            id="copyMyGamePgnButton"
+            class="button"
+            type="button"
+        >
+            📋 Скопировать PGN
+        </button>
+
+
+        <button
+            id="backFromMyGamePgnButton"
+            class="button secondary"
+            type="button"
+        >
+            ← К партиям
+        </button>
+
+    </div>
+
+</div>
+```
 
 </section>
 
@@ -690,7 +841,10 @@
 
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 
-<script src="/app.js" defer></script>
+<script
+    src="/app.js"
+    defer
+></script>
 
 </body>
 
