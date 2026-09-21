@@ -7537,6 +7537,15 @@ async function finishReplayMistake() {
 
     try {
 
+        alert(
+            "Telegram user:\n" +
+            JSON.stringify(
+                getTelegramUser(),
+                null,
+                2
+            )
+        );
+
         const response =
             await fetch(
                 "/replay_finish",
