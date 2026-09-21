@@ -7575,18 +7575,13 @@ function generateReplayPgn() {
         !replayMistakeMoves ||
         replayMistakeMoves.length === 0
     ) {
-
         return "";
     }
 
-
     let pgn = "";
 
-
     /*
-       Если есть стартовая FEN,
-       указываем, что партия начинается
-       с заданной позиции.
+       Заголовки PGN
     */
 
     if (replayMistakeStartFen) {
@@ -7604,35 +7599,62 @@ function generateReplayPgn() {
             `[Result "*"]\n\n`;
     }
 
-
     /*
-       Определяем начальный цвет
-       по стартовой FEN.
+       Определяем:
+       - кто ходит первым
+       - номер полного хода
     */
 
     let whiteToMove = true;
+    let moveNumber = 1;
 
     if (replayMistakeStartFen) {
 
         const parts =
             replayMistakeStartFen.split(" ");
 
+        /*
+           parts[1] = side to move
+           "w" или "b"
+        */
+
         if (
             parts.length > 1 &&
             parts[1] === "b"
         ) {
-
             whiteToMove = false;
+        }
+
+        /*
+           parts[5] = номер полного хода
+        */
+
+        if (
+            parts.length > 5
+        ) {
+
+            const parsedMoveNumber =
+                parseInt(
+                    parts[5],
+                    10
+                );
+
+            if (
+                !isNaN(
+                    parsedMoveNumber
+                ) &&
+                parsedMoveNumber > 0
+            ) {
+
+                moveNumber =
+                    parsedMoveNumber;
+            }
         }
     }
 
-
     /*
-       Номер хода.
+       Формируем ходы
     */
-
-    let moveNumber = 1;
-
 
     for (
         let i = 0;
@@ -7643,25 +7665,38 @@ function generateReplayPgn() {
         const move =
             replayMistakeMoves[i];
 
-        if (!move || !move.san) {
+        if (
+            !move ||
+            !move.san
+        ) {
             continue;
         }
 
-
         /*
-           Белые
+           Ход белых
         */
 
         if (
             move.color === "white"
         ) {
 
-            if (!whiteToMove) {
+            /*
+               Если белые начинают полный ход:
+               2. e4
+            */
+
+            if (whiteToMove) {
 
                 pgn +=
-                    `${moveNumber}... `;
-            }
-            else {
+                    `${moveNumber}. `;
+
+            } else {
+
+                /*
+                   На случай,
+                   если в истории ходов
+                   белый ход оказался после чёрного.
+                */
 
                 pgn +=
                     `${moveNumber}. `;
@@ -7673,21 +7708,31 @@ function generateReplayPgn() {
             whiteToMove = false;
         }
 
-
         /*
-           Чёрные
+           Ход чёрных
         */
 
         else {
 
-            if (whiteToMove) {
+            /*
+               Если чёрные начинают полный ход:
+               2... Nc6
+            */
+
+            if (!whiteToMove) {
 
                 pgn +=
                     `${moveNumber}... `;
+
             }
 
             pgn +=
                 `${move.san} `;
+
+            /*
+               После хода чёрных
+               начинается следующий полный ход.
+            */
 
             whiteToMove = true;
 
@@ -7695,6 +7740,9 @@ function generateReplayPgn() {
         }
     }
 
+    /*
+       Конец незавершённой партии
+    */
 
     pgn += "*";
 
