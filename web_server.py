@@ -3191,6 +3191,23 @@ def replay_finish():
         "telegram_user"
     )
 
+    print(
+        "DEBUG replay_finish telegram_user:",
+        telegram_user
+    )
+
+    print(
+        "DEBUG replay_finish telegram_id:",
+        (
+            telegram_user.get("id")
+            if isinstance(
+                telegram_user,
+                dict
+            )
+            else None
+        )
+    )
+
     pgn = (
         data.get("pgn") or ""
     ).strip()
