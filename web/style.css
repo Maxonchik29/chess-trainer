@@ -1529,6 +1529,69 @@ and (max-height: 600px) {
     opacity: 0.35;
 }
 
-.my-game-viewer-coordinates {
-    display: none;
+/* ============================================================
+   КООРДИНАТЫ ДОСКИ "МОИ ПАРТИИ"
+============================================================ */
+
+.my-game-viewer-coordinate {
+    position: absolute;
+    font-size: 11px;
+    font-weight: 700;
+    pointer-events: none;
+    z-index: 5;
+    line-height: 1;
+}
+
+.my-game-viewer-file {
+    right: 3px;
+    bottom: 3px;
+}
+
+.my-game-viewer-rank {
+    left: 3px;
+    top: 3px;
+}
+
+/* ============================================================
+   МОИ ПАРТИИ — ЭЛЕМЕНТ СПИСКА
+============================================================ */
+
+.my-game-item {
+    width: 100%;
+    display: flex;
+    align-items: stretch;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.my-game-open-button {
+    flex: 1;
+    min-width: 0;
+    text-align: left;
+}
+
+.my-game-delete-button {
+    width: 52px;
+    min-width: 52px;
+    border: none;
+    border-radius: 10px;
+    background: #d9534f;
+    color: white;
+    font-size: 20px;
+    cursor: pointer;
+}
+
+.my-game-delete-button:active {
+    transform: scale(0.95);
+}
+
+.my-game-title {
+    font-size: 16px;
+    font-weight: 700;
+}
+
+.my-game-result {
+    margin-top: 4px;
+    font-size: 14px;
+    opacity: 0.75;
 }

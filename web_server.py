@@ -3577,6 +3577,94 @@ def my_games():
             conn.close()
 
 # ============================================================
+# УДАЛЕНИЕ СОХРАНЁННОЙ ПАРТИИ
+# ============================================================
+
+@app.route("/delete_game", methods=["POST"])
+def delete_game():
+
+    data = request.get_json(silent=True) or {}
+
+    telegram_id = get_telegram_id_from_data(data)
+    game_id = data.get("game_id")
+
+    print(
+        "=== DELETE GAME ===",
+        "telegram_id =", telegram_id,
+        "game_id =", game_id
+    )
+
+    if telegram_id is None:
+        return jsonify({
+            "success": False,
+            "error": "Telegram пользователь не определён."
+        }), 400
+
+    if game_id is None:
+        return jsonify({
+            "success": False,
+            "error": "Не указан ID партии."
+        }), 400
+
+    try:
+        game_id = int(game_id)
+    except (TypeError, ValueError):
+        return jsonify({
+            "success": False,
+            "error": "Некорректный ID партии."
+        }), 400
+
+    conn = get_db_connection()
+
+    try:
+        with conn:
+            with conn.cursor() as cur:
+
+                cur.execute(
+                    """
+                    DELETE FROM public.games
+                    WHERE id = %s
+                      AND user_id = (
+                          SELECT id
+                          FROM public.users
+                          WHERE telegram_id = %s
+                      )
+                    RETURNING id
+                    """,
+                    (game_id, telegram_id)
+                )
+
+                deleted = cur.fetchone()
+
+                if deleted is None:
+                    return jsonify({
+                        "success": False,
+                        "error": "Партия не найдена или она вам не принадлежит."
+                    }), 404
+
+        print(
+            "ПАРТИЯ УДАЛЕНА:",
+            game_id
+        )
+
+        return jsonify({
+            "success": True,
+            "game_id": game_id
+        })
+
+    except Exception as e:
+
+        print(
+            "ОШИБКА УДАЛЕНИЯ ПАРТИИ:",
+            repr(e)
+        )
+
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
+
+# ============================================================
 # ЗАПУСК
 # ============================================================
 

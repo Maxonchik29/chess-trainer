@@ -8732,75 +8732,144 @@ function renderMyGames(games) {
 
     myGamesList.innerHTML = "";
 
-    if (
-        !games ||
-        games.length === 0
-    ) {
+    if (!games || games.length === 0) {
 
-        myGamesList.innerHTML =
-            `
+        myGamesList.innerHTML = `
             <div class="page-description">
                 Пока сохранённых партий нет.
             </div>
-            `;
+        `;
 
         return;
     }
 
-    games.forEach(
-        (game, index) => {
+    games.forEach(game => {
 
-            const button =
-                document.createElement(
-                    "button"
-                );
+        const item = document.createElement("div");
 
-            button.type = "button";
+        item.className = "my-game-item";
 
-            button.className =
-                "mistake-item";
+        const gameInfo = document.createElement("button");
 
-            let title =
-                `Партия #${game.id}`;
+        gameInfo.className = "my-game-open-button";
 
-            let description =
-                "Сохранённая партия";
+        gameInfo.type = "button";
 
-            if (game.result) {
+        gameInfo.innerHTML = `
+            <div class="my-game-title">
+                Партия #${game.id}
+            </div>
 
-                description +=
-                    ` · Результат: ${game.result}`;
+            <div class="my-game-result">
+                ${game.result || "Результат неизвестен"}
+            </div>
+        `;
+
+        gameInfo.addEventListener("click", () => {
+
+            openMyGame(game);
+
+        });
+
+        const deleteButton = document.createElement("button");
+
+        deleteButton.className = "my-game-delete-button";
+
+        deleteButton.type = "button";
+
+        deleteButton.textContent = "🗑";
+
+        deleteButton.title = "Удалить партию";
+
+        deleteButton.addEventListener("click", async (event) => {
+
+            event.stopPropagation();
+
+            const confirmed = confirm(
+                `Удалить партию #${game.id}?`
+            );
+
+            if (!confirmed) {
+                return;
             }
 
-            button.innerHTML =
-                `
-                <div>
-                    <strong>
-                        ♟️ ${title}
-                    </strong>
-                </div>
+            await deleteMyGame(game.id);
 
-                <div class="mistake-details">
-                    ${description}
-                </div>
-                `;
+        });
 
-            button.addEventListener(
-                "click",
-                () => {
+        item.appendChild(gameInfo);
 
-                    openMyGame(
-                        game
-                    );
-                }
-            );
+        item.appendChild(deleteButton);
 
-            myGamesList.appendChild(
-                button
-            );
-        }
-    );
+        myGamesList.appendChild(item);
+
+    });
 }
+
+async function deleteMyGame(gameId) {
+
+    console.log(
+        "Удаляем партию:",
+        gameId
+    );
+
+    try {
+
+        const response = await fetch(
+            "/delete_game",
+            {
+                method: "POST",
+
+                headers: {
+                    "Content-Type": "application/json"
+                },
+
+                body: JSON.stringify({
+                    telegram_user: getTelegramUser(),
+                    game_id: gameId
+                })
+            }
+        );
+
+        const data = await response.json();
+
+        console.log(
+            "ОТВЕТ /delete_game:",
+            data
+        );
+
+        if (!response.ok || !data.success) {
+
+            alert(
+                data.error ||
+                "Не удалось удалить партию."
+            );
+
+            return;
+        }
+
+        console.log(
+            "Партия успешно удалена:",
+            gameId
+        );
+
+        // Обновляем список
+        await loadMyGames();
+
+    } catch (error) {
+
+        console.error(
+            "Ошибка удаления партии:",
+            error
+        );
+
+        alert(
+            "Ошибка соединения с сервером."
+        );
+    }
+}
+
+
 
 function openMyGame(game) {
 
@@ -9163,46 +9232,36 @@ function renderMyGameViewer() {
         return;
     }
 
-
     const position =
         myGameViewerPositions[
             myGameViewerIndex
         ];
 
-
     if (!position || !position.fen) {
         return;
     }
-
 
     const boardElement =
         document.getElementById(
             "myGameViewerBoard"
         );
 
-
     if (!boardElement) {
         return;
     }
-
 
     const boardState =
         fenToBoard(
             position.fen
         );
 
-
     /*
-     * Ориентация по стороне игрока,
-     * который указан в PGN.
-     *
-     * Если определить невозможно —
-     * показываем белыми снизу.
+     * ============================================================
+     * ОПРЕДЕЛЯЕМ ОРИЕНТАЦИЮ ДОСКИ
+     * ============================================================
      */
 
-    let orientation =
-        "white";
-
+    let orientation = "white";
 
     const gamePgn =
         String(
@@ -9210,13 +9269,9 @@ function renderMyGameViewer() {
             ""
         );
 
-
     /*
-     * Пытаемся определить игрока
-     * по заголовкам PGN.
-     *
-     * Для сохранённых партий
-     * обычно достаточно белой ориентации.
+     * Сначала пытаемся найти специальный заголовок
+     * PlayerColor.
      */
 
     const playerColorMatch =
@@ -9224,13 +9279,11 @@ function renderMyGameViewer() {
             /\[PlayerColor\s+"([^"]+)"\]/i
         );
 
-
-    if (
-        playerColorMatch
-    ) {
+    if (playerColorMatch) {
 
         const color =
             playerColorMatch[1]
+                .trim()
                 .toLowerCase();
 
         if (
@@ -9239,34 +9292,51 @@ function renderMyGameViewer() {
             color === "черные" ||
             color === "чёрные"
         ) {
-
-            orientation =
-                "black";
+            orientation = "black";
         }
     }
 
+    /*
+     * Запоминаем ориентацию.
+     */
+
+    myGameViewerOrientation =
+        orientation;
 
     const isBlack =
         orientation === "black";
 
 
+    /*
+     * ============================================================
+     * ПОРЯДОК РЯДОВ И КОЛОНОК
+     * ============================================================
+     */
+
     const rows =
         isBlack
-            ? [7,6,5,4,3,2,1,0]
-            : [0,1,2,3,4,5,6,7];
-
+            ? [7, 6, 5, 4, 3, 2, 1, 0]
+            : [0, 1, 2, 3, 4, 5, 6, 7];
 
     const cols =
         isBlack
-            ? [7,6,5,4,3,2,1,0]
-            : [0,1,2,3,4,5,6,7];
+            ? [7, 6, 5, 4, 3, 2, 1, 0]
+            : [0, 1, 2, 3, 4, 5, 6, 7];
 
+
+    /*
+     * ============================================================
+     * ОЧИЩАЕМ ДОСКУ
+     * ============================================================
+     */
 
     boardElement.innerHTML = "";
 
 
     /*
-     * Размер доски.
+     * ============================================================
+     * РАЗМЕР ДОСКИ
+     * ============================================================
      */
 
     const boardSize =
@@ -9275,29 +9345,26 @@ function renderMyGameViewer() {
             520
         );
 
-
     boardElement.style.width =
         `${boardSize}px`;
-
 
     boardElement.style.height =
         `${boardSize}px`;
 
-
     boardElement.style.display =
         "grid";
 
-
     boardElement.style.gridTemplateColumns =
         "repeat(8, 1fr)";
-
 
     boardElement.style.gridTemplateRows =
         "repeat(8, 1fr)";
 
 
     /*
-     * Создаём клетки.
+     * ============================================================
+     * СОЗДАЁМ 64 КЛЕТКИ
+     * ============================================================
      */
 
     for (
@@ -9309,7 +9376,6 @@ function renderMyGameViewer() {
         const row =
             rows[displayRow];
 
-
         for (
             let displayCol = 0;
             displayCol < 8;
@@ -9320,15 +9386,24 @@ function renderMyGameViewer() {
                 cols[displayCol];
 
 
+            /*
+             * ----------------------------------------------------
+             * КЛЕТКА
+             * ----------------------------------------------------
+             */
+
             const square =
                 document.createElement(
                     "div"
                 );
 
-
             square.className =
                 "my-game-viewer-square";
 
+
+            /*
+             * Цвет клетки.
+             */
 
             if (
                 (row + col) % 2 === 0
@@ -9346,17 +9421,99 @@ function renderMyGameViewer() {
             }
 
 
+            /*
+             * Имя клетки:
+             *
+             * например:
+             * a8
+             * e4
+             * h1
+             */
+
             const squareName =
                 FILES[col] +
                 (8 - row);
-
 
             square.dataset.square =
                 squareName;
 
 
             /*
-             * Фигура.
+             * ====================================================
+             * КООРДИНАТЫ
+             * ====================================================
+             *
+             * Файлы:
+             * a b c d e f g h
+             *
+             * Ранги:
+             * 8 ... 1
+             *
+             * Они автоматически переворачиваются
+             * вместе с доской.
+             */
+
+
+            /*
+             * Буква файла.
+             *
+             * Показываем её только
+             * на нижнем ряду отображаемой доски.
+             */
+
+            if (
+                displayRow === 7
+            ) {
+
+                const fileLabel =
+                    document.createElement(
+                        "span"
+                    );
+
+                fileLabel.className =
+                    "my-game-viewer-coordinate my-game-viewer-file";
+
+                fileLabel.textContent =
+                    FILES[col];
+
+                square.appendChild(
+                    fileLabel
+                );
+            }
+
+
+            /*
+             * Цифра ряда.
+             *
+             * Показываем её только
+             * на левом столбце отображаемой доски.
+             */
+
+            if (
+                displayCol === 0
+            ) {
+
+                const rankLabel =
+                    document.createElement(
+                        "span"
+                    );
+
+                rankLabel.className =
+                    "my-game-viewer-coordinate my-game-viewer-rank";
+
+                rankLabel.textContent =
+                    String(8 - row);
+
+                square.appendChild(
+                    rankLabel
+                );
+            }
+
+
+            /*
+             * ====================================================
+             * ФИГУРА
+             * ====================================================
              */
 
             const piece =
@@ -9366,7 +9523,6 @@ function renderMyGameViewer() {
                     col
                 ];
 
-
             if (piece) {
 
                 const pieceElement =
@@ -9374,28 +9530,27 @@ function renderMyGameViewer() {
                         "img"
                     );
 
-
                 pieceElement.className =
                     "piece-image";
-
 
                 pieceElement.src =
                     `pieces/${piece.color}/${piece.type.charAt(0).toUpperCase() + piece.type.slice(1)}.svg?v=5`;
 
-
                 pieceElement.alt =
                     `${piece.color} ${piece.type}`;
 
-
                 pieceElement.draggable =
                     false;
-
 
                 square.appendChild(
                     pieceElement
                 );
             }
 
+
+            /*
+             * Добавляем клетку на доску.
+             */
 
             boardElement.appendChild(
                 square
@@ -9405,14 +9560,15 @@ function renderMyGameViewer() {
 
 
     /*
-     * Ход под доской.
+     * ============================================================
+     * ТЕКУЩИЙ ХОД
+     * ============================================================
      */
 
     const moveElement =
         document.getElementById(
             "myGameViewerMove"
         );
-
 
     if (moveElement) {
 
@@ -9425,22 +9581,28 @@ function renderMyGameViewer() {
 
         } else {
 
+            const moveNumber =
+                position.move_number || "";
+
+            const san =
+                position.san || "";
+
             moveElement.textContent =
-                `После ${position.move_number || ""} ${position.san || ""}`
-                    .trim();
+                `После ${moveNumber} ${san}`.trim();
         }
     }
 
 
     /*
-     * Счётчик.
+     * ============================================================
+     * СЧЁТЧИК ХОДОВ
+     * ============================================================
      */
 
     const counter =
         document.getElementById(
             "myGameViewerCounter"
         );
-
 
     if (counter) {
 
@@ -9452,14 +9614,15 @@ function renderMyGameViewer() {
 
 
     /*
-     * Кнопка назад.
+     * ============================================================
+     * КНОПКА ←
+     * ============================================================
      */
 
     const previousButton =
         document.getElementById(
             "myGameViewerPreviousButton"
         );
-
 
     if (previousButton) {
 
@@ -9469,14 +9632,15 @@ function renderMyGameViewer() {
 
 
     /*
-     * Кнопка вперёд.
+     * ============================================================
+     * КНОПКА →
+     * ============================================================
      */
 
     const nextButton =
         document.getElementById(
             "myGameViewerNextButton"
         );
-
 
     if (nextButton) {
 
@@ -9487,7 +9651,9 @@ function renderMyGameViewer() {
 
 
     /*
-     * Статус.
+     * ============================================================
+     * СТАТУС
+     * ============================================================
      */
 
     const status =
@@ -9495,14 +9661,14 @@ function renderMyGameViewer() {
             "myGameViewerStatus"
         );
 
-
     if (status) {
 
         status.textContent =
-            `Партия #${myGameViewerGame?.id ?? "—"}`;
+            `Партия #${
+                myGameViewerGame?.id ?? "—"
+            }`;
     }
 }
-
 
 /* ============================================================
    НАВИГАЦИЯ ПО СОХРАНЁННОЙ ПАРТИИ
