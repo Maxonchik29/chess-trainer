@@ -1446,3 +1446,89 @@ and (max-height: 600px) {
     box-shadow:
         inset 0 0 0 4px rgba(255, 193, 7, 0.85);
 }
+
+/* ============================================================
+   ПРОСМОТР СОХРАНЁННОЙ ПАРТИИ
+============================================================ */
+
+.my-game-viewer {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+}
+
+.my-game-viewer h2 {
+    margin: 0;
+    text-align: center;
+}
+
+.my-game-viewer-board-wrapper {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+}
+
+.my-game-viewer-board {
+    display: grid;
+    overflow: hidden;
+    border-radius: 4px;
+    box-sizing: border-box;
+}
+
+.my-game-viewer-square {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+}
+
+.my-game-viewer-square.light {
+    background: #f0d9b5;
+}
+
+.my-game-viewer-square.dark {
+    background: #b58863;
+}
+
+.my-game-viewer-square .piece-image {
+    width: 88%;
+    height: 88%;
+    object-fit: contain;
+    pointer-events: none;
+    user-select: none;
+}
+
+.my-game-viewer-move {
+    min-height: 24px;
+    font-size: 18px;
+    font-weight: 600;
+    text-align: center;
+}
+
+.my-game-viewer-navigation {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    width: 100%;
+    margin-top: 4px;
+}
+
+.my-game-viewer-navigation
+.navigation-arrow-button {
+    width: 54px;
+    height: 44px;
+    font-size: 24px;
+}
+
+.my-game-viewer-navigation
+.navigation-arrow-button:disabled {
+    opacity: 0.35;
+}
+
+.my-game-viewer-coordinates {
+    display: none;
+}

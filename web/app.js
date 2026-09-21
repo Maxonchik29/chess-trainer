@@ -604,6 +604,14 @@ let replayMistakeMoves = [];
 
 let replayMistakeStartFen = null;
 
+/* ============================================================
+   ПРОСМОТР СОХРАНЁННОЙ ПАРТИИ
+============================================================ */
+
+let myGameViewerGame = null;
+let myGameViewerPositions = [];
+let myGameViewerIndex = -1;
+let myGameViewerContainer = null;
 
 
 
@@ -3597,11 +3605,6 @@ if (backFromMyGamesButton) {
     );
 }
 
-
-// =====================================================
-// ПУНКТ 11 — НАЗАД К СПИСКУ ПАРТИЙ
-// =====================================================
-
 if (backFromMyGamePgnButton) {
 
     backFromMyGamePgnButton.addEventListener(
@@ -3613,7 +3616,6 @@ if (backFromMyGamePgnButton) {
                 myGamePgn.classList.add(
                     "hidden"
                 );
-
             }
 
             if (myGamesList) {
@@ -3621,7 +3623,21 @@ if (backFromMyGamePgnButton) {
                 myGamesList.classList.remove(
                     "hidden"
                 );
+            }
 
+            myGameViewerGame =
+                null;
+
+            myGameViewerPositions =
+                [];
+
+            myGameViewerIndex =
+                -1;
+
+            if (myGameViewerContainer) {
+
+                myGameViewerContainer.innerHTML =
+                    "";
             }
         }
     );
@@ -8797,6 +8813,10 @@ function openMyGame(game) {
         return;
     }
 
+    myGameViewerGame = game;
+    myGameViewerPositions = [];
+    myGameViewerIndex = -1;
+
     if (myGamesList) {
         myGamesList.classList.add(
             "hidden"
@@ -8813,7 +8833,747 @@ function openMyGame(game) {
         myGamePgnText.value =
             game.pgn || "";
     }
+
+    loadMyGameViewer(game);
 }
+
+/* ============================================================
+   ЗАГРУЗКА ПАРТИИ ДЛЯ ПРОСМОТРА
+============================================================ */
+
+async function loadMyGameViewer(game) {
+
+    if (!game || !game.pgn) {
+
+        alert(
+            "У этой партии отсутствует PGN."
+        );
+
+        return;
+    }
+
+    try {
+
+        if (!myGamePgn) {
+            return;
+        }
+
+        /*
+         * Создаём контейнер просмотрщика,
+         * если его ещё нет.
+         */
+
+        if (!myGameViewerContainer) {
+
+            myGameViewerContainer =
+                document.createElement(
+                    "div"
+                );
+
+            myGameViewerContainer.id =
+                "myGameViewer";
+
+            myGamePgn.insertBefore(
+                myGameViewerContainer,
+                myGamePgn.firstChild
+            );
+        }
+
+        myGameViewerContainer.innerHTML = `
+            <div class="my-game-viewer">
+
+                <h2>
+                    ♟️ Партия #${game.id}
+                </h2>
+
+                <div
+                    id="myGameViewerStatus"
+                    class="page-description"
+                >
+                    ⏳ Загружаем партию...
+                </div>
+
+                <div
+                    id="myGameViewerBoardWrapper"
+                    class="my-game-viewer-board-wrapper"
+                >
+
+                    <div
+                        id="myGameViewerBoard"
+                        class="my-game-viewer-board"
+                    ></div>
+
+                    <div
+                        id="myGameViewerCoordinates"
+                        class="my-game-viewer-coordinates"
+                    ></div>
+
+                </div>
+
+                <div
+                    id="myGameViewerMove"
+                    class="my-game-viewer-move"
+                >
+                    Начальная позиция
+                </div>
+
+                <div
+                    class="my-game-viewer-navigation"
+                >
+
+                    <button
+                        type="button"
+                        id="myGameViewerPreviousButton"
+                        class="navigation-arrow-button"
+                    >
+                        ←
+                    </button>
+
+                    <span
+                        id="myGameViewerCounter"
+                        class="mistake-counter"
+                    >
+                        0 / 0
+                    </span>
+
+                    <button
+                        type="button"
+                        id="myGameViewerNextButton"
+                        class="navigation-arrow-button"
+                    >
+                        →
+                    </button>
+
+                </div>
+
+            </div>
+        `;
+
+
+        const response =
+            await fetch(
+                "/replay_pgn_positions",
+                {
+                    method: "POST",
+
+                    headers: {
+                        "Content-Type":
+                            "application/json"
+                    },
+
+                    body: JSON.stringify({
+                        pgn:
+                            game.pgn
+                    })
+                }
+            );
+
+
+        const data =
+            await response.json();
+
+
+        console.log(
+            "ПОЗИЦИИ СОХРАНЁННОЙ ПАРТИИ:",
+            data
+        );
+
+
+        if (
+            !response.ok ||
+            !data.success
+        ) {
+
+            throw new Error(
+                data.error ||
+                "Не удалось разобрать PGN."
+            );
+        }
+
+
+        /*
+         * Получаем позиции после ходов.
+         */
+
+        const positions =
+            Array.isArray(
+                data.positions
+            )
+                ? data.positions
+                : [];
+
+
+        /*
+         * Определяем начальную позицию.
+         */
+
+        const initialFen =
+            getInitialFenFromPgn(
+                game.pgn
+            );
+
+
+        /*
+         * Создаём массив:
+         *
+         * [0] = начальная позиция
+         * [1] = после первого хода
+         * [2] = после второго
+         * ...
+         */
+
+        myGameViewerPositions = [
+            {
+                fen:
+                    initialFen,
+
+                move_number:
+                    null,
+
+                san:
+                    null,
+
+                side_to_move:
+                    initialFen
+                        .split(" ")[1] === "b"
+                        ? "black"
+                        : "white",
+
+                initial:
+                    true
+            },
+
+            ...positions.map(
+                position => ({
+                    ...position,
+                    initial:
+                        false
+                })
+            )
+        ];
+
+
+        if (
+            myGameViewerPositions.length === 0
+        ) {
+
+            throw new Error(
+                "В партии не найдено позиций."
+            );
+        }
+
+
+        /*
+         * Начинаем с начальной позиции.
+         */
+
+        myGameViewerIndex =
+            0;
+
+
+        renderMyGameViewer();
+
+
+    } catch (error) {
+
+        console.error(
+            "Ошибка загрузки партии:",
+            error
+        );
+
+        if (myGameViewerContainer) {
+
+            myGameViewerContainer.innerHTML = `
+                <div class="analysis-empty">
+
+                    <strong>
+                        ❌ Не удалось открыть партию
+                    </strong>
+
+                    <p>
+                        ${
+                            error.message ||
+                            error
+                        }
+                    </p>
+
+                </div>
+            `;
+        }
+    }
+}
+
+
+/* ============================================================
+   ПОЛУЧИТЬ НАЧАЛЬНЫЙ FEN ИЗ PGN
+============================================================ */
+
+function getInitialFenFromPgn(pgn) {
+
+    /*
+     * Если PGN содержит:
+     *
+     * [SetUp "1"]
+     * [FEN "..."]
+     *
+     * используем эту позицию.
+     */
+
+    const fenMatch =
+        String(pgn || "").match(
+            /\[FEN\s+"([^"]+)"\]/i
+        );
+
+
+    if (
+        fenMatch &&
+        fenMatch[1]
+    ) {
+
+        return fenMatch[1];
+    }
+
+
+    /*
+     * Обычная партия начинается
+     * со стандартной позиции.
+     */
+
+    return (
+        "rnbqkbnr/" +
+        "pppppppp/" +
+        "8/8/8/8/" +
+        "PPPPPPPP/" +
+        "RNBQKBNR " +
+        "w KQkq - 0 1"
+    );
+}
+
+
+/* ============================================================
+   ОТРИСОВКА ПРОСМОТРЩИКА ПАРТИИ
+============================================================ */
+
+function renderMyGameViewer() {
+
+    if (
+        !myGameViewerContainer ||
+        myGameViewerPositions.length === 0
+    ) {
+        return;
+    }
+
+
+    const position =
+        myGameViewerPositions[
+            myGameViewerIndex
+        ];
+
+
+    if (!position || !position.fen) {
+        return;
+    }
+
+
+    const boardElement =
+        document.getElementById(
+            "myGameViewerBoard"
+        );
+
+
+    if (!boardElement) {
+        return;
+    }
+
+
+    const boardState =
+        fenToBoard(
+            position.fen
+        );
+
+
+    /*
+     * Ориентация по стороне игрока,
+     * который указан в PGN.
+     *
+     * Если определить невозможно —
+     * показываем белыми снизу.
+     */
+
+    let orientation =
+        "white";
+
+
+    const gamePgn =
+        String(
+            myGameViewerGame?.pgn ||
+            ""
+        );
+
+
+    /*
+     * Пытаемся определить игрока
+     * по заголовкам PGN.
+     *
+     * Для сохранённых партий
+     * обычно достаточно белой ориентации.
+     */
+
+    const playerColorMatch =
+        gamePgn.match(
+            /\[PlayerColor\s+"([^"]+)"\]/i
+        );
+
+
+    if (
+        playerColorMatch
+    ) {
+
+        const color =
+            playerColorMatch[1]
+                .toLowerCase();
+
+        if (
+            color === "black" ||
+            color === "b" ||
+            color === "черные" ||
+            color === "чёрные"
+        ) {
+
+            orientation =
+                "black";
+        }
+    }
+
+
+    const isBlack =
+        orientation === "black";
+
+
+    const rows =
+        isBlack
+            ? [7,6,5,4,3,2,1,0]
+            : [0,1,2,3,4,5,6,7];
+
+
+    const cols =
+        isBlack
+            ? [7,6,5,4,3,2,1,0]
+            : [0,1,2,3,4,5,6,7];
+
+
+    boardElement.innerHTML = "";
+
+
+    /*
+     * Размер доски.
+     */
+
+    const boardSize =
+        Math.min(
+            window.innerWidth * 0.92,
+            520
+        );
+
+
+    boardElement.style.width =
+        `${boardSize}px`;
+
+
+    boardElement.style.height =
+        `${boardSize}px`;
+
+
+    boardElement.style.display =
+        "grid";
+
+
+    boardElement.style.gridTemplateColumns =
+        "repeat(8, 1fr)";
+
+
+    boardElement.style.gridTemplateRows =
+        "repeat(8, 1fr)";
+
+
+    /*
+     * Создаём клетки.
+     */
+
+    for (
+        let displayRow = 0;
+        displayRow < 8;
+        displayRow++
+    ) {
+
+        const row =
+            rows[displayRow];
+
+
+        for (
+            let displayCol = 0;
+            displayCol < 8;
+            displayCol++
+        ) {
+
+            const col =
+                cols[displayCol];
+
+
+            const square =
+                document.createElement(
+                    "div"
+                );
+
+
+            square.className =
+                "my-game-viewer-square";
+
+
+            if (
+                (row + col) % 2 === 0
+            ) {
+
+                square.classList.add(
+                    "light"
+                );
+
+            } else {
+
+                square.classList.add(
+                    "dark"
+                );
+            }
+
+
+            const squareName =
+                FILES[col] +
+                (8 - row);
+
+
+            square.dataset.square =
+                squareName;
+
+
+            /*
+             * Фигура.
+             */
+
+            const piece =
+                boardState[
+                    row
+                ]?.[
+                    col
+                ];
+
+
+            if (piece) {
+
+                const pieceElement =
+                    document.createElement(
+                        "img"
+                    );
+
+
+                pieceElement.className =
+                    "piece-image";
+
+
+                pieceElement.src =
+                    `pieces/${piece.color}/${piece.type.charAt(0).toUpperCase() + piece.type.slice(1)}.svg?v=5`;
+
+
+                pieceElement.alt =
+                    `${piece.color} ${piece.type}`;
+
+
+                pieceElement.draggable =
+                    false;
+
+
+                square.appendChild(
+                    pieceElement
+                );
+            }
+
+
+            boardElement.appendChild(
+                square
+            );
+        }
+    }
+
+
+    /*
+     * Ход под доской.
+     */
+
+    const moveElement =
+        document.getElementById(
+            "myGameViewerMove"
+        );
+
+
+    if (moveElement) {
+
+        if (
+            myGameViewerIndex === 0
+        ) {
+
+            moveElement.textContent =
+                "Начальная позиция";
+
+        } else {
+
+            moveElement.textContent =
+                `После ${position.move_number || ""} ${position.san || ""}`
+                    .trim();
+        }
+    }
+
+
+    /*
+     * Счётчик.
+     */
+
+    const counter =
+        document.getElementById(
+            "myGameViewerCounter"
+        );
+
+
+    if (counter) {
+
+        counter.textContent =
+            `${myGameViewerIndex} / ${
+                myGameViewerPositions.length - 1
+            }`;
+    }
+
+
+    /*
+     * Кнопка назад.
+     */
+
+    const previousButton =
+        document.getElementById(
+            "myGameViewerPreviousButton"
+        );
+
+
+    if (previousButton) {
+
+        previousButton.disabled =
+            myGameViewerIndex <= 0;
+    }
+
+
+    /*
+     * Кнопка вперёд.
+     */
+
+    const nextButton =
+        document.getElementById(
+            "myGameViewerNextButton"
+        );
+
+
+    if (nextButton) {
+
+        nextButton.disabled =
+            myGameViewerIndex >=
+            myGameViewerPositions.length - 1;
+    }
+
+
+    /*
+     * Статус.
+     */
+
+    const status =
+        document.getElementById(
+            "myGameViewerStatus"
+        );
+
+
+    if (status) {
+
+        status.textContent =
+            `Партия #${myGameViewerGame?.id ?? "—"}`;
+    }
+}
+
+
+/* ============================================================
+   НАВИГАЦИЯ ПО СОХРАНЁННОЙ ПАРТИИ
+============================================================ */
+
+function navigateMyGame(direction) {
+
+    if (
+        !myGameViewerPositions ||
+        myGameViewerPositions.length === 0
+    ) {
+        return;
+    }
+
+
+    const newIndex =
+        myGameViewerIndex +
+        direction;
+
+
+    if (
+        newIndex < 0 ||
+        newIndex >=
+            myGameViewerPositions.length
+    ) {
+        return;
+    }
+
+
+    myGameViewerIndex =
+        newIndex;
+
+
+    renderMyGameViewer();
+}
+
+
+/* ============================================================
+   КНОПКИ ← →
+============================================================ */
+
+document.addEventListener(
+    "click",
+    event => {
+
+        if (
+            event.target?.id ===
+            "myGameViewerPreviousButton"
+        ) {
+
+            navigateMyGame(
+                -1
+            );
+
+            return;
+        }
+
+
+        if (
+            event.target?.id ===
+            "myGameViewerNextButton"
+        ) {
+
+            navigateMyGame(
+                1
+            );
+
+            return;
+        }
+    }
+);
 
 /* ============================================================
    РЕНДЕР МОИХ ОШИБОК
