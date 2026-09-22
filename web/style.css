@@ -1530,26 +1530,67 @@ and (max-height: 600px) {
 }
 
 /* ============================================================
-   КООРДИНАТЫ ДОСКИ "МОИ ПАРТИИ"
+   КООРДИНАТЫ СНАРУЖИ ДОСКИ
 ============================================================ */
 
-.my-game-viewer-coordinate {
-    position: absolute;
-    font-size: 11px;
+.my-game-viewer-board-with-coordinates {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: max-content;
+    margin: 0 auto;
+}
+
+.my-game-viewer-middle {
+    display: flex;
+    align-items: stretch;
+}
+
+.my-game-viewer-coordinates {
+    font-size: 13px;
     font-weight: 700;
-    pointer-events: none;
-    z-index: 5;
-    line-height: 1;
+    color: #555;
+    user-select: none;
 }
 
-.my-game-viewer-file {
-    right: 3px;
-    bottom: 3px;
+.my-game-viewer-coordinates.top,
+.my-game-viewer-coordinates.bottom {
+    display: grid;
+    grid-template-columns: repeat(8, 1fr);
+    width: 100%;
+    height: 20px;
+    align-items: center;
+    text-align: center;
 }
 
-.my-game-viewer-rank {
-    left: 3px;
-    top: 3px;
+.my-game-viewer-coordinates.left,
+.my-game-viewer-coordinates.right {
+    display: grid;
+    grid-template-rows: repeat(8, 1fr);
+    width: 20px;
+    align-items: center;
+    text-align: center;
+}
+
+.my-game-viewer-coordinates.left span,
+.my-game-viewer-coordinates.right span {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.my-game-viewer-board-wrapper {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+}
+
+.my-game-viewer-square {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
 }
 
 /* ============================================================
