@@ -8986,6 +8986,14 @@ async function loadMyGameViewer(game) {
                     Начальная позиция
                 </div>
 
+                <button
+                    type="button"
+                    id="analyzeMyGameButton"
+                    class="menu-button"
+                >
+                    🔍 Анализировать эту партию
+                </button>
+                
                 <div
                     class="my-game-viewer-navigation"
                 >
@@ -9141,6 +9149,111 @@ async function loadMyGameViewer(game) {
 
 
         renderMyGameViewer();
+
+                /*
+         * ========================================================
+         * АНАЛИЗ СОХРАНЁННОЙ ПАРТИИ
+         * ========================================================
+         */
+
+        const analyzeMyGameButton =
+            document.getElementById(
+                "analyzeMyGameButton"
+            );
+
+        if (analyzeMyGameButton) {
+
+            analyzeMyGameButton.addEventListener(
+                "click",
+                async () => {
+
+                    console.log(
+                        "=== АНАЛИЗ СОХРАНЁННОЙ ПАРТИИ ==="
+                    );
+
+                    if (
+                        !game.pgn
+                    ) {
+
+                        alert(
+                            "У этой партии отсутствует PGN."
+                        );
+
+                        return;
+                    }
+
+                    /*
+                     * Передаём PGN сохранённой партии
+                     * в существующее поле анализа.
+                     */
+
+                    if (pgnInput) {
+
+                        pgnInput.value =
+                            game.pgn;
+
+                    } else {
+
+                        alert(
+                            "Поле для PGN не найдено."
+                        );
+
+                        return;
+                    }
+
+                    /*
+                     * Переходим на экран анализа.
+                     */
+
+                    if (myGamesScreen) {
+
+                        myGamesScreen.classList.add(
+                            "hidden"
+                        );
+                    }
+
+                    document
+                        .querySelectorAll(
+                            ".screen"
+                        )
+                        .forEach(
+                            screen => {
+
+                                if (
+                                    screen.id !==
+                                    "analysisScreen"
+                                ) {
+
+                                    screen.classList.add(
+                                        "hidden"
+                                    );
+                                }
+                            }
+                        );
+
+                    const analysisScreen =
+                        document.getElementById(
+                            "analysisScreen"
+                        );
+
+                    if (analysisScreen) {
+
+                        analysisScreen.classList.remove(
+                            "hidden"
+                        );
+                    }
+
+                    /*
+                     * Запускаем существующий
+                     * глубокий анализ.
+                     */
+
+                    await startPgnAnalysis(
+                        "general"
+                    );
+                }
+            );
+        }
 
 
     } catch (error) {
