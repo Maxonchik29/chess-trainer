@@ -9332,6 +9332,169 @@ function renderMyGameViewer() {
 
     boardElement.innerHTML = "";
 
+    /* ============================================================
+    * КООРДИНАТЫ СНАРУЖИ ДОСКИ
+    * ============================================================ */
+
+    const boardWrapper =
+        boardElement.parentElement;
+
+    if (boardWrapper) {
+
+        boardWrapper.classList.add(
+            "my-game-viewer-board-wrapper"
+        );
+
+        boardWrapper.innerHTML = "";
+
+        const boardWithCoordinates =
+            document.createElement("div");
+
+        boardWithCoordinates.className =
+            "my-game-viewer-board-with-coordinates";
+
+
+        /*
+        * Верхние координаты.
+        */
+
+        const topCoordinates =
+            document.createElement("div");
+
+        topCoordinates.className =
+            "my-game-viewer-coordinates top";
+
+        const topFiles =
+            isBlack
+                ? [...FILES].reverse()
+                : [...FILES];
+
+        topFiles.forEach(file => {
+
+            const label =
+                document.createElement("span");
+
+            label.textContent = file;
+
+            topCoordinates.appendChild(
+                label
+            );
+        });
+
+
+        /*
+        * Нижние координаты.
+        */
+
+        const bottomCoordinates =
+            document.createElement("div");
+
+        bottomCoordinates.className =
+            "my-game-viewer-coordinates bottom";
+
+        topFiles.forEach(file => {
+
+            const label =
+                document.createElement("span");
+
+            label.textContent = file;
+
+            bottomCoordinates.appendChild(
+                label
+            );
+        });
+
+
+        /*
+        * Левая сторона.
+        */
+
+        const leftCoordinates =
+            document.createElement("div");
+
+        leftCoordinates.className =
+            "my-game-viewer-coordinates left";
+
+        const leftRanks =
+            isBlack
+                ? [1, 2, 3, 4, 5, 6, 7, 8]
+                : [8, 7, 6, 5, 4, 3, 2, 1];
+
+        leftRanks.forEach(rank => {
+
+            const label =
+                document.createElement("span");
+
+            label.textContent = rank;
+
+            leftCoordinates.appendChild(
+                label
+            );
+        });
+
+
+        /*
+        * Правая сторона.
+        */
+
+        const rightCoordinates =
+            document.createElement("div");
+
+        rightCoordinates.className =
+            "my-game-viewer-coordinates right";
+
+        leftRanks.forEach(rank => {
+
+            const label =
+                document.createElement("span");
+
+            label.textContent = rank;
+
+            rightCoordinates.appendChild(
+                label
+            );
+        });
+
+
+        /*
+        * Добавляем саму доску.
+        */
+
+        boardWithCoordinates.appendChild(
+            topCoordinates
+        );
+
+        const middleRow =
+            document.createElement("div");
+
+        middleRow.className =
+            "my-game-viewer-middle";
+
+        middleRow.appendChild(
+            leftCoordinates
+        );
+
+        middleRow.appendChild(
+            boardElement
+        );
+
+        middleRow.appendChild(
+            rightCoordinates
+        );
+
+        boardWithCoordinates.appendChild(
+            middleRow
+        );
+
+        boardWithCoordinates.appendChild(
+            bottomCoordinates
+        );
+
+        boardWrapper.appendChild(
+            boardWithCoordinates
+        );
+    }
+
 
     /*
      * ============================================================
@@ -9436,79 +9599,6 @@ function renderMyGameViewer() {
 
             square.dataset.square =
                 squareName;
-
-
-            /*
-             * ====================================================
-             * КООРДИНАТЫ
-             * ====================================================
-             *
-             * Файлы:
-             * a b c d e f g h
-             *
-             * Ранги:
-             * 8 ... 1
-             *
-             * Они автоматически переворачиваются
-             * вместе с доской.
-             */
-
-
-            /*
-             * Буква файла.
-             *
-             * Показываем её только
-             * на нижнем ряду отображаемой доски.
-             */
-
-            if (
-                displayRow === 7
-            ) {
-
-                const fileLabel =
-                    document.createElement(
-                        "span"
-                    );
-
-                fileLabel.className =
-                    "my-game-viewer-coordinate my-game-viewer-file";
-
-                fileLabel.textContent =
-                    FILES[col];
-
-                square.appendChild(
-                    fileLabel
-                );
-            }
-
-
-            /*
-             * Цифра ряда.
-             *
-             * Показываем её только
-             * на левом столбце отображаемой доски.
-             */
-
-            if (
-                displayCol === 0
-            ) {
-
-                const rankLabel =
-                    document.createElement(
-                        "span"
-                    );
-
-                rankLabel.className =
-                    "my-game-viewer-coordinate my-game-viewer-rank";
-
-                rankLabel.textContent =
-                    String(8 - row);
-
-                square.appendChild(
-                    rankLabel
-                );
-            }
-
 
             /*
              * ====================================================
