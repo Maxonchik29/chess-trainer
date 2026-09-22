@@ -240,6 +240,15 @@
             <span>1.e4 c5</span>
         </button>
 
+        <button
+            type="button"
+            class="opening-button"
+            data-opening="dutch"
+        >
+            <strong>Голландская защита</strong>
+            <span>1.d4 f5</span>
+        </button>
+
 
         <button
             type="button"
@@ -798,27 +807,86 @@
     class="hidden"
 >
 
-    <div class="position-title">
-        📋 PGN партии
+    <div
+        id="myGameTitle"
+        class="position-title"
+    >
+        ♟️ Партия
     </div>
 
 
-    <textarea
-        id="myGamePgnText"
-        class="pgn-textarea"
-        readonly
-        rows="12"
-    ></textarea>
+    <div
+        id="myGameMoveInfo"
+        class="position-result"
+    >
+        Начальная позиция
+    </div>
+
+
+    <!-- =================================================
+         ДОСКА ПРОСМОТРА ПАРТИИ
+         ================================================= -->
+
+    <div class="board-wrapper">
+
+        <div
+            id="myGameRankLabels"
+            class="rank-labels"
+        ></div>
+
+
+        <div class="board-area">
+
+            <div
+                id="myGameBoard"
+                class="board"
+            ></div>
+
+
+            <div
+                id="myGameFileLabels"
+                class="file-labels"
+            ></div>
+
+        </div>
+
+    </div>
+
+
+    <!-- =================================================
+         НАВИГАЦИЯ ПО ХОДАМ
+         ================================================= -->
+
+    <div class="buttons">
+
+        <button
+            id="myGamePreviousButton"
+            class="button secondary"
+            type="button"
+        >
+            ←
+        </button>
+
+
+        <button
+            id="myGameNextButton"
+            class="button"
+            type="button"
+        >
+            →
+        </button>
+
+    </div>
 
 
     <div class="buttons">
 
         <button
-            id="copyMyGamePgnButton"
-            class="button"
+            id="showMyGamePgnButton"
+            class="button secondary"
             type="button"
         >
-            📋 Скопировать PGN
+            📋 Показать PGN
         </button>
 
 
@@ -832,8 +900,40 @@
 
     </div>
 
+
+    <!-- =================================================
+         PGN
+         ================================================= -->
+
+    <div
+        id="myGamePgnTextContainer"
+        class="hidden"
+    >
+
+        <div class="position-title">
+            📋 PGN партии
+        </div>
+
+
+        <textarea
+            id="myGamePgnText"
+            class="pgn-textarea"
+            readonly
+            rows="10"
+        ></textarea>
+
+
+        <button
+            id="copyMyGamePgnButton"
+            class="button secondary"
+            type="button"
+        >
+            📋 Скопировать PGN
+        </button>
+
+    </div>
+
 </div>
-```
 
 </section>
 

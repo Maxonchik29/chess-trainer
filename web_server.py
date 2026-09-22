@@ -1482,6 +1482,7 @@ def reset_game():
             "none",
             "french",
             "sicilian",
+            "dutch",
             "old_indian",
             "kings_indian",
             "queens_gambit",

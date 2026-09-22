@@ -33,6 +33,12 @@ OPENING_LINES = {
         "c7c5",
     ],
 
+    # 1.d4 f5 — Голландская защита
+    "dutch": [
+        "d2d4",
+        "f7f5",
+    ],
+
     # 1.d4 Nf6 2.c4 d6
     "old_indian": [
         "d2d4",
