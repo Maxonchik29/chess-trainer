@@ -9513,6 +9513,9 @@ function renderMyGameViewer() {
 
     boardElement.style.height =
         `${boardSize}px`;
+    
+    boardElement.style.boxSizing =
+        "border-box";
 
     boardElement.style.display =
         "grid";

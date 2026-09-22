@@ -1539,6 +1539,7 @@ and (max-height: 600px) {
     align-items: center;
     width: max-content;
     margin: 0 auto;
+    box-sizing: border-box;
 }
 
 .my-game-viewer-middle {
@@ -1560,7 +1561,16 @@ and (max-height: 600px) {
     width: 100%;
     height: 20px;
     align-items: center;
+    justify-items: center;
     text-align: center;
+    box-sizing: border-box;
+}
+
+.my-game-viewer-coordinates.top span,
+.my-game-viewer-coordinates.bottom span {
+    width: 100%;
+    text-align: center;
+    display: block;
 }
 
 .my-game-viewer-coordinates.left,
