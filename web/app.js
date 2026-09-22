@@ -10785,6 +10785,14 @@ async function startPgnAnalysis(
         let finished =
             false;
 
+        /*
+         * Прогресс должен двигаться только вперёд.
+         * Если сервер случайно вернул значение меньше
+         * предыдущего, мы его не показываем.
+         */
+
+        let displayedProgress =
+            0;
 
         while (
             !finished
@@ -10911,10 +10919,22 @@ async function startPgnAnalysis(
                     );
 
 
+                /*
+                 * Никогда не показываем прогресс,
+                 * который меньше уже показанного.
+                 */
+
+                displayedProgress =
+                    Math.max(
+                        displayedProgress,
+                        safeProgress
+                    );
+
+
                 if (analysisMessage) {
 
                     analysisMessage.textContent =
-                        `⏳ ${modeText} (${thresholdText})... ${safeProgress}%`;
+                        `⏳ ${modeText} (${thresholdText})... ${displayedProgress}%`;
                 }
             }
 
