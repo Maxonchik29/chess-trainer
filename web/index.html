@@ -4,7 +4,6 @@
 
 <head>
 
-```
 <meta charset="UTF-8">
 
 <meta
@@ -15,7 +14,6 @@
 <title>Chess Trainer</title>
 
 <link rel="stylesheet" href="style.css">
-```
 
 </head>
 
@@ -32,7 +30,6 @@
     class="screen"
 >
 
-```
 <header class="menu-header">
 
     <div class="menu-logo">
@@ -98,9 +95,9 @@
     </button>
 
 </div>
-```
 
 </section>
+
 
 <!-- =====================================================
      ЭКРАН ИГРЫ
@@ -111,7 +108,6 @@
     class="screen hidden"
 >
 
-```
 <header class="header">
 
     <button
@@ -174,7 +170,6 @@
 </div>
 
 
-
 <!-- =================================================
      ВЫБОР ДЕБЮТА
      ================================================= -->
@@ -201,87 +196,1025 @@
         </button>
 
 
+        <!-- ============================================================
+             ФРАНЦУЗСКАЯ ЗАЩИТА
+             ============================================================ -->
+
         <button
             type="button"
-            class="opening-button"
-            data-opening="french"
+            class="opening-button french-main-button"
+            data-side="black"
         >
             <strong>Французская защита</strong>
-            <span>1.e4 e6</span>
+            <span>1.e4 e6 2.d4 d5</span>
         </button>
 
+
+        <div
+            id="french-variants"
+            class="opening-variants"
+            style="display: none;"
+        >
+
+            <button
+                type="button"
+                class="opening-button"
+                data-opening="french_classical"
+                data-side="black"
+            >
+                <strong>3.Nc3 — классическая система</strong>
+                <span>
+                    1.e4 e6 2.d4 d5 3.Nc3
+                </span>
+            </button>
+
+
+            <button
+                type="button"
+                class="opening-button"
+                data-opening="french_tarrasch"
+                data-side="black"
+            >
+                <strong>3.Nd2 — система Тарраша</strong>
+                <span>
+                    1.e4 e6 2.d4 d5 3.Nd2
+                </span>
+            </button>
+
+
+            <button
+                type="button"
+                class="opening-button"
+                data-opening="french_advance"
+                data-side="black"
+            >
+                <strong>3.e5 — вариант продвижения</strong>
+                <span>
+                    1.e4 e6 2.d4 d5 3.e5
+                </span>
+            </button>
+
+
+            <button
+                type="button"
+                class="opening-button"
+                data-opening="french_exchange"
+                data-side="black"
+            >
+                <strong>3.exd5 — разменный вариант</strong>
+                <span>
+                    1.e4 e6 2.d4 d5 3.exd5
+                </span>
+            </button>
+
+
+            <button
+                type="button"
+                class="opening-button"
+                data-opening="french_b3"
+                data-side="black"
+            >
+                <strong>3.Bd3 — система с 3.Bd3</strong>
+                <span>
+                    1.e4 e6 2.d4 d5 3.Bd3
+                </span>
+            </button>
+
+        </div>
+
+     
+    <!-- ============================================================
+        ФРАНЦУЗСКАЯ ЗАЩИТА — РАЗМЕННЫЙ ВАРИАНТ ЗА БЕЛЫХ
+        ============================================================ -->
+
+    <button
+        type="button"
+        class="opening-button french-exchange-1-main"
+        data-side="white"
+    >
+        <strong>Французская защита</strong>
+        <span>1.e4 e6 2.d4 d5</span>
+    </button>
+
+    <div
+        id="french-exchange-1-variants"
+        class="opening-variants"
+        style="display: none;"
+    >
 
         <button
             type="button"
             class="opening-button"
-            data-opening="old_indian"
+            data-opening="french_exchange_1"
+            data-side="white"
+        >
+            <strong>Разменный вариант</strong>
+            <span>
+                1.e4 e6 2.d4 d5 3.exd5
+            </span>
+        </button>
+
+    </div>
+
+
+        <!-- ============================================================
+             СТАРОИНДИЙСКАЯ ЗАЩИТА
+             ============================================================ -->
+
+        <button
+            type="button"
+            class="opening-button old-indian-main-button"
+            data-side="black"
         >
             <strong>Староиндийская защита</strong>
-            <span>1.d4 Nf6 2.c4 d6</span>
+            <span>
+                1.d4 Nf6 2.c4 d6
+            </span>
         </button>
 
 
+        <div
+            id="old-indian-variants"
+            class="opening-variants"
+            style="display: none;"
+        >
+
+            <button
+                type="button"
+                class="opening-button"
+                data-opening="old_indian_classical"
+                data-side="black"
+            >
+                <strong>Классическая система</strong>
+                <span>
+                    1.d4 Nf6 2.c4 d6 3.Nc3 Nbd7 4.e4 e5
+                </span>
+            </button>
+
+
+            <button
+                type="button"
+                class="opening-button"
+                data-opening="old_indian_nf3"
+                data-side="black"
+            >
+                <strong>Система с 3.Nf3</strong>
+                <span>
+                    1.d4 Nf6 2.c4 d6 3.Nf3
+                </span>
+            </button>
+
+
+            <button
+                type="button"
+                class="opening-button"
+                data-opening="old_indian_fianchetto"
+                data-side="black"
+            >
+                <strong>Фианкетто</strong>
+                <span>
+                    1.d4 Nf6 2.c4 d6 3.Nc3 Nbd7 4.g3
+                </span>
+            </button>
+
+        </div>
+
+
+        <!-- ============================================================
+             КОРОЛЕВСКО-ИНДИЙСКАЯ ЗАЩИТА
+             ============================================================ -->
+
         <button
             type="button"
-            class="opening-button"
-            data-opening="kings_indian"
+            class="opening-button kings-indian-main-button"
+            data-side="black"
         >
             <strong>Королевско-индийская защита</strong>
-            <span>1.d4 Nf6 2.c4 g6</span>
+            <span>
+                1.d4 Nf6 2.c4 g6
+            </span>
         </button>
 
 
+        <div
+            id="kings-indian-variants"
+            class="opening-variants"
+            style="display: none;"
+        >
+
+            <button
+                type="button"
+                class="opening-button"
+                data-opening="kings_indian_classical"
+                data-side="black"
+            >
+                <strong>Классическая система</strong>
+                <span>
+                    1.d4 Nf6 2.c4 g6 3.Nc3 Bg7 4.e4 d6
+                </span>
+            </button>
+
+
+            <button
+                type="button"
+                class="opening-button"
+                data-opening="kings_indian_samisch"
+                data-side="black"
+            >
+                <strong>Система Земиша</strong>
+                <span>
+                    1.d4 Nf6 2.c4 g6 3.Nc3 Bg7 4.e4 d6 5.f3
+                </span>
+            </button>
+
+
+            <button
+                type="button"
+                class="opening-button"
+                data-opening="kings_indian_fianchetto"
+                data-side="black"
+            >
+                <strong>Фианкетто</strong>
+                <span>
+                    1.d4 Nf6 2.c4 g6 3.Nf3 Bg7 4.g3
+                </span>
+            </button>
+
+
+            <button
+                type="button"
+                class="opening-button"
+                data-opening="kings_indian_four_pawns"
+                data-side="black"
+            >
+                <strong>Атака четырёх пешек</strong>
+                <span>
+                    1.d4 Nf6 2.c4 g6 3.Nc3 Bg7 4.e4 d6 5.f4
+                </span>
+            </button>
+
+
+            <button
+                type="button"
+                class="opening-button"
+                data-opening="kings_indian_averbakh"
+                data-side="black"
+            >
+                <strong>Система Авербаха</strong>
+                <span>
+                    1.d4 Nf6 2.c4 g6 3.Nc3 Bg7 4.e4 d6 5.Be2
+                </span>
+            </button>
+
+
+            <button
+                type="button"
+                class="opening-button"
+                data-opening="kings_indian_makogonov"
+                data-side="black"
+            >
+                <strong>Атака Макогонова</strong>
+                <span>
+                    1.d4 Nf6 2.c4 g6 3.Nc3 Bg7 4.e4 d6 5.h3
+                </span>
+            </button>
+
+        </div>
+
+
+        <!-- ============================================================
+             СИЦИЛИАНСКАЯ ЗАЩИТА
+             ============================================================ -->
+
         <button
             type="button"
-            class="opening-button"
-            data-opening="sicilian"
+            class="opening-button sicilian-main-button"
+            data-side="black"
         >
             <strong>Сицилианская защита</strong>
             <span>1.e4 c5</span>
         </button>
 
+
+        <div
+            id="sicilian-variants"
+            class="opening-variants"
+            style="display: none;"
+        >
+
+            <button
+                type="button"
+                class="opening-button"
+                data-opening="sicilian"
+                data-side="black"
+            >
+                <strong>Найдорф</strong>
+                <span>
+                    1.e4 c5 2.Nf3 d6 3.d4 cxd4 4.Nxd4 Nf6 5.Nc3 a6
+                </span>
+            </button>
+
+
+            <button
+                type="button"
+                class="opening-button"
+                data-opening="scheveningen"
+                data-side="black"
+            >
+                <strong>Шевенинген</strong>
+                <span>
+                    1.e4 c5 2.Nf3 d6 3.d4 cxd4 4.Nxd4 Nf6 5.Nc3 e6
+                </span>
+            </button>
+
+
+            <button
+                type="button"
+                class="opening-button"
+                data-opening="dragon"
+                data-side="black"
+            >
+                <strong>Дракон</strong>
+                <span>
+                    1.e4 c5 2.Nf3 d6 3.d4 cxd4 4.Nxd4 Nf6 5.Nc3 g6
+                </span>
+            </button>
+
+
+            <button
+                type="button"
+                class="opening-button"
+                data-opening="sveshnikov"
+                data-side="black"
+            >
+                <strong>Свешников</strong>
+                <span>
+                    1.e4 c5 2.Nf3 Nc6 3.d4 cxd4 4.Nxd4 Nf6 5.Nc3 e5
+                </span>
+            </button>
+
+
+            <button
+                type="button"
+                class="opening-button"
+                data-opening="richter_rauzer"
+                data-side="black"
+            >
+                <strong>Рихтер–Раузер</strong>
+                <span>
+                    1.e4 c5 2.Nf3 Nc6 3.d4 cxd4 4.Nxd4 Nf6 5.Nc3 d6
+                </span>
+            </button>
+
+        </div>
+
+
+        <!-- ============================================================
+             ГОЛЛАНДСКАЯ ЗАЩИТА
+             ============================================================ -->
+
         <button
             type="button"
-            class="opening-button"
-            data-opening="dutch"
+            class="opening-button dutch-main-button"
+            data-side="black"
         >
             <strong>Голландская защита</strong>
             <span>1.d4 f5</span>
         </button>
 
 
+        <div
+            id="dutch-variants"
+            class="opening-variants"
+            style="display: none;"
+        >
+
+            <button
+                type="button"
+                class="opening-button"
+                data-opening="dutch"
+                data-side="black"
+            >
+                <strong>Ленинградская система</strong>
+                <span>
+                    1.d4 f5 2.g3 Nf6 3.Bg2 g6
+                </span>
+            </button>
+
+
+            <button
+                type="button"
+                class="opening-button"
+                data-opening="stonewall"
+                data-side="black"
+            >
+                <strong>Каменная стена</strong>
+                <span>
+                    1.d4 f5 2.Nf3 Nf6 3.e3 e6 4.Bd3 d5
+                </span>
+            </button>
+
+
+            <button
+                type="button"
+                class="opening-button"
+                data-opening="ilyin_zhenevsky"
+                data-side="black"
+            >
+                <strong>Система Ильина-Женевского</strong>
+                <span>
+                    1.d4 f5 2.c4 Nf6 3.g3 e6
+                </span>
+            </button>
+
+        </div>
+
+
+        <!-- ============================================================
+             ФЕРЗЕВЫЙ ГАМБИТ
+             ============================================================ -->
+
         <button
             type="button"
-            class="opening-button"
-            data-opening="queens_gambit"
+            class="opening-button queens-gambit-main-button"
+            data-side="white"
         >
             <strong>Ферзевый гамбит</strong>
-            <span>1.d4 d5 2.c4 e6</span>
+            <span>1.d4 d5 2.c4</span>
         </button>
 
 
+        <div
+            id="queens-gambit-variants"
+            class="opening-variants"
+            style="display: none;"
+        >
+
+            <button
+                type="button"
+                class="opening-button"
+                data-opening="queens_gambit"
+                data-side="white"
+            >
+                <strong>Ферзевый гамбит — отказанный</strong>
+                <span>1.d4 d5 2.c4 e6</span>
+            </button>
+
+
+            <button
+                type="button"
+                class="opening-button"
+                data-opening="queens_gambit_accepted"
+                data-side="white"
+            >
+                <strong>Ферзевый гамбит — принятый</strong>
+                <span>1.d4 d5 2.c4 dxc4</span>
+            </button>
+
+
+            <button
+                type="button"
+                class="opening-button"
+                data-opening="slav"
+                data-side="white"
+            >
+                <strong>Славянская защита</strong>
+                <span>1.d4 d5 2.c4 c6</span>
+            </button>
+
+
+            <button
+                type="button"
+                class="opening-button"
+                data-opening="meran"
+                data-side="white"
+            >
+                <strong>Система Меран</strong>
+                <span>1.d4 d5 2.c4 e6 3.Nf3 Nf6 4.Nc3 c6</span>
+            </button>
+
+
+            <button
+                type="button"
+                class="opening-button"
+                data-opening="tartakower"
+                data-side="white"
+            >
+                <strong>Система Тартаковера</strong>
+                <span>1.d4 d5 2.c4 e6 3.Nc3 Nf6</span>
+            </button>
+
+        </div>
+
+
+        <!-- ============================================================
+             КАТАЛОНСКОЕ НАЧАЛО
+             ============================================================ -->
+
         <button
             type="button"
-            class="opening-button"
-            data-opening="catalan"
+            class="opening-button catalan-main-button"
+            data-side="white"
         >
             <strong>Каталонское начало</strong>
             <span>1.d4 Nf6 2.c4 e6 3.g3 d5</span>
         </button>
 
-    </div>
 
+        <div
+            id="catalan-variants"
+            class="opening-variants"
+            style="display: none;"
+        >
+
+            <button
+                type="button"
+                class="opening-button"
+                data-opening="catalan_closed"
+                data-side="white"
+            >
+                <strong>Закрытый Каталон</strong>
+                <span>
+                    1.d4 Nf6 2.c4 e6 3.g3 d5
+                </span>
+            </button>
+
+
+            <button
+                type="button"
+                class="opening-button"
+                data-opening="catalan_open"
+                data-side="white"
+            >
+                <strong>Открытый Каталон</strong>
+                <span>
+                    4.g3 dxc4 5.Bg2
+                </span>
+            </button>
+
+
+            <button
+                type="button"
+                class="opening-button"
+                data-opening="catalan_b4"
+                data-side="white"
+            >
+                <strong>Каталон с ...Bb4+</strong>
+                <span>
+                    4.g3 dxc4 5.Bg2 Bb4+
+                </span>
+            </button>
+
+
+            <button
+                type="button"
+                class="opening-button"
+                data-opening="catalan_c5"
+                data-side="white"
+            >
+                <strong>Каталон с ...c5</strong>
+                <span>
+                    4.g3 dxc4 5.Bg2 c5
+                </span>
+            </button>
+
+        </div>
+
+        <button
+            type="button"
+            class="opening-button london-main-button"
+            data-side="white"
+        >
+            <strong>Лондонская система</strong>
+            <span>1.d4 d5 2.Bf4 Nf6</span>
+        </button>
+
+        <div
+            id="london-variants"
+            class="opening-variants"
+            style="display: none;"
+        >
+
+            <button
+                type="button"
+                class="opening-button"
+                data-opening="london_classical"
+                data-side="white"
+            >
+                <strong>Классический Лондон</strong>
+                <span>1.d4 d5 2.Bf4 Nf6 3.e3 e6</span>
+            </button>
+
+            <button
+                type="button"
+                class="opening-button"
+                data-opening="london_bd6"
+                data-side="white"
+            >
+                <strong>Против ...Bd6</strong>
+                <span>1.d4 d5 2.Bf4 Nf6 3.e3 e6 4.Nf3 Bd6</span>
+            </button>
+
+            <button
+                type="button"
+                class="opening-button"
+                data-opening="london_g6"
+                data-side="white"
+            >
+                <strong>Против ...g6</strong>
+                <span>1.d4 Nf6 2.Bf4 g6</span>
+            </button>
+
+            <button
+                type="button"
+                class="opening-button"
+                data-opening="london_c5"
+                data-side="white"
+            >
+                <strong>Против раннего ...c5</strong>
+                <span>1.d4 Nf6 2.Bf4 c5</span>
+            </button>
+
+            <button
+                type="button"
+                class="opening-button"
+                data-opening="london_jobava"
+                data-side="white"
+            >
+                <strong>Лондон Джобавы</strong>
+                <span>1.d4 Nf6 2.Nc3 d5 3.Bf4</span>
+            </button>
+
+        </div>
+
+        <!-- =========================================================
+     АНГЛИЙСКОЕ НАЧАЛО
+     ========================================================= -->
 
     <button
         type="button"
-        id="backToSideSelectionButton"
-        class="menu-button opening-back-button"
+        class="opening-button english-main-button"
+        data-side="white"
     >
-        ← Назад
+        <strong>Английское начало</strong>
+        <span>1.c4</span>
     </button>
 
-</div>
+    <div
+        id="english-variants"
+        class="opening-variants"
+        style="display: none;"
+    >
 
+        <button
+            type="button"
+            class="opening-button"
+            data-opening="english_reversed_sicilian"
+            data-side="white"
+        >
+            <strong>Обратная сицилианка</strong>
+            <span>1.c4 e5</span>
+        </button>
+
+        <button
+            type="button"
+            class="opening-button"
+            data-opening="english_four_knights"
+            data-side="white"
+        >
+            <strong>Четыре коня</strong>
+            <span>1.c4 e5 2.Nc3 Nf6 3.Nf3 Nc6</span>
+        </button>
+
+        <button
+            type="button"
+            class="opening-button"
+            data-opening="english_botvinnik"
+            data-side="white"
+        >
+            <strong>Система Ботвинника</strong>
+            <span>1.c4 e5 2.Nc3 Nc6 3.g3 g6</span>
+        </button>
+
+        <button
+            type="button"
+            class="opening-button"
+            data-opening="english_symmetrical"
+            data-side="white"
+        >
+            <strong>Симметричное английское</strong>
+            <span>1.c4 c5</span>
+        </button>
+
+        <button
+            type="button"
+            class="opening-button"
+            data-opening="english_hedgehog"
+            data-side="white"
+        >
+            <strong>Ёж</strong>
+            <span>1.c4 c5 2.Nf3 Nf6 3.Nc3 e6</span>
+        </button>
+
+    </div>
+
+
+    <!-- =========================================================
+     ИСПАНСКАЯ ПАРТИЯ
+     ========================================================= -->
+
+    <button
+        type="button"
+        class="opening-button spanish-main-button"
+        data-side="white"
+    >
+        <strong>Испанская партия</strong>
+        <span>1.e4 e5 2.Nf3 Nc6 3.Bb5</span>
+    </button>
+
+    <div
+        id="spanish-variants"
+        class="opening-variants"
+        style="display: none;"
+    >
+
+        <button
+            type="button"
+            class="opening-button"
+            data-opening="spanish_classical"
+            data-side="white"
+        >
+            <strong>Испанская классическая</strong>
+            <span>1.e4 e5 2.Nf3 Nc6 3.Bb5 a6</span>
+        </button>
+
+        <button
+            type="button"
+            class="opening-button"
+            data-opening="spanish_berlin"
+            data-side="white"
+        >
+            <strong>Берлинская защита</strong>
+            <span>1.e4 e5 2.Nf3 Nc6 3.Bb5 Nf6</span>
+        </button>
+
+        <button
+            type="button"
+            class="opening-button"
+            data-opening="spanish_exchange"
+            data-side="white"
+        >
+            <strong>Разменный вариант</strong>
+            <span>1.e4 e5 2.Nf3 Nc6 3.Bb5 a6 4.Bxc6</span>
+        </button>
+
+        <button
+            type="button"
+            class="opening-button"
+            data-opening="spanish_marshall"
+            data-side="white"
+        >
+            <strong>Атака Маршалла</strong>
+            <span>1.e4 e5 2.Nf3 Nc6 3.Bb5 a6 4.Ba4 Nf6</span>
+        </button>
+
+        <button
+            type="button"
+            class="opening-button"
+            data-opening="spanish_open"
+            data-side="white"
+        >
+            <strong>Открытая Испанская</strong>
+            <span>1.e4 e5 2.Nf3 Nc6 3.Bb5 a6 4.Ba4 Nf6 5.O-O Nxe4</span>
+        </button>
+
+    </div>
+
+    <!-- =========================================================
+     ИТАЛЬЯНСКАЯ ПАРТИЯ
+     ========================================================= -->
+
+    <button
+        type="button"
+        class="opening-button italian-main-button"
+        data-side="white"
+    >
+        <strong>Итальянская партия</strong>
+        <span>1.e4 e5 2.Nf3 Nc6 3.Bc4</span>
+    </button>
+
+    <div
+        id="italian-variants"
+        class="opening-variants"
+        style="display: none;"
+    >
+
+        <button
+            type="button"
+            class="opening-button"
+            data-opening="italian_giuoco_piano"
+            data-side="white"
+        >
+            <strong>Giuoco Piano</strong>
+            <span>1.e4 e5 2.Nf3 Nc6 3.Bc4 Bc5</span>
+        </button>
+
+        <button
+            type="button"
+            class="opening-button"
+            data-opening="italian_pianissimo"
+            data-side="white"
+        >
+            <strong>Giuoco Pianissimo</strong>
+            <span>1.e4 e5 2.Nf3 Nc6 3.Bc4 Bc5 4.d3</span>
+        </button>
+
+        <button
+            type="button"
+            class="opening-button"
+            data-opening="italian_evans"
+            data-side="white"
+        >
+            <strong>Гамбит Эванса</strong>
+            <span>1.e4 e5 2.Nf3 Nc6 3.Bc4 Bc5 4.b4</span>
+        </button>
+
+        <button
+            type="button"
+            class="opening-button"
+            data-opening="italian_two_knights"
+            data-side="white"
+        >
+            <strong>Защита двух коней</strong>
+            <span>1.e4 e5 2.Nf3 Nc6 3.Bc4 Nf6</span>
+        </button>
+
+        <button
+            type="button"
+            class="opening-button"
+            data-opening="italian_center_attack"
+            data-side="white"
+        >
+            <strong>Центральная атака</strong>
+            <span>1.e4 e5 2.Nf3 Nc6 3.Bc4 Bc5 4.d4</span>
+        </button>
+
+    </div>
+
+    <!-- =========================================================
+     ВЕНСКАЯ ПАРТИЯ
+     ========================================================= -->
+
+    <button
+        type="button"
+        class="opening-button vienna-main-button"
+        data-side="white"
+    >
+        <strong>Венская партия</strong>
+        <span>1.e4 e5 2.Nc3</span>
+    </button>
+
+    <div
+        id="vienna-variants"
+        class="opening-variants"
+        style="display: none;"
+    >
+
+        <button
+            type="button"
+            class="opening-button"
+            data-opening="vienna_gambit"
+            data-side="white"
+        >
+            <strong>Венский гамбит</strong>
+            <span>1.e4 e5 2.Nc3 Nf6 3.f4</span>
+        </button>
+
+        <button
+            type="button"
+            class="opening-button"
+            data-opening="vienna_mieses"
+            data-side="white"
+        >
+            <strong>Вариант Мизеса</strong>
+            <span>1.e4 e5 2.Nc3 Nf6 3.g3</span>
+        </button>
+
+        <button
+            type="button"
+            class="opening-button"
+            data-opening="vienna_bishop"
+            data-side="white"
+        >
+            <strong>Вариант Стэнли</strong>
+            <span>1.e4 e5 2.Nc3 Nf6 3.Bc4</span>
+        </button>
+
+        <button
+            type="button"
+            class="opening-button"
+            data-opening="vienna_paulsen"
+            data-side="white"
+        >
+            <strong>Вариант Паульсена</strong>
+            <span>1.e4 e5 2.Nc3 Nc6 3.g3</span>
+        </button>
+
+        <button
+            type="button"
+            class="opening-button"
+            data-opening="vienna_hamppe_muzio"
+            data-side="white"
+        >
+            <strong>Гамбит Хамппе–Музио</strong>
+            <span>1.e4 e5 2.Nc3 Nc6 3.f4 exf4 4.Nf3</span>
+        </button>
+
+    </div>
+
+    <!-- =========================================================
+     ЗАЩИТА КАРО-КАНН
+     ========================================================= -->
+
+    <button
+        type="button"
+        class="opening-button caro-kann-main-button"
+        data-side="black"
+    >
+        <strong>Защита Каро-Канн</strong>
+        <span>1.e4 c6 2.d4 d5</span>
+    </button>
+
+    <div
+        id="caro-kann-variants"
+        class="opening-variants"
+        style="display: none;"
+    >
+
+        <button
+            type="button"
+            class="opening-button"
+            data-opening="caro_kann"
+            data-side="black"
+        >
+            <strong>Классический вариант</strong>
+            <span>1.e4 c6 2.d4 d5 3.Nc3</span>
+        </button>
+
+        <button
+            type="button"
+            class="opening-button"
+            data-opening="caro_kann_two_knights"
+            data-side="black"
+        >
+            <strong>Вариант двух коней</strong>
+            <span>1.e4 c6 2.d4 d5 3.Nc3 dxe4 4.Nxe4 Nf6</span>
+        </button>
+
+        <button
+            type="button"
+            class="opening-button"
+            data-opening="caro_kann_pano"
+            data-side="black"
+        >
+            <strong>Атака Панова</strong>
+            <span>1.e4 c6 2.d4 d5 3.exd5 cxd5 4.c4</span>
+        </button>
+
+        <button
+            type="button"
+            class="opening-button"
+            data-opening="caro_kann_advance"
+            data-side="black"
+        >
+            <strong>Продвинутый вариант</strong>
+            <span>1.e4 c6 2.d4 d5 3.e5</span>
+        </button>
+
+        <button
+            type="button"
+            class="opening-button"
+            data-opening="caro_kann_fantasy"
+            data-side="black"
+        >
+            <strong>Атака Фантазии</strong>
+            <span>1.e4 c6 2.d4 d5 3.f3</span>
+        </button>
+
+    </div>
+
+
+        <button
+            type="button"
+            id="backToSideSelectionButton"
+            class="menu-button opening-back-button"
+        >
+            ← Назад
+        </button>
+
+    </div>
+
+</div>
 
 
 <!-- =================================================
@@ -306,7 +1239,7 @@
         </div>
 
 
-        <div>
+        <div class="board-area">
 
             <div
                 id="board"
@@ -334,7 +1267,6 @@
 </main>
 
 
-
 <!-- =================================================
      СООБЩЕНИЕ
      ================================================= -->
@@ -349,7 +1281,6 @@
     </div>
 
 </section>
-
 
 
 <!-- =================================================
@@ -383,9 +1314,9 @@
     </button>
 
 </section>
-```
 
 </section>
+
 
 <!-- =====================================================
      ЭКРАН АНАЛИЗА
@@ -396,7 +1327,6 @@
     class="screen hidden"
 >
 
-```
 <header class="page-header">
 
     <button
@@ -423,15 +1353,13 @@
         id="pgnInput"
         class="pgn-input"
         placeholder='[Event "Live Chess"]
-```
-
 [White "Player"]
 [Black "Opponent"]
 
 1. e4 e5 2. Nf3 Nc6 ...'
-   ></textarea>
+    ></textarea>
 
-   ```
+
     <div class="analysis-mode-title">
         Выберите режим анализа
     </div>
@@ -467,23 +1395,25 @@
         </button>
 
     </div>
-   ```
 
-    </div>
+</div>
 
-    <div
-        id="analysisMessage"
-        class="analysis-message"
-    >
-        Вставьте PGN партии.
-    </div>
 
-    <div
-        id="analysisResult"
-        class="analysis-result hidden"
-    ></div>
+<div
+    id="analysisMessage"
+    class="analysis-message"
+>
+    Вставьте PGN партии.
+</div>
+
+
+<div
+    id="analysisResult"
+    class="analysis-result hidden"
+></div>
 
 </section>
+
 
 <!-- =====================================================
      ЭКРАН МОИХ ОШИБОК
@@ -494,7 +1424,6 @@
     class="screen hidden"
 >
 
-```
 <header class="page-header">
 
     <button
@@ -527,9 +1456,9 @@
     </div>
 
 </div>
-```
 
 </section>
+
 
 <!-- =====================================================
      ЭКРАН ПЕРЕИГРАТЬ ПОЗИЦИЮ
@@ -540,7 +1469,6 @@
     class="screen hidden"
 >
 
-```
 <header class="page-header">
 
     <button
@@ -565,13 +1493,10 @@
 <div
     id="replayMistakeList"
     class="mistakes-list"
->
-</div>
+></div>
 
 
-<div
-    class="replay-source-buttons"
->
+<div class="replay-source-buttons">
 
     <button
         id="replayPgnButton"
@@ -582,7 +1507,6 @@
     </button>
 
 </div>
-
 
 
 <!-- =================================================
@@ -638,11 +1562,9 @@
     <div
         id="replayPgnPositions"
         class="hidden"
-    >
-    </div>
+    ></div>
 
 </div>
-
 
 
 <!-- =================================================
@@ -705,7 +1627,6 @@
 </div>
 
 
-
 <!-- =================================================
      РЕЗУЛЬТАТ ПЕРЕИГРЫВАНИЯ
      ================================================= -->
@@ -750,9 +1671,9 @@
     </div>
 
 </div>
-```
 
 </section>
+
 
 <!-- =====================================================
      ЭКРАН МОИХ ПАРТИЙ
@@ -763,7 +1684,6 @@
     class="screen hidden"
 >
 
-```
 <header class="page-header">
 
     <button
@@ -786,7 +1706,6 @@
 </header>
 
 
-
 <!-- =================================================
      СПИСОК ПАРТИЙ
      ================================================= -->
@@ -795,7 +1714,6 @@
     id="myGamesList"
     class="mistakes-list"
 ></div>
-
 
 
 <!-- =================================================

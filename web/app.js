@@ -91,6 +91,121 @@ const openingButtons =
         ".opening-button"
     );
 
+/* ============================================================
+   ФИЛЬТРАЦИЯ ДЕБЮТОВ ПО ЦВЕТУ КОМПЬЮТЕРА
+============================================================ */
+
+function updateOpeningButtonsForPlayerColor() {
+
+    const computerColor =
+        playerColor === "white"
+            ? "black"
+            : "white";
+
+
+    /* --------------------------------------------------------
+       Обычные кнопки дебютов
+    -------------------------------------------------------- */
+
+    openingButtons.forEach(
+        button => {
+
+            const openingSide =
+                button.dataset.side;
+
+            /* "Без дебюта" показываем всегда */
+            if (!openingSide) {
+                return;
+            }
+
+            button.classList.toggle(
+                "hidden",
+                openingSide !== computerColor
+            );
+        }
+    );
+
+
+    /* --------------------------------------------------------
+       Скрываем/показываем блоки вариантов
+       Сицилианской, Голландской и Королевско-индийской
+    -------------------------------------------------------- */
+
+    const openingGroups = [
+        {
+            button: document.querySelector(
+                ".sicilian-main-button"
+            ),
+            variants: document.querySelector(
+                "#sicilian-variants"
+            )
+        },
+
+        {
+            button: document.querySelector(
+                ".dutch-main-button"
+            ),
+            variants: document.querySelector(
+                "#dutch-variants"
+            )
+        },
+
+        {
+            button: document.querySelector(
+                ".kings-indian-main-button"
+            ),
+            variants: document.querySelector(
+                "#kings-indian-variants"
+            )
+        },
+
+        {
+            button: document.querySelector(
+                ".old-indian-main-button"
+            ),
+            variants: document.querySelector(
+                "#old-indian-variants"
+            )
+        },
+    ];
+
+
+    openingGroups.forEach(
+        group => {
+
+            if (
+                !group.button ||
+                !group.variants
+            ) {
+                return;
+            }
+
+
+            const openingSide =
+                group.button.dataset.side;
+
+
+            if (
+                openingSide !== computerColor
+            ) {
+
+                group.button.classList.add(
+                    "hidden"
+                );
+
+                group.variants.style.display =
+                    "none";
+
+            } else {
+
+                group.button.classList.remove(
+                    "hidden"
+                );
+            }
+        }
+    );
+}
+
 const analysisScreen =
     document.getElementById(
         "analysisScreen"
@@ -146,20 +261,523 @@ const backFromMyGamePgnButton =
         "backFromMyGamePgnButton"
     );
 
- /* ============================================================
+/* ============================================================
+   СИЦИЛИАНСКАЯ ЗАЩИТА — ОТКРЫТЬ / ЗАКРЫТЬ ВАРИАНТЫ
+============================================================ */
+
+const sicilianMainButton =
+    document.querySelector(
+        ".sicilian-main-button"
+    );
+
+const sicilianVariants =
+    document.querySelector(
+        "#sicilian-variants"
+    );
+
+
+if (
+    sicilianMainButton &&
+    sicilianVariants
+) {
+
+    sicilianMainButton.addEventListener(
+        "click",
+        () => {
+
+            if (
+                sicilianVariants.style.display === "none"
+            ) {
+
+                sicilianVariants.style.display =
+                    "block";
+
+            } else {
+
+                sicilianVariants.style.display =
+                    "none";
+
+            }
+
+        }
+    );
+}
+
+/* ============================================================
+   ГОЛЛАНДСКАЯ ЗАЩИТА — ОТКРЫТЬ / ЗАКРЫТЬ ВАРИАНТЫ
+============================================================ */
+
+const dutchMainButton =
+    document.querySelector(
+        ".dutch-main-button"
+    );
+
+const dutchVariants =
+    document.querySelector(
+        "#dutch-variants"
+    );
+
+
+if (
+    dutchMainButton &&
+    dutchVariants
+) {
+
+    dutchMainButton.addEventListener(
+        "click",
+        () => {
+
+            if (
+                dutchVariants.style.display === "none"
+            ) {
+
+                dutchVariants.style.display =
+                    "block";
+
+            } else {
+
+                dutchVariants.style.display =
+                    "none";
+
+            }
+
+        }
+    );
+}
+
+/* ============================================================
+   КОРОЛЕВСКО-ИНДИЙСКАЯ ЗАЩИТА — ОТКРЫТЬ / ЗАКРЫТЬ ВАРИАНТЫ
+============================================================ */
+
+const kingsIndianMainButton =
+    document.querySelector(
+        ".kings-indian-main-button"
+    );
+
+const kingsIndianVariants =
+    document.querySelector(
+        "#kings-indian-variants"
+    );
+
+
+if (
+    kingsIndianMainButton &&
+    kingsIndianVariants
+) {
+
+    kingsIndianMainButton.addEventListener(
+        "click",
+        () => {
+
+            if (
+                kingsIndianVariants.style.display === "none"
+            ) {
+
+                kingsIndianVariants.style.display =
+                    "block";
+
+            } else {
+
+                kingsIndianVariants.style.display =
+                    "none";
+
+            }
+
+        }
+    );
+}
+
+/* ============================================================
+   СТАРОИНДИЙСКАЯ ЗАЩИТА — ОТКРЫТЬ / ЗАКРЫТЬ ВАРИАНТЫ
+============================================================ */
+
+const oldIndianMainButton =
+    document.querySelector(
+        ".old-indian-main-button"
+    );
+
+const oldIndianVariants =
+    document.querySelector(
+        "#old-indian-variants"
+    );
+
+
+if (
+    oldIndianMainButton &&
+    oldIndianVariants
+) {
+
+    oldIndianMainButton.addEventListener(
+        "click",
+        () => {
+
+            if (
+                oldIndianVariants.style.display === "none"
+            ) {
+
+                oldIndianVariants.style.display =
+                    "block";
+
+            } else {
+
+                oldIndianVariants.style.display =
+                    "none";
+
+            }
+
+        }
+    );
+}
+
+/* ============================================================
+   ФРАНЦУЗСКАЯ ЗАЩИТА — ОТКРЫТЬ / ЗАКРЫТЬ ВАРИАНТЫ
+============================================================ */
+
+const frenchMainButton =
+    document.querySelector(
+        ".french-main-button"
+    );
+
+const frenchVariants =
+    document.querySelector(
+        "#french-variants"
+    );
+
+
+if (
+    frenchMainButton &&
+    frenchVariants
+) {
+
+    frenchMainButton.addEventListener(
+        "click",
+        () => {
+
+            if (
+                frenchVariants.style.display === "none"
+            ) {
+
+                frenchVariants.style.display =
+                    "block";
+
+            } else {
+
+                frenchVariants.style.display =
+                    "none";
+
+            }
+
+        }
+    );
+}
+
+/* ============================================================
+   ФРАНЦУЗСКАЯ ЗАЩИТА — РАЗМЕННЫЙ ВАРИАНТ ЗА БЕЛЫХ
+============================================================ */
+
+const frenchExchange1MainButton =
+    document.querySelector(
+        ".french-exchange-1-main"
+    );
+
+const frenchExchange1Variants =
+    document.querySelector(
+        "#french-exchange-1-variants"
+    );
+
+
+if (
+    frenchExchange1MainButton &&
+    frenchExchange1Variants
+) {
+
+    frenchExchange1MainButton.addEventListener(
+        "click",
+        () => {
+
+            if (
+                frenchExchange1Variants.style.display === "none"
+            ) {
+
+                frenchExchange1Variants.style.display =
+                    "block";
+
+            } else {
+
+                frenchExchange1Variants.style.display =
+                    "none";
+
+            }
+
+        }
+    );
+}
+
+
+/* ============================================================
+   ФЕРЗЕВЫЙ ГАМБИТ — ОТКРЫТЬ / ЗАКРЫТЬ ВАРИАНТЫ
+============================================================ */
+
+const queensGambitMainButton =
+    document.querySelector(
+        ".queens-gambit-main-button"
+    );
+
+const queensGambitVariants =
+    document.querySelector(
+        "#queens-gambit-variants"
+    );
+
+
+if (
+    queensGambitMainButton &&
+    queensGambitVariants
+) {
+
+    queensGambitMainButton.addEventListener(
+        "click",
+        () => {
+
+            if (
+                queensGambitVariants.style.display === "none"
+            ) {
+
+                queensGambitVariants.style.display =
+                    "block";
+
+            } else {
+
+                queensGambitVariants.style.display =
+                    "none";
+
+            }
+
+        }
+    );
+}
+
+/* ============================================================
+   КАТАЛОНСКОЕ НАЧАЛО — ОТКРЫТЬ / ЗАКРЫТЬ ВАРИАНТЫ
+============================================================ */
+
+const catalanMainButton =
+    document.querySelector(
+        ".catalan-main-button"
+    );
+
+const catalanVariants =
+    document.querySelector(
+        "#catalan-variants"
+    );
+
+
+if (
+    catalanMainButton &&
+    catalanVariants
+) {
+
+    catalanMainButton.addEventListener(
+        "click",
+        () => {
+
+            if (
+                catalanVariants.style.display === "none"
+            ) {
+
+                catalanVariants.style.display =
+                    "block";
+
+            } else {
+
+                catalanVariants.style.display =
+                    "none";
+
+            }
+
+        }
+    );
+}
+
+// ============================================================
+// ЛОНДОНСКАЯ СИСТЕМА — ПОКАЗ ВАРИАНТОВ
+// ============================================================
+
+const londonMainButton =
+    document.querySelector(
+        ".london-main-button"
+    );
+
+const londonVariants =
+    document.getElementById(
+        "london-variants"
+    );
+
+
+if (
+    londonMainButton &&
+    londonVariants
+) {
+
+    londonMainButton.addEventListener(
+        "click",
+        () => {
+
+            // Скрываем варианты других дебютов
+            document
+                .querySelectorAll(
+                    ".opening-variants"
+                )
+                .forEach(
+                    (variants) => {
+
+                        if (
+                            variants !==
+                            londonVariants
+                        ) {
+
+                            variants.style.display =
+                                "none";
+                        }
+                    }
+                );
+
+            // Переключаем Лондон
+            if (
+                londonVariants.style.display ===
+                "none"
+            ) {
+
+                londonVariants.style.display =
+                    "flex";
+
+            } else {
+
+                londonVariants.style.display =
+                    "none";
+            }
+        }
+    );
+}
+
+// ============================================================
+// АНГЛИЙСКОЕ НАЧАЛО — раскрытие вариантов
+// ============================================================
+
+document.querySelector(".english-main-button")?.addEventListener("click", function () {
+
+    const variants = document.getElementById("english-variants");
+
+    if (!variants) {
+        console.error("Не найден #english-variants");
+        return;
+    }
+
+    const isHidden =
+        variants.style.display === "none" ||
+        variants.style.display === "";
+
+    variants.style.display = isHidden ? "flex" : "none";
+});
+
+// ============================================================
+// ИСПАНСКАЯ ПАРТИЯ — раскрытие вариантов
+// ============================================================
+
+document.querySelector(".spanish-main-button")?.addEventListener("click", function () {
+
+    const variants = document.getElementById("spanish-variants");
+
+    if (!variants) {
+        console.error("Не найден #spanish-variants");
+        return;
+    }
+
+    const isHidden =
+        variants.style.display === "none" ||
+        variants.style.display === "";
+
+    variants.style.display = isHidden ? "flex" : "none";
+});
+
+// ============================================================
+// ИТАЛЬЯНСКАЯ ПАРТИЯ — раскрытие вариантов
+// ============================================================
+
+document.querySelector(".italian-main-button")?.addEventListener("click", function () {
+
+    const variants = document.getElementById("italian-variants");
+
+    if (!variants) {
+        console.error("Не найден #italian-variants");
+        return;
+    }
+
+    const isHidden =
+        variants.style.display === "none" ||
+        variants.style.display === "";
+
+    variants.style.display = isHidden ? "flex" : "none";
+});
+
+// ============================================================
+// ВЕНСКАЯ ПАРТИЯ — раскрытие вариантов
+// ============================================================
+
+document.querySelector(".vienna-main-button")?.addEventListener("click", function () {
+
+    const variants = document.getElementById("vienna-variants");
+
+    if (!variants) {
+        console.error("Не найден #vienna-variants");
+        return;
+    }
+
+    const isHidden =
+        variants.style.display === "none" ||
+        variants.style.display === "";
+
+    variants.style.display = isHidden ? "flex" : "none";
+});
+
+// ==================== КАРО-КАНН ====================
+
+const caroKannButton = document.querySelector(
+    '.caro-kann-main-button'
+);
+
+const caroKannVariants = document.getElementById(
+    'caro-kann-variants'
+);
+
+if (caroKannButton && caroKannVariants) {
+    caroKannButton.addEventListener('click', function () {
+        caroKannVariants.style.display =
+            caroKannVariants.style.display === 'none'
+                ? 'flex'
+                : 'none';
+    });
+}
+
+/* ============================================================
    ВЫБОР ДЕБЮТА
+   Только кнопки с data-opening
 ============================================================ */
 
 openingButtons.forEach(
     button => {
+
+        if (
+            !button.dataset.opening
+        ) {
+            return;
+        }
 
         button.addEventListener(
             "click",
             () => {
 
                 selectedOpening =
-                    button.dataset.opening ||
-                    "none";
+                    button.dataset.opening;
 
                 console.log(
                     "Выбран дебют:",
@@ -177,7 +795,7 @@ openingButtons.forEach(
             }
         );
     }
-);   
+);
 
 /* ============================================================
    НАЗАД К ВЫБОРУ СТОРОНЫ
@@ -363,14 +981,11 @@ if (playButton) {
 ============================================================ */
 
 if (playWhiteButton) {
-
     playWhiteButton.addEventListener(
         "click",
         () => {
 
-            console.log(
-                "Выбраны БЕЛЫЕ"
-            );
+            console.log("Выбраны БЕЛЫЕ");
 
             playerColor = "white";
 
@@ -384,6 +999,9 @@ if (playWhiteButton) {
 
             turnText.textContent =
                 "Выберите дебют";
+
+
+            updateOpeningButtonsForPlayerColor();
         }
     );
 }
@@ -394,14 +1012,11 @@ if (playWhiteButton) {
 ============================================================ */
 
 if (playBlackButton) {
-
     playBlackButton.addEventListener(
         "click",
         () => {
 
-            console.log(
-                "Выбраны ЧЁРНЫЕ"
-            );
+            console.log("Выбраны ЧЁРНЫЕ");
 
             playerColor = "black";
 
@@ -415,6 +1030,9 @@ if (playBlackButton) {
 
             turnText.textContent =
                 "Выберите дебют";
+
+
+            updateOpeningButtonsForPlayerColor();
         }
     );
 }
@@ -835,6 +1453,7 @@ function getPiece(squareName) {
 /* ============================================================
    ОТРИСОВКА ОСНОВНОЙ ДОСКИ
 ============================================================ */
+
 
 function renderBoard() {
 
@@ -1420,6 +2039,102 @@ function renderBoard() {
             }
         );
     }
+
+
+    /* ========================================================
+       ФИНАЛЬНАЯ ДИАГНОСТИКА ДОСКИ
+    ======================================================== */
+
+    console.log("=== FINAL BOARD CHECK ===");
+
+    const boardEl =
+        document.getElementById("board");
+
+    const mainEl =
+        document.querySelector(
+            "#gameScreen main"
+        );
+
+    const wrapperEl =
+        document.querySelector(
+            "#gameScreen .board-wrapper"
+        );
+
+    const areaEl =
+        document.querySelector(
+            "#gameScreen .board-area"
+        );
+
+
+    console.log(
+        "board:",
+        boardEl
+    );
+
+    console.log(
+        "board children:",
+        boardEl?.children.length
+    );
+
+    console.log(
+        "board rect:",
+        boardEl?.getBoundingClientRect()
+    );
+
+    console.log(
+        "board display:",
+        boardEl
+            ? getComputedStyle(boardEl).display
+            : null
+    );
+
+    console.log(
+        "board visibility:",
+        boardEl
+            ? getComputedStyle(boardEl).visibility
+            : null
+    );
+
+    console.log(
+        "board width:",
+        boardEl
+            ? getComputedStyle(boardEl).width
+            : null
+    );
+
+    console.log(
+        "board height:",
+        boardEl
+            ? getComputedStyle(boardEl).height
+            : null
+    );
+
+
+    console.log(
+        "main rect:",
+        mainEl?.getBoundingClientRect()
+    );
+
+    console.log(
+        "wrapper rect:",
+        wrapperEl?.getBoundingClientRect()
+    );
+
+    console.log(
+        "area rect:",
+        areaEl?.getBoundingClientRect()
+    );
+
+    console.log(
+        "main classes:",
+        mainEl?.className
+    );
+
+    console.log(
+        "board classes:",
+        boardEl?.className
+    );
+
 }
 
 
@@ -3253,6 +3968,14 @@ async function startGame(color) {
 
         const data =
             await response.json();
+
+        console.log("=== RESET RESPONSE ===");
+        console.log("HTTP:", response.status);
+        console.log("RESET DATA:", data);
+        console.log("RESET SUCCESS:", data.success);
+        console.log("RESET FEN:", data.fen);
+        console.log("RESET PLAYER COLOR:", data.player_color);
+        console.log("RESET GAME OVER:", data.game_over);
 
         if (!data.success) {
 

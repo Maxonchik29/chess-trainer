@@ -1478,17 +1478,154 @@ def reset_game():
             "none"
         )
 
-        allowed_openings = {
-            "none",
-            "french",
-            "sicilian",
-            "dutch",
-            "old_indian",
-            "kings_indian",
-            "queens_gambit",
-            "catalan",
-        }
+        print(
+            "DEBUG RESET DATA:",
+            data
+        )
 
+        print(
+            "DEBUG OPENING FROM REQUEST:",
+            repr(opening)
+        )
+
+        allowed_openings = {
+
+            "none",
+
+            "french",
+
+            "french_classical",
+
+            "french_tarrasch",
+
+            "french_advance",
+
+            "french_exchange",
+
+            "french_b3",
+            
+
+            "sicilian",
+
+            "scheveningen",
+
+            "dragon",
+
+            "sveshnikov",
+
+           "richter_rauzer",
+
+            "dutch",
+
+            "stonewall",
+
+            "ilyin_zhenevsky",
+
+            "old_indian",
+
+            "old_indian_classical",
+
+            "old_indian_nf3",
+
+            "old_indian_fianchetto",
+
+            "kings_indian",
+
+            "kings_indian_classical",
+
+            "kings_indian_samisch",
+
+            "kings_indian_fianchetto",
+           
+            "kings_indian_four_pawns",
+
+            "kings_indian_averbakh",
+
+            "kings_indian_makogonov",
+
+            "queens_gambit",
+
+            "queens_gambit",
+
+            "queens_gambit_accepted",
+
+            "slav",
+
+            "meran",
+
+            "tartakower",
+
+            "catalan_closed",
+
+            "catalan_open",
+
+            "catalan_b4",
+
+            "catalan_c5",
+
+            "london_classical",
+
+            "london_bd6",
+
+            "london_g6",
+
+            "london_c5",
+
+            "london_jobava",
+
+            "english_reversed_sicilian",
+
+            "english_four_knights",
+
+            "english_botvinnik",
+
+            "english_symmetrical",
+            
+            "english_hedgehog",
+
+            "spanish_classical",
+
+            "spanish_berlin",
+
+            "spanish_exchange",
+
+            "spanish_marshall",
+
+            "spanish_open",
+
+            "italian_giuoco_piano",
+
+            "italian_pianissimo",
+            
+            "italian_evans",
+
+            "italian_two_knights",
+
+            "italian_center_attack",
+
+            "vienna_gambit",
+
+            "vienna_mieses",
+
+            "vienna_bishop",
+
+            "vienna_paulsen",
+            
+            "vienna_hamppe_muzio",
+
+            "caro_kann",
+
+            "caro_kann_two_knights",
+
+            "caro_kann_pano",
+
+            "caro_kann_advance",
+
+            "caro_kann_fantasy",
+
+            "french_exchange_1",
+                
+        }
         if opening not in allowed_openings:
 
             opening = "none"
@@ -1532,6 +1669,10 @@ def reset_game():
         # ====================================================
         # СОЗДАЁМ НОВУЮ ИГРУ
         # ====================================================
+
+        print("=== RESET ===")
+        print("OPENING FROM REQUEST:", opening)
+        print("ALLOWED:", opening in allowed_openings)
 
         new_game = ChessGame(
             player_color=color,

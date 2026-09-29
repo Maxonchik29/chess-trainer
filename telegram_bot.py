@@ -6,6 +6,11 @@ import time
 import chess
 import psycopg2
 
+print(
+    "########### TELEGRAM_BOT.PY STARTED ###########",
+    flush=True
+)
+
 from telegram import (
     Update,
     InlineKeyboardButton,

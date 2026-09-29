@@ -1470,6 +1470,13 @@ and (max-height: 600px) {
     justify-content: center;
 }
 
+.board-area {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
 .my-game-viewer-board {
     display: grid;
     overflow: hidden;
