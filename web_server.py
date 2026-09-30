@@ -1492,8 +1492,6 @@ def reset_game():
 
             "none",
 
-            "french",
-
             "french_classical",
 
             "french_tarrasch",
