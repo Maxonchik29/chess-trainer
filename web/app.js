@@ -2610,10 +2610,16 @@ async function makeMove(uciMove) {
 
 
             /* ================================================
-               СООБЩЕНИЕ
+            СООБЩЕНИЕ
             ================================================ */
 
-            if (
+            if (gameOver) {
+
+                setMessage(
+                    "Вам поставлен мат"
+                );
+
+            } else if (
                 computerData.played_san
             ) {
 
@@ -2629,21 +2635,12 @@ async function makeMove(uciMove) {
                     computerData.status
                 );
 
-            } else if (
-                gameOver
-            ) {
-
-                setMessage(
-                    "Игра окончена."
-                );
-
             } else {
 
                 setMessage(
                     "Ваш ход."
                 );
             }
-
 
             /* ================================================
                КОНЕЦ ИГРЫ ПОСЛЕ ХОДА КОМПЬЮТЕРА
@@ -2652,6 +2649,15 @@ async function makeMove(uciMove) {
             if (
                 gameOver
             ) {
+
+                if (resignButton) {
+
+                    resignButton.disabled = true;
+
+                    resignButton.classList.add(
+                        "hidden"
+                    );
+                }
 
                 showGameAnalysisButton();
                 showGameMistakesButton();
@@ -3598,99 +3604,6 @@ if (hintButton) {
     );
 }
 
-
-/* ============================================================
-   НОВАЯ ИГРА
-============================================================ */
-
-if (newGameButton) {
-
-    newGameButton.addEventListener(
-        "click",
-        async () => {
-
-            try {
-
-                const user =
-                    getTelegramUser();
-
-                const telegramUser =
-                    user || {
-                        id: -1
-                    };
-
-                if (!user) {
-
-                    console.warn(
-                        "Telegram пользователь не определён.",
-                        "Используем browser ID:",
-                        -1
-                    );
-                }
-
-                const response =
-                    await fetch(
-                        "/reset",
-                        {
-                            method: "POST",
-
-                            headers: {
-                                "Content-Type":
-                                    "application/json"
-                            },
-
-                            body: JSON.stringify({
-                                player_color: playerColor,
-                                opening: selectedOpening,
-                                telegram_user: telegramUser
-                            })
-                        }
-                    );
-
-                const data =
-                    await response.json();
-
-                board =
-                    fenToBoard(
-                        data.fen
-                    );
-
-                selectedSquare = null;
-
-                lastMove = null;
-
-                playerTurn =
-                    Boolean(
-                        data.player_turn
-                    );
-
-                gameOver =
-                    Boolean(
-                        data.game_over
-                    );
-
-                renderBoard();
-
-                updateTurnText();
-
-                setMessage(
-                    "Новая партия. Ваш ход."
-                );
-
-            } catch (error) {
-
-                console.error(
-                    error
-                );
-
-                setMessage(
-                    "Не удалось начать новую игру."
-                );
-            }
-        }
-    );
-}
-
 /* ============================================================
    СДАТЬСЯ
 ============================================================ */
@@ -3854,6 +3767,154 @@ if (resignButton) {
     );
 }
 
+/* ============================================================
+   НОВАЯ ИГРА
+============================================================ */
+
+if (newGameButton) {
+
+    newGameButton.addEventListener(
+        "click",
+        async () => {
+
+            try {
+
+                const user =
+                    getTelegramUser();
+
+                const telegramUser =
+                    user || {
+                        id: -1
+                    };
+
+                if (!user) {
+
+                    console.warn(
+                        "Telegram пользователь не определён.",
+                        "Используем browser ID:",
+                        -1
+                    );
+                }
+
+                const response =
+                    await fetch(
+                        "/reset",
+                        {
+                            method: "POST",
+
+                            headers: {
+                                "Content-Type":
+                                    "application/json"
+                            },
+
+                            body: JSON.stringify({
+                                player_color: playerColor,
+                                opening: selectedOpening,
+                                telegram_user: telegramUser
+                            })
+                        }
+                    );
+
+                const data =
+                    await response.json();
+
+                board =
+                    fenToBoard(
+                        data.fen
+                    );
+
+                selectedSquare = null;
+
+                lastMove = null;
+
+                // ------------------------------------------------
+                // УДАЛЯЕМ КНОПКИ ОТ ПРЕДЫДУЩЕЙ ПАРТИИ
+                // ------------------------------------------------
+
+                const oldAnalysisButton =
+                    document.getElementById(
+                        "gameAnalysisButton"
+                    );
+
+                if (oldAnalysisButton) {
+
+                    oldAnalysisButton.remove();
+                }
+
+
+                const oldMistakesButton =
+                    document.getElementById(
+                        "gameMistakesButton"
+                    );
+
+                if (oldMistakesButton) {
+
+                    oldMistakesButton.remove();
+                }
+
+
+                // ------------------------------------------------
+                // СКРЫВАЕМ РЕЗУЛЬТАТ АНАЛИЗА
+                // ------------------------------------------------
+
+                if (analysisResult) {
+
+                    analysisResult.classList.add(
+                        "hidden"
+                    );
+
+                    analysisResult.innerHTML = "";
+                }
+
+                if (analysisMessage) {
+
+                    analysisMessage.textContent = "";
+                }
+
+                // ------------------------------------------------
+                // ВОЗВРАЩАЕМ КНОПКУ «СДАТЬСЯ»
+                // ------------------------------------------------
+
+                if (resignButton) {
+
+                    resignButton.disabled = false;
+
+                    resignButton.classList.remove(
+                        "hidden"
+                    );
+                }
+
+                playerTurn =
+                    Boolean(
+                        data.player_turn
+                    );
+
+                gameOver =
+                    Boolean(
+                        data.game_over
+                    );
+
+                renderBoard();
+
+                updateTurnText();
+
+                setMessage(
+                    "Новая партия. Ваш ход."
+                );
+
+            } catch (error) {
+
+                console.error(
+                    error
+                );
+
+                setMessage(
+                    "Не удалось начать новую игру."
+                );
+            }
+        }
+    );
+}
 
 /* ============================================================
    ПОКАЗ ЭКРАНА
@@ -3999,7 +4060,14 @@ async function startGame(color) {
             "hidden"
         );
 
-        resignButton.disabled = false;
+        if (resignButton) {
+
+            resignButton.disabled = false;
+
+            resignButton.classList.remove(
+                "hidden"
+            );
+        }
 
         document.querySelector(
             "#gameScreen main"
