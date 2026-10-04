@@ -54,6 +54,26 @@ PIECE_ACC = {  # винительный падеж: «забирает ...»
     chess.QUEEN: "ферзя",
 }
  
+PIECE_NOM = {  # именительный: «пешка на f3 атакует ...»
+    chess.PAWN: "пешка",
+    chess.KNIGHT: "конь",
+    chess.BISHOP: "слон",
+    chess.ROOK: "ладья",
+    chess.QUEEN: "ферзь",
+}
+ 
+YOUR_ACC = {  # «... атакует вашего коня»
+    chess.PAWN: "вашу пешку",
+    chess.KNIGHT: "вашего коня",
+    chess.BISHOP: "вашего слона",
+    chess.ROOK: "вашу ладью",
+    chess.QUEEN: "вашего ферзя",
+}
+ 
+# Ценность атакующего: король может бить только незащищённую фигуру
+ATTACK_VALUE = dict(PIECE_VALUE)
+ATTACK_VALUE[chess.KING] = 10000
+ 
 MATERIAL_THRESHOLD = 100     # минимум, чтобы говорить о потере/выигрыше (одна пешка)
 MIN_LOSS_FOR_MATERIAL = 60   # если оценка почти не упала — это не материальная потеря
 MIN_LOSS_FOR_MISSED = 30     # упущенный выигрыш называем уже при небольшой потере
@@ -228,6 +248,149 @@ def replay_line(board, line, mover_color, max_plies=REPLAY_PLIES):
         )
  
     return steps
+ 
+ 
+def threatened_pieces(board, color):
+    """
+    Фигуры и пешки стороны color (кроме короля), которым на доске что-то
+    угрожает: их атакует более дешёвая фигура либо они вообще не защищены.
+    Это факты доски, а не догадки: чистый подсчёт атак.
+    Возвращает {клетка: {piece, attacker, attacker_square, reason}}.
+    """
+    enemy = not color
+    found = {}
+    for square, piece in board.piece_map().items():
+        if piece.color != color or piece.piece_type == chess.KING:
+            continue
+        attackers = list(board.attackers(enemy, square))
+        if not attackers:
+            continue
+        cheapest = min(
+            attackers,
+            key=lambda a: ATTACK_VALUE.get(board.piece_at(a).piece_type, 0),
+        )
+        cheapest_type = board.piece_at(cheapest).piece_type
+        value = PIECE_VALUE.get(piece.piece_type, 0)
+        if ATTACK_VALUE.get(cheapest_type, 0) < value:
+            reason = "cheaper"
+        elif len(board.attackers(color, square)) == 0:
+            reason = "undefended"
+        else:
+            continue
+        found[square] = {
+            "piece": piece.piece_type,
+            "attacker": cheapest_type,
+            "attacker_square": chess.square_name(cheapest),
+            "reason": reason,
+        }
+    return found
+ 
+ 
+def reply_facts(board_after_played, steps, played_to_square=None):
+    """
+    Одно предложение о сильнейшем ответе соперника (первый ход линии
+    после ошибки). Только проверяемое: размен, взятие, шах, новая атака на
+    вашу фигуру. Ничего не домысливает.
+    played_to_square — клетка, на которую вы только что сходили.
+    """
+    if not steps:
+        return ""
+    first = steps[0]
+    san = first["san"]
+ 
+    if first["captured"] is not None:
+        if len(steps) > 1 and steps[1]["captured_square"] == first["captured_square"]:
+            return (
+                f"Сильнейший ответ соперника — {san}, затем {steps[1]['san']}: "
+                f"это размен."
+            )
+        what = PIECE_ACC.get(first["captured"], "фигуру")
+        return (
+            f"Сильнейший ответ соперника — {san}: "
+            f"взятие ({what} на {first['captured_square']})."
+        )
+ 
+    mover = not first["color"]          # тот, кто ошибся: ходит не соперник
+    board = board_after_played.copy()
+    before = threatened_pieces(board, mover)
+    board.push(chess.Move.from_uci(first["uci"]))
+    after = threatened_pieces(board, mover)
+    new = {sq: info for sq, info in after.items() if sq not in before}
+    check = " с шахом" if board.is_check() else ""
+ 
+    if new:
+        square, info = max(
+            new.items(), key=lambda kv: PIECE_VALUE.get(kv[1]["piece"], 0)
+        )
+        why = ("фигура дороже атакующей" if info["reason"] == "cheaper"
+               else "без защиты")
+        text = (
+            f"Сильнейший ответ соперника — {san}{check}: "
+            f"{PIECE_NOM.get(info['attacker'], 'фигура')} на "
+            f"{info['attacker_square']} атакует "
+            f"{YOUR_ACC.get(info['piece'], 'вашу фигуру')} на "
+            f"{chess.square_name(square)} ({why})."
+        )
+        if played_to_square is not None and square == played_to_square:
+            text += " Это фигура, которой вы только что сходили."
+        return text
+ 
+    if check:
+        return f"Сильнейший ответ соперника — {san} (шах)."
+    return f"Сильнейший ответ соперника — {san}."
+ 
+ 
+def best_move_fact(board, best_uci):
+    """Короткий проверяемый факт о лучшем ходе: рокировка, взятие, шах."""
+    try:
+        move = chess.Move.from_uci(str(best_uci))
+    except ValueError:
+        return ""
+    if move not in board.legal_moves:
+        return ""
+    if board.is_castling(move):
+        return "рокировка"
+    if board.is_capture(move):
+        if board.is_en_passant(move):
+            return "взятие пешки"
+        piece = board.piece_at(move.to_square)
+        return f"взятие ({PIECE_ACC.get(piece.piece_type, 'фигуры')})"
+    after = board.copy()
+    after.push(move)
+    if after.is_check():
+        return "шах"
+    return ""
+ 
+ 
+def severity(loss):
+    if loss < 100:
+        return "небольшая неточность"
+    if loss < 250:
+        return "заметная неточность"
+    if loss < 500:
+        return "серьёзная ошибка"
+    return "грубая ошибка"
+ 
+ 
+def status_phrase(before, after):
+    """Как изменилась общая ситуация (оценки с точки зрения ходящего)."""
+    if before is None or after is None:
+        return ""
+    if before >= 150 and after < 50:
+        return "Вы упустили преимущество."
+    if before >= 150 and after >= 150:
+        return "Преимущество у вас остаётся, но стало меньше."
+    if before >= 150:
+        return "Преимущество заметно уменьшилось."
+    if before > -50 and after <= -150:
+        return "Из ровной позиции вы перешли в заметно худшую."
+    if -50 < before and after <= -50:
+        return "Позиция стала хуже."
+    if before <= -300 and after <= -300:
+        return "Позиция была тяжёлой и стала ещё тяжелее."
+    if before <= -50 and after <= before:
+        return "Положение, и так неудобное, ухудшилось."
+    return ""
  
  
 # ----------------------------------------------------------------------
@@ -471,32 +634,51 @@ def classify(c):
         main += f" Линия: {format_line(sb[:end])}."
         return result("missed_material", main)
  
-    # --- 5. остальное: только факты ---------------------------------------
+    # --- 5. остальное: только проверяемые факты ---------------------------
+    parts = []
+    default_branch = False
     if g_p <= -MATERIAL_THRESHOLD and g_b - g_p < MATERIAL_THRESHOLD:
-        main = (
+        parts.append(
             "Материал теряется и после лучшего хода, так что это не следствие "
             "вашего хода, но ход всё равно ухудшил оценку."
         )
     elif g_p <= -MATERIAL_THRESHOLD and loss < MIN_LOSS_FOR_MATERIAL:
-        if before is not None and before <= -300:
-            main = (
-                "По линии движка вы теряете материал, но позиция и так была "
-                "проиграна, поэтому оценка почти не меняется."
-            )
-            secondary = None
-        else:
-            main = (
+        if g_b > -MATERIAL_THRESHOLD:
+            parts.append(
                 "По линии движка вы отдаёте материал, но оценка почти не "
                 "меняется: похоже на допустимую жертву."
             )
+        else:
+            parts.append(
+                f"По линии движка вы теряете материал (итог {g_p / 100:+.0f}), "
+                f"но и после {best} итог {g_b / 100:+.0f}, поэтому оценка "
+                "меняется мало."
+            )
     else:
-        main = (
+        default_branch = True
+        parts.append(
             "Материал в ближайших ходах по линии движка не теряется, "
-            "но позиция ухудшилась."
+            f"но это {severity(loss)}."
         )
-    if sp:
-        main += f" Сильнейший ответ соперника — {sp[0]['san']}."
-    return result("positional", main)
+ 
+    if default_branch:
+        status = status_phrase(before, after)
+        if status:
+            parts.append(status)
+ 
+    reply = c.get("reply_text") or (
+        f"Сильнейший ответ соперника — {sp[0]['san']}." if sp else ""
+    )
+    if reply:
+        parts.append(reply)
+ 
+    fact = c.get("best_fact")
+    if fact:
+        parts.append(f"Ход {best} — {fact}.")
+    if len(sb) >= 2:
+        parts.append(f"Линия движка после {best}: {format_line(sb[:4])}.")
+ 
+    return result("positional", " ".join(parts))
  
  
 # ----------------------------------------------------------------------
@@ -545,6 +727,12 @@ def analyze(mistake):
  
     played_results = mistake.get("played_results") or []
  
+    steps_played = replay_line(after_board, _main_played_line(played_results), mover)
+    reply_text = _safe(
+        lambda: reply_facts(after_board, steps_played, played_move.to_square)
+    )
+    best_fact = _safe(lambda: best_move_fact(board, best_uci))
+ 
     ctx = {
         "mover": mover,
         "played": played,
@@ -554,7 +742,9 @@ def analyze(mistake):
         "after": _white_pov_to_mover(mistake.get("after_score"), mover),
         "bal0": material(board, mover),
         "bal_after_played": material(after_board, mover),
-        "steps_played": replay_line(after_board, _main_played_line(played_results), mover),
+        "steps_played": steps_played,
+        "reply_text": reply_text,
+        "best_fact": best_fact,
         "steps_best": replay_line(board, best_line, mover),
         "played_score": parse_score(_main_played_score(played_results), mover),
         "best_score": parse_score(
@@ -562,6 +752,15 @@ def analyze(mistake):
         ),
     }
     return classify(ctx)
+ 
+ 
+def _safe(func):
+    """Необязательные факты не должны ломать объяснение, но ошибка пишется в лог."""
+    try:
+        return func()
+    except Exception:
+        log.exception("pv_explainer: не удалось собрать дополнительный факт")
+        return ""
  
  
 def _white_pov_to_mover(value, mover):

@@ -1,7 +1,11 @@
-
 import chess
 
 from app.explanation_engine import generate_explanation
+from app.pv_explainer import generate_explanation_v2
+
+# True  — объяснения строит новый движок (app/pv_explainer.py)
+# False — старый движок (app/explanation_engine.py), запасной вариант
+USE_NEW_EXPLAINER = True
 
 
 def build_mistake(
@@ -60,8 +64,6 @@ def build_mistake(
             if loss < 500
             else "??"
         ),
-
-        "theme": None,
 
         "position_before": position_before,
         "position_after": position_after,
@@ -168,19 +170,10 @@ def build_mistake(
         # ==================================================
         # АНАЛИЗ ПОСЛЕ СЫГРАННОГО ХОДА
         #
-        # Например:
-        #
-        # 17...Qg8
-        #
-        # played_results содержит:
-        #
-        # 1. Rxd5
-        # 2. Rhd1
-        # 3. c4
-        #
-        # Это используется explanation_engine.py
-        # для определения конкретного тактического
-        # ответа соперника.
+        # played_results — линии движка ПОСЛЕ сыгранного хода.
+        # [0]["pv"] начинается с ответа соперника.
+        # Новый движок (pv_explainer.py) проигрывает эту линию
+        # на доске и по ней находит причину ошибки.
         # ==================================================
 
         "played_results": (
@@ -189,115 +182,10 @@ def build_mistake(
 
     }
 
-    print(
-        "=== ПРОВЕРКА СЫГРАННОГО ХОДА ==="
-    )
-
-    print(
-        "played_move_san =",
-        played_move_san
-    )
-
-    print(
-        "played_move =",
-        move
-    )
-
-    print(
-        "=============================="
-    )
-
-    print(
-        "=== ПРОВЕРКА TEMPO ==="
-    )
-
-    print(
-        "pawn_tempo_explanation =",
-        mistake.get(
-            "pawn_tempo_explanation"
-        )
-    )
-
-    print(
-        "features pawn tempo =",
-        mistake.get(
-            "features",
-            {}
-        ).get(
-            "pawn_tempo_explanation"
-        )
-    )
-
-    print(
-        "explanation ДО =",
-        mistake.get(
-            "explanation"
-        )
-    )
-
-    print(
-        "======================="
-    )
-
-    print(
-    "=== PLAYED RESULTS ==="
-    )
-
-    print(
-        repr(
-            mistake.get(
-                "played_results"
-            )
-        )
-    )
-
-    print(
-        "=== BEST PV ==="
-    )
-
-    print(
-        repr(
-            mistake.get(
-                "pv"
-            )
-        )
-    )
-
-    print(
-        "======================"
-    )
-
-     # ===== ВРЕМЕННЫЙ ДАМП: вставить сюда =====
-    import json
-    
-    def _conv(x):
-        if isinstance(x, chess.Board):
-            return x.fen()
-        if isinstance(x, chess.Move):
-            return x.uci()
-        if isinstance(x, dict):
-            return {str(k): _conv(v) for k, v in x.items()}
-        if isinstance(x, (list, tuple, set)):
-            return [_conv(v) for v in x]
-        try:
-            json.dumps(x)
-            return x
-        except TypeError:
-            return repr(x)
-
-    with open(
-        f"mistake_{board.fullmove_number}_{played_move_san}.json",
-        "w",
-        encoding="utf-8"
-    ) as f:
-        json.dump(_conv(mistake), f, ensure_ascii=False, indent=2)
-    # ===== конец дампа =====
-
     mistake["explanation"] = (
-        generate_explanation(
-            mistake
-        )
+        generate_explanation_v2(mistake)
+        if USE_NEW_EXPLAINER
+        else generate_explanation(mistake)
     )
 
     return mistake
-
