@@ -286,62 +286,95 @@ def threatened_pieces(board, color):
     return found
  
  
-def reply_facts(board_after_played, steps, played_to_square=None):
+def reply_facts(board_after_played, steps, played_to_square=None,
+                played_captured=None):
     """
     Одно предложение о сильнейшем ответе соперника (первый ход линии
-    после ошибки). Только проверяемое: размен, взятие, шах, новая атака на
-    вашу фигуру. Ничего не домысливает.
-    played_to_square — клетка, на которую вы только что сходили.
+    после ошибки). Только проверяемое: ответное взятие, размен, взятие, шах,
+    новая атака на вашу фигуру. Ничего не домысливает.
+    played_to_square — клетка, на которую вы только что сходили;
+    played_captured  — тип фигуры, которую взял ваш ход (если взял).
     """
     if not steps:
         return ""
     first = steps[0]
     san = first["san"]
- 
-    if first["captured"] is not None:
-        if len(steps) > 1 and steps[1]["captured_square"] == first["captured_square"]:
-            return (
-                f"Сильнейший ответ соперника — {san}, затем {steps[1]['san']}: "
-                f"это размен."
-            )
-        what = PIECE_ACC.get(first["captured"], "фигуру")
-        return (
-            f"Сильнейший ответ соперника — {san}: "
-            f"взятие ({what} на {first['captured_square']})."
-        )
- 
     mover = not first["color"]          # тот, кто ошибся: ходит не соперник
     board = board_after_played.copy()
     before = threatened_pieces(board, mover)
     board.push(chess.Move.from_uci(first["uci"]))
     after = threatened_pieces(board, mover)
     new = {sq: info for sq, info in after.items() if sq not in before}
+    # Угроза от фигуры, которую следующим ходом сразу забирают, не считается.
+    if len(steps) > 1 and steps[1]["color"] == mover \
+            and steps[1]["captured_square"] is not None:
+        new = {
+            sq: info for sq, info in new.items()
+            if info["attacker_square"] != steps[1]["captured_square"]
+        }
     check = " с шахом" if board.is_check() else ""
  
+    threat = ""
+    just_moved = False
     if new:
         square, info = max(
             new.items(), key=lambda kv: PIECE_VALUE.get(kv[1]["piece"], 0)
         )
         why = ("фигура дороже атакующей" if info["reason"] == "cheaper"
                else "без защиты")
-        text = (
-            f"Сильнейший ответ соперника — {san}{check}: "
+        threat = (
             f"{PIECE_NOM.get(info['attacker'], 'фигура')} на "
             f"{info['attacker_square']} атакует "
             f"{YOUR_ACC.get(info['piece'], 'вашу фигуру')} на "
-            f"{chess.square_name(square)} ({why})."
+            f"{chess.square_name(square)} ({why})"
         )
-        if played_to_square is not None and square == played_to_square:
-            text += " Это фигура, которой вы только что сходили."
-        return text
+        just_moved = played_to_square is not None and square == played_to_square
  
-    if check:
-        return f"Сильнейший ответ соперника — {san} (шах)."
-    return f"Сильнейший ответ соперника — {san}."
+    if first["captured"] is not None:
+        square_name = first["captured_square"]
+        taken = PIECE_ACC.get(first["captured"], "фигуру")
+        if (played_captured is not None and played_to_square is not None
+                and square_name == chess.square_name(played_to_square)):
+            gave = PIECE_ACC.get(played_captured, "фигуру")
+            text = (
+                f"Сильнейший ответ соперника — {san}{check}: ответное взятие "
+                f"(вы взяли {gave}, соперник берёт {taken})"
+            )
+        elif len(steps) > 1 and steps[1]["captured_square"] == square_name:
+            text = (
+                f"Сильнейший ответ соперника — {san}{check}, "
+                f"затем {steps[1]['san']}: это размен"
+            )
+        else:
+            text = (
+                f"Сильнейший ответ соперника — {san}{check}: "
+                f"взятие ({taken} на {square_name})"
+            )
+        if threat:
+            text += f"; {threat}"
+        text += "."
+    elif threat:
+        text = f"Сильнейший ответ соперника — {san}{check}: {threat}."
+    elif check:
+        text = f"Сильнейший ответ соперника — {san} (шах)."
+    else:
+        text = f"Сильнейший ответ соперника — {san}."
+ 
+    if just_moved:
+        text += " Это фигура, которой вы только что сходили."
+    return text
+ 
+ 
+CENTER_SQUARES = {"d4", "e4", "d5", "e5"}
+HOME_MINORS = {
+    chess.WHITE: {"b1", "g1", "c1", "f1"},
+    chess.BLACK: {"b8", "g8", "c8", "f8"},
+}
  
  
 def best_move_fact(board, best_uci):
-    """Короткий проверяемый факт о лучшем ходе: рокировка, взятие, шах."""
+    """Короткий проверяемый факт о лучшем ходе: рокировка, взятие, шах,
+    пешка в центр, развитие фигуры с исходного поля."""
     try:
         move = chess.Move.from_uci(str(best_uci))
     except ValueError:
@@ -359,6 +392,93 @@ def best_move_fact(board, best_uci):
     after.push(move)
     if after.is_check():
         return "шах"
+    piece = board.piece_at(move.from_square)
+    to_name = chess.square_name(move.to_square)
+    if piece and piece.piece_type == chess.PAWN and to_name in CENTER_SQUARES:
+        return f"пешка занимает центр ({to_name})"
+    if (piece and piece.piece_type in (chess.KNIGHT, chess.BISHOP)
+            and chess.square_name(move.from_square) in HOME_MINORS[piece.color]):
+        return f"развитие ({PIECE_NOM[piece.piece_type]} выходит с исходного поля)"
+    return ""
+ 
+ 
+STRUCT_WINDOW = 6   # сколько полуходов линии смотрим на пешечную структуру
+ 
+ 
+def pawn_weaknesses(board, color):
+    """Сдвоенные и изолированные пешки стороны color: {(вид, номер_вертикали)}."""
+    counts = {}
+    for square, piece in board.piece_map().items():
+        if piece.color == color and piece.piece_type == chess.PAWN:
+            file_index = chess.square_file(square)
+            counts[file_index] = counts.get(file_index, 0) + 1
+    found = set()
+    for file_index, amount in counts.items():
+        if amount >= 2:
+            found.add(("doubled", file_index))
+        if (file_index - 1) not in counts and (file_index + 1) not in counts:
+            found.add(("isolated", file_index))
+    return found
+ 
+ 
+def _board_after(board, steps, plies):
+    result = board.copy()
+    for step in steps[:plies]:
+        result.push(chess.Move.from_uci(step["uci"]))
+    return result
+ 
+ 
+def structure_fact(board_before, board_after_played, steps_played, steps_best,
+                   mover, best_san):
+    """
+    Новые слабости пешечной структуры, которые появляются у вас в линии
+    движка после сыгранного хода, но НЕ появляются после лучшего хода.
+    Это контрфактическая проверка: слабость засчитывается, только если
+    лучший ход её избегает.
+    """
+    start_played = pawn_weaknesses(board_after_played, mover)
+    end_played = pawn_weaknesses(
+        _board_after(board_after_played, steps_played, STRUCT_WINDOW), mover
+    )
+    end_best = pawn_weaknesses(
+        _board_after(board_before, steps_best, STRUCT_WINDOW + 1), mover
+    )
+    only_played = (end_played - start_played) - end_best
+ 
+    letters = "abcdefgh"
+    doubled = sorted(f for kind, f in only_played if kind == "doubled")
+    isolated = sorted(f for kind, f in only_played if kind == "isolated")
+    parts = []
+    if doubled:
+        parts.append("сдвоенные пешки (" + ", ".join(f"{letters[f]}-линия" for f in doubled) + ")")
+    if isolated:
+        parts.append("изолированная пешка (" + ", ".join(f"{letters[f]}-линия" for f in isolated) + ")")
+    if not parts:
+        return ""
+    return (
+        "В линии движка у вас появляются " + " и ".join(parts)
+        + f"; после {best_san} этого нет."
+    )
+ 
+ 
+def castling_fact(board_before, board_after_played, played_move, best_uci, mover):
+    """Ход лишает права на рокировку, а лучший ход его сохраняет."""
+    if board_before.is_castling(played_move):
+        return ""
+    if not board_before.has_castling_rights(mover):
+        return ""
+    if board_after_played.has_castling_rights(mover):
+        return ""
+    try:
+        move = chess.Move.from_uci(str(best_uci))
+    except ValueError:
+        return ""
+    if move not in board_before.legal_moves:
+        return ""
+    after_best = board_before.copy()
+    after_best.push(move)
+    if after_best.has_castling_rights(mover):
+        return "Ваш ход лишает вас права на рокировку, а лучший ход его сохраняет."
     return ""
  
  
@@ -656,10 +776,16 @@ def classify(c):
             )
     else:
         default_branch = True
-        parts.append(
-            "Материал в ближайших ходах по линии движка не теряется, "
-            f"но это {severity(loss)}."
-        )
+        if loss < MIN_LOSS_FOR_MATERIAL:
+            parts.append(
+                f"Ход разумный: разница с лучшим всего {loss / 100:.2f} пешки, "
+                "это скорее нюанс, чем ошибка."
+            )
+        else:
+            parts.append(
+                f"{severity(loss).capitalize()}: оценка падает на "
+                f"{loss / 100:.2f} пешки."
+            )
  
     if default_branch:
         status = status_phrase(before, after)
@@ -672,11 +798,22 @@ def classify(c):
     if reply:
         parts.append(reply)
  
+    for extra in (c.get("structure_text"), c.get("castling_text")):
+        if extra:
+            parts.append(extra)
+ 
     fact = c.get("best_fact")
     if fact:
         parts.append(f"Ход {best} — {fact}.")
+ 
+    def ev(value):
+        return f" ({fmt_eval(value)})" if value is not None else ""
+ 
+    best_cp = b_val if b_kind == "cp" else None
+    if sp:
+        parts.append(f"Линия после вашего хода{ev(after)}: {format_line(sp[:4])}.")
     if len(sb) >= 2:
-        parts.append(f"Линия движка после {best}: {format_line(sb[:4])}.")
+        parts.append(f"Линия после {best}{ev(best_cp)}: {format_line(sb[:4])}.")
  
     return result("positional", " ".join(parts))
  
@@ -728,9 +865,24 @@ def analyze(mistake):
     played_results = mistake.get("played_results") or []
  
     steps_played = replay_line(after_board, _main_played_line(played_results), mover)
-    reply_text = _safe(
-        lambda: reply_facts(after_board, steps_played, played_move.to_square)
-    )
+    steps_best = replay_line(board, best_line, mover)
+ 
+    played_captured = None
+    if board.is_capture(played_move):
+        played_captured = (
+            chess.PAWN if board.is_en_passant(played_move)
+            else board.piece_at(played_move.to_square).piece_type
+        )
+ 
+    reply_text = _safe(lambda: reply_facts(
+        after_board, steps_played, played_move.to_square, played_captured
+    ))
+    structure_text = _safe(lambda: structure_fact(
+        board, after_board, steps_played, steps_best, mover, best
+    ))
+    castling_text = _safe(lambda: castling_fact(
+        board, after_board, played_move, best_uci, mover
+    ))
     best_fact = _safe(lambda: best_move_fact(board, best_uci))
  
     ctx = {
@@ -743,9 +895,11 @@ def analyze(mistake):
         "bal0": material(board, mover),
         "bal_after_played": material(after_board, mover),
         "steps_played": steps_played,
+        "steps_best": steps_best,
         "reply_text": reply_text,
+        "structure_text": structure_text,
+        "castling_text": castling_text,
         "best_fact": best_fact,
-        "steps_best": replay_line(board, best_line, mover),
         "played_score": parse_score(_main_played_score(played_results), mover),
         "best_score": parse_score(
             mistake.get("best_score_obj"), mover, default_pov=chess.WHITE
