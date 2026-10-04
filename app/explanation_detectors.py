@@ -388,8 +388,34 @@ def find_pawn_attack_threat(
     board_after,
     our_color
 ):
+    """
+    Проверяет, создаёт ли сыгранный ход новую пешечную
+    угрозу против нашей фигуры.
 
-    if not board_before or not board_after:
+    Логика:
+
+        1. После нашего хода существует легальный ход пешкой
+           соперника.
+
+        2. После этого хода пешка начинает атаковать нашу фигуру.
+
+        3. До нашего хода эта же пешка не атаковала
+           эту фигуру.
+
+        4. Пешка действительно может следующим ходом
+           взять эту фигуру.
+
+        5. Если после взятия пешку можно нормально забрать,
+           это не считается серьёзной угрозой.
+
+    Важно:
+    функция ищет именно НОВУЮ угрозу, созданную нашим ходом.
+    """
+
+    if (
+        board_before is None
+        or board_after is None
+    ):
         return None
 
     try:
@@ -399,7 +425,7 @@ def find_pawn_attack_threat(
         candidates = []
 
         # ==================================================
-        # НАШИ ФИГУРЫ
+        # 1. НАШИ ФИГУРЫ ПОСЛЕ ХОДА
         # ==================================================
 
         our_pieces = []
@@ -422,8 +448,11 @@ def find_pawn_attack_threat(
                 )
             )
 
+        if not our_pieces:
+            return None
+
         # ==================================================
-        # ИЩЕМ ПЕШЕЧНЫЕ ХОДЫ СОПЕРНИКА
+        # 2. ИЩЕМ ЛЕГАЛЬНЫЕ ПЕШЕЧНЫЕ ХОДЫ СОПЕРНИКА
         # ==================================================
 
         for opponent_move in board_after.legal_moves:
@@ -432,7 +461,7 @@ def find_pawn_attack_threat(
                 opponent_move.from_square
             )
 
-            if not pawn:
+            if pawn is None:
                 continue
 
             if pawn.color != opponent_color:
@@ -442,8 +471,7 @@ def find_pawn_attack_threat(
                 continue
 
             # ==================================================
-            # ПОСЛЕ ЭТОГО ХОДА
-            # ПЕШКА ДОЛЖНА АТАКОВАТЬ НАШУ ФИГУРУ
+            # 3. ДЕЛАЕМ ХОД ПЕШКОЙ
             # ==================================================
 
             test_board = board_after.copy()
@@ -462,6 +490,23 @@ def find_pawn_attack_threat(
                 opponent_move.to_square
             )
 
+            moved_pawn = test_board.piece_at(
+                attacker_square
+            )
+
+            if moved_pawn is None:
+                continue
+
+            if moved_pawn.color != opponent_color:
+                continue
+
+            if moved_pawn.piece_type != chess.PAWN:
+                continue
+
+            # ==================================================
+            # 4. ПРОВЕРЯЕМ НАШИ ФИГУРЫ
+            # ==================================================
+
             for target_square, target_piece in our_pieces:
 
                 current_piece = (
@@ -470,7 +515,7 @@ def find_pawn_attack_threat(
                     )
                 )
 
-                if not current_piece:
+                if current_piece is None:
                     continue
 
                 if current_piece.color != our_color:
@@ -483,75 +528,53 @@ def find_pawn_attack_threat(
                     continue
 
                 # ==================================================
-                # ПЕШКА ДЕЙСТВИТЕЛЬНО АТАКУЕТ ФИГУРУ?
+                # 5. ПЕШКА ДОЛЖНА ДЕЙСТВИТЕЛЬНО АТАКОВАТЬ
+                #    НАШУ ФИГУРУ ПОСЛЕ ХОДА
                 # ==================================================
 
-                attackers = test_board.attackers(
+                attackers_after = test_board.attackers(
                     opponent_color,
                     target_square
                 )
 
-                if attacker_square not in attackers:
+                if attacker_square not in attackers_after:
                     continue
 
                 # ==================================================
-                # НЕ БЫЛА ЛИ ЭТА ПЕШЕЧНАЯ АТАКА УЖЕ ВОЗМОЖНА?
+                # 6. ДО НАШЕГО ХОДА ЭТА ЖЕ ПЕШКА НЕ ДОЛЖНА
+                #    УЖЕ АТАКОВАТЬ ЭТУ ФИГУРУ
                 # ==================================================
 
-                before_target_piece = (
-                    board_before.piece_at(
+                before_attackers = (
+                    board_before.attackers(
+                        opponent_color,
                         target_square
                     )
                 )
 
-                if (
-                    before_target_piece
-                    and before_target_piece.color
-                    == our_color
-                    and before_target_piece.piece_type
-                    == target_piece.piece_type
-                ):
+                if opponent_move.from_square in before_attackers:
 
-                    before_attackers = (
-                        board_before.attackers(
-                            opponent_color,
-                            target_square
+                    before_pawn = (
+                        board_before.piece_at(
+                            opponent_move.from_square
                         )
                     )
 
-                    # Пешка уже атаковала эту фигуру
-                    # до нашего хода.
                     if (
-                        opponent_move.from_square
-                        in before_attackers
+                        before_pawn is not None
+                        and before_pawn.color == opponent_color
+                        and before_pawn.piece_type == chess.PAWN
                     ):
-
-                        before_attacker_piece = (
-                            board_before.piece_at(
-                                opponent_move.from_square
-                            )
-                        )
-
-                        if (
-                            before_attacker_piece
-                            and before_attacker_piece.piece_type
-                            == chess.PAWN
-                        ):
-
-                            continue
+                        continue
 
                 # ==================================================
-                # ТЕПЕРЬ ПРОВЕРЯЕМ:
-                #
-                # МОЖЕТ ЛИ ПЕШКА ПОСЛЕ СВОЕГО ХОДА
-                # РЕАЛЬНО ВЫИГРАТЬ ФИГУРУ?
+                # 7. ПЕШКА ДОЛЖНА ИМЕТЬ РЕАЛЬНОЕ ВЗЯТИЕ
+                #    ЭТОЙ ФИГУРЫ
                 # ==================================================
 
-                pawn_can_capture = False
+                pawn_capture = None
 
-                for enemy_capture in (
-                    test_board.legal_moves
-                ):
+                for enemy_capture in test_board.legal_moves:
 
                     if (
                         enemy_capture.from_square
@@ -570,17 +593,15 @@ def find_pawn_attack_threat(
                     ):
                         continue
 
-                    pawn_can_capture = True
+                    pawn_capture = enemy_capture
                     break
 
-                if not pawn_can_capture:
+                if pawn_capture is None:
                     continue
 
                 # ==================================================
-                # ПРОВЕРЯЕМ, МОЖЕМ ЛИ МЫ ПОСЛЕ ВЗЯТИЯ
-                # НОРМАЛЬНО ЗАБРАТЬ ПЕШКУ.
-                #
-                # Если можем — это не полноценная потеря фигуры.
+                # 8. ПРОВЕРЯЕМ, МОЖНО ЛИ ЗАБРАТЬ ПЕШКУ
+                #    ПОСЛЕ ЕЁ ВЗЯТИЯ НАШЕЙ ФИГУРЫ
                 # ==================================================
 
                 capture_board = test_board.copy()
@@ -588,7 +609,7 @@ def find_pawn_attack_threat(
                 try:
 
                     capture_board.push(
-                        enemy_capture
+                        pawn_capture
                     )
 
                 except Exception:
@@ -596,18 +617,21 @@ def find_pawn_attack_threat(
                     continue
 
                 pawn_after_capture_square = (
-                    enemy_capture.to_square
+                    pawn_capture.to_square
                 )
 
                 recapture_found = False
 
-                for our_response in (
-                    capture_board.legal_moves
-                ):
+                for our_response in capture_board.legal_moves:
 
                     if (
                         our_response.to_square
                         != pawn_after_capture_square
+                    ):
+                        continue
+
+                    if not capture_board.is_capture(
+                        our_response
                     ):
                         continue
 
@@ -617,13 +641,10 @@ def find_pawn_attack_threat(
                         )
                     )
 
-                    if not captured_piece:
+                    if captured_piece is None:
                         continue
 
-                    if (
-                        captured_piece.color
-                        == our_color
-                    ):
+                    if captured_piece.color == our_color:
                         continue
 
                     response_board = (
@@ -640,22 +661,19 @@ def find_pawn_attack_threat(
 
                         continue
 
-                    if response_board.is_check():
-                        continue
-
                     recapture_found = True
                     break
 
                 # ==================================================
-                # ЕСЛИ ПЕШКУ МОЖНО БЕСПРОБЛЕМНО ЗАБРАТЬ —
-                # НЕ СЧИТАЕМ ЭТО СЕРЬЁЗНОЙ УГРОЗОЙ.
+                # 9. ЕСЛИ ПЕШКУ МОЖНО НОРМАЛЬНО ЗАБРАТЬ,
+                #    ЭТО НЕ СЕРЬЁЗНАЯ ПЕШЕЧНАЯ УГРОЗА
                 # ==================================================
 
                 if recapture_found:
                     continue
 
                 # ==================================================
-                # КАНДИДАТ ДЕЙСТВИТЕЛЬНО ОПАСЕН
+                # 10. КАНДИДАТ ДЕЙСТВИТЕЛЬНО ОПАСЕН
                 # ==================================================
 
                 candidates.append(
@@ -663,29 +681,44 @@ def find_pawn_attack_threat(
                         "piece_name": piece_name(
                             target_piece
                         ),
+
                         "piece_type": (
                             target_piece.piece_type
                         ),
+
                         "target_square": (
                             target_square
                         ),
-                        "attacker_type": chess.PAWN,
+
+                        "attacker_type": (
+                            chess.PAWN
+                        ),
+
                         "attacker_square": (
                             attacker_square
                         ),
-                        "pawn_move": opponent_move,
+
+                        "pawn_move": (
+                            opponent_move
+                        ),
+
+                        "pawn_capture": (
+                            pawn_capture
+                        ),
+
+                        "is_new": True,
                     }
                 )
 
         # ==================================================
-        # НЕТ РЕАЛЬНОЙ УГРОЗЫ
+        # 11. НЕТ НОВОЙ ПЕШЕЧНОЙ УГРОЗЫ
         # ==================================================
 
         if not candidates:
             return None
 
         # ==================================================
-        # ПРИОРИТЕТ ПО ЦЕННОСТИ ФИГУРЫ
+        # 12. ПРИОРИТЕТ ПО ЦЕННОСТИ ФИГУРЫ
         # ==================================================
 
         candidates.sort(
@@ -702,7 +735,7 @@ def find_pawn_attack_threat(
 
         print(
             "Ошибка find_pawn_attack_threat:",
-            e
+            repr(e)
         )
 
         return None
@@ -713,21 +746,22 @@ def find_queen_tempo(
     played_move
 ):
     """
-    Проверяет, позволил ли сыгранный ход сопернику
-    получить НОВУЮ непосредственную атаку на нашего ферзя.
+    Проверяет, позволил ли сыгранный ход получить
+    НОВУЮ непосредственную атаку на нашего ферзя.
 
     Условия:
 
     1. Ферзь принадлежит нашей стороне.
-    2. Ферзь существует до и после нашего хода.
-    3. До нашего хода конкретная клетка ферзя
-       не атаковалась этой фигурой.
-    4. После нашего хода существует легальный ход соперника.
-    5. Именно фигура, которая делает этот ход,
-       после своего хода непосредственно атакует ферзя.
-    6. Ход не является просто открытием линии
-       другой фигуре.
-    7. Взятие ферзя также считается атакой.
+    2. Ферзь существует после сыгранного хода.
+    3. Если ферзь был передвинут, проверяется именно он.
+    4. До нашего хода выбранный ферзь не находился
+       под атакой выбранной фигурой.
+    5. После нашего хода существует легальный ход соперника.
+    6. Именно фигура, которая делает этот ход,
+       после хода непосредственно атакует ферзя.
+    7. Простое открытие линии другой фигуре
+       не считается queen tempo.
+    8. Взятие ферзя также считается атакой.
     """
 
     if (
@@ -740,14 +774,14 @@ def find_queen_tempo(
     try:
 
         # ==================================================
-        # СТОРОНЫ
+        # 1. СТОРОНЫ
         # ==================================================
 
         our_color = position_before.turn
         opponent_color = not our_color
 
         # ==================================================
-        # ФЕРЗИ ДО ХОДА
+        # 2. ФЕРЗИ ДО ХОДА
         # ==================================================
 
         queen_before = set(
@@ -761,7 +795,7 @@ def find_queen_tempo(
             return None
 
         # ==================================================
-        # ФЕРЗИ ПОСЛЕ ХОДА
+        # 3. ФЕРЗИ ПОСЛЕ ХОДА
         # ==================================================
 
         queen_after = set(
@@ -775,22 +809,55 @@ def find_queen_tempo(
             return None
 
         # ==================================================
-        # ЕСЛИ ФЕРЗЬ БЫЛ ВЗЯТ — НЕТ TEMPO
-        # ==================================================
-
-        # Если после сыгранного хода количество ферзей
-        # уменьшилось и наш ферзь исчез — проверять нечего.
+        # 4. ОПРЕДЕЛЯЕМ КОНКРЕТНОГО ФЕРЗЯ
         #
-        # Обычно этого достаточно, но оставляем отдельную
-        # проверку для надёжности.
+        # Если сыгранный ход был ходом ферзя,
+        # рассматриваем именно его.
+        #
+        # Иначе допускаем другого нашего ферзя
+        # только если он реально существует после хода.
+        # ==================================================
+
+        candidate_queens = []
+
+        played_piece_before = (
+            position_before.piece_at(
+                played_move.from_square
+            )
+        )
+
+        played_piece_after = (
+            board_after_played.piece_at(
+                played_move.to_square
+            )
+        )
+
+        if (
+            played_piece_before is not None
+            and played_piece_before.color == our_color
+            and played_piece_before.piece_type == chess.QUEEN
+            and played_piece_after is not None
+            and played_piece_after.color == our_color
+            and played_piece_after.piece_type == chess.QUEEN
+        ):
+
+            candidate_queens = [
+                played_move.to_square
+            ]
+
+        else:
+
+            candidate_queens = list(
+                queen_after
+            )
 
         # ==================================================
-        # ПРОВЕРЯЕМ КАЖДОГО НАШЕГО ФЕРЗЯ
+        # 5. ПРОВЕРЯЕМ КАЖДОГО КАНДИДАТА
         # ==================================================
 
         candidates = []
 
-        for queen_square in queen_after:
+        for queen_square in candidate_queens:
 
             queen_piece = (
                 board_after_played.piece_at(
@@ -799,14 +866,14 @@ def find_queen_tempo(
             )
 
             if (
-                not queen_piece
+                queen_piece is None
                 or queen_piece.piece_type != chess.QUEEN
                 or queen_piece.color != our_color
             ):
                 continue
 
             # ==================================================
-            # КТО АТАКОВАЛ ЭТОГО ФЕРЗЯ ДО НАШЕГО ХОДА?
+            # 6. КТО АТАКОВАЛ ФЕРЗЯ ДО ХОДА?
             # ==================================================
 
             before_attackers = set(
@@ -817,7 +884,7 @@ def find_queen_tempo(
             )
 
             # ==================================================
-            # КТО АТАКУЕТ ФЕРЗЯ ПОСЛЕ НАШЕГО ХОДА?
+            # 7. КТО АТАКУЕТ ФЕРЗЯ ПОСЛЕ ХОДА?
             # ==================================================
 
             after_attackers = set(
@@ -828,7 +895,7 @@ def find_queen_tempo(
             )
 
             # ==================================================
-            # НОВЫЕ АТАКУЮЩИЕ
+            # 8. НОВЫЕ АТАКУЮЩИЕ
             # ==================================================
 
             new_attackers = (
@@ -840,7 +907,7 @@ def find_queen_tempo(
                 continue
 
             # ==================================================
-            # ПРОВЕРЯЕМ РЕАЛЬНЫЕ ХОДЫ СОПЕРНИКА
+            # 9. ИЩЕМ КОНКРЕТНЫЙ ХОД СОПЕРНИКА
             # ==================================================
 
             for opponent_move in board_after_played.legal_moves:
@@ -849,13 +916,6 @@ def find_queen_tempo(
                     opponent_move.from_square
                 )
 
-                target_square = (
-                    opponent_move.to_square
-                )
-
-                # Фигура должна быть одной из тех,
-                # кто действительно появился среди
-                # новых атакующих.
                 if attacker_square not in new_attackers:
                     continue
 
@@ -865,23 +925,17 @@ def find_queen_tempo(
                     )
                 )
 
-                if not attacker_before:
+                if attacker_before is None:
                     continue
 
-                if (
-                    attacker_before.color
-                    != opponent_color
-                ):
+                if attacker_before.color != opponent_color:
                     continue
 
-                if (
-                    attacker_before.piece_type
-                    == chess.KING
-                ):
+                if attacker_before.piece_type == chess.KING:
                     continue
 
                 # ==================================================
-                # ПРОВЕРЯЕМ ХОД
+                # 10. ДЕЛАЕМ ХОД СОПЕРНИКА
                 # ==================================================
 
                 test_board = (
@@ -899,55 +953,36 @@ def find_queen_tempo(
                     continue
 
                 # ==================================================
-                # ГДЕ ОКАЗАЛАСЬ ФИГУРА ПОСЛЕ ХОДА?
+                # 11. ПРОВЕРЯЕМ ФИГУРУ ПОСЛЕ ХОДА
                 # ==================================================
 
                 moved_piece = (
                     test_board.piece_at(
-                        target_square
+                        opponent_move.to_square
                     )
                 )
 
-                if not moved_piece:
+                if moved_piece is None:
                     continue
 
-                if (
-                    moved_piece.color
-                    != opponent_color
+                if moved_piece.color != opponent_color:
+                    continue
+
+                if moved_piece.piece_type == chess.KING:
+                    continue
+
+                # ==================================================
+                # 12. ИМЕННО ПЕРЕДВИНУВШАЯСЯ ФИГУРА
+                #     ДОЛЖНА АТАКОВАТЬ ФЕРЗЯ
+                # ==================================================
+
+                if queen_square not in test_board.attacks(
+                    opponent_move.to_square
                 ):
                     continue
 
-                if (
-                    moved_piece.piece_type
-                    == chess.KING
-                ):
-                    continue
-
                 # ==================================================
-                # КЛЮЧЕВАЯ ПРОВЕРКА
-                #
-                # ИМЕННО ПЕРЕМЕСТИВШАЯСЯ ФИГУРА
-                # должна атаковать ферзя.
-                #
-                # Это исключает ложные случаи,
-                # когда ход просто открывает линию
-                # другой фигуре.
-                # ==================================================
-
-                moved_piece_attacks_queen = (
-                    queen_square
-                    in test_board.attacks(
-                        target_square
-                    )
-                )
-
-                if not moved_piece_attacks_queen:
-                    continue
-
-                # ==================================================
-                # ДОПОЛНИТЕЛЬНО:
-                # убеждаемся, что ферзь действительно
-                # находится под атакой после хода.
+                # 13. ДОПОЛНИТЕЛЬНАЯ ПРОВЕРКА
                 # ==================================================
 
                 actual_attackers = set(
@@ -957,11 +992,11 @@ def find_queen_tempo(
                     )
                 )
 
-                if target_square not in actual_attackers:
+                if opponent_move.to_square not in actual_attackers:
                     continue
 
                 # ==================================================
-                # SAN
+                # 14. SAN
                 # ==================================================
 
                 try:
@@ -974,39 +1009,43 @@ def find_queen_tempo(
 
                 except Exception:
 
-                    move_san = ""
+                    move_san = opponent_move.uci()
 
                 # ==================================================
-                # ДОБАВЛЯЕМ КАНДИДАТА
+                # 15. ДОБАВЛЯЕМ КАНДИДАТА
                 # ==================================================
 
                 candidates.append(
                     {
-                        "queen_square": queen_square,
+                        "queen_square":
+                            queen_square,
 
-                        "attacker_square": (
-                            attacker_square
-                        ),
+                        "attacker_square":
+                            opponent_move.from_square,
 
-                        "attacker_piece": (
-                            attacker_before
-                        ),
+                        "attacker_piece":
+                            attacker_before,
 
-                        "move": opponent_move,
+                        "move":
+                            opponent_move,
 
-                        "san": move_san,
+                        "san":
+                            move_san,
+
+                        "is_new":
+                            True,
                     }
                 )
 
         # ==================================================
-        # НИ ОДНОЙ РЕАЛЬНОЙ АТАКИ НЕТ
+        # 16. НИ ОДНОЙ НОВОЙ АТАКИ НЕТ
         # ==================================================
 
         if not candidates:
             return None
 
         # ==================================================
-        # ПРИОРИТЕТ ФИГУР
+        # 17. ПРИОРИТЕТ ФИГУРЫ
         # ==================================================
 
         attacker_priority = {
@@ -1033,7 +1072,7 @@ def find_queen_tempo(
         selected = candidates[0]
 
         # ==================================================
-        # DEBUG
+        # 18. DEBUG
         # ==================================================
 
         print(
@@ -1078,21 +1117,51 @@ def find_queen_tempo(
 
         print(
             "Ошибка find_queen_tempo:",
-            e
+            repr(e)
         )
 
         return None
-
+    
 def find_newly_attacked_piece_info(
     board_before,
     board_after,
     our_color
 ):
+    """
+    Ищет нашу фигуру, которая ПОСЛЕ сыгранного хода
+    оказалась под НОВОЙ атакой соперника.
 
-    if not board_before or not board_after:
+    Этот детектор НЕ определяет:
+        - является ли атака тактически сильной;
+        - можно ли выгодно разменяться;
+        - является ли это лучшим ответом Stockfish;
+        - является ли атака темпом;
+        - является ли атака пешечной угрозой.
+
+    Его задача только:
+
+        BEFORE:
+            фигура не была атакована конкретным соперником
+
+        AFTER:
+            тот же атакующий теперь атакует фигуру
+
+    Специализированные детекторы:
+        find_pawn_attack_threat()
+        find_piece_tempo_attack()
+        find_queen_tempo()
+
+    занимаются более конкретными случаями.
+    """
+
+    if board_before is None or board_after is None:
         return None
 
     try:
+
+        # ==================================================
+        # ПРИОРИТЕТ ФИГУР
+        # ==================================================
 
         piece_order = [
             chess.QUEEN,
@@ -1104,22 +1173,26 @@ def find_newly_attacked_piece_info(
 
         candidates = []
 
+        opponent_color = not our_color
+
         # ==================================================
-        # ИЩЕМ НАШИ ФИГУРЫ, КОТОРЫЕ ПОСЛЕ ХОДА
-        # ОКАЗАЛИСЬ ПОД НОВОЙ АТАКОЙ
+        # ИЩЕМ НАШИ ФИГУРЫ ПОСЛЕ ХОДА
         # ==================================================
 
         for piece_type in piece_order:
 
-            before_squares = set(
-                board_before.pieces(
+            after_squares = set(
+                board_after.pieces(
                     piece_type,
                     our_color
                 )
             )
 
-            after_squares = set(
-                board_after.pieces(
+            if not after_squares:
+                continue
+
+            before_squares = set(
+                board_before.pieces(
                     piece_type,
                     our_color
                 )
@@ -1129,12 +1202,19 @@ def find_newly_attacked_piece_info(
 
                 piece = board_after.piece_at(square)
 
-                if not piece:
+                if piece is None:
                     continue
+
+                if piece.color != our_color:
+                    continue
+
+                # ==================================================
+                # АТАКИ ПОСЛЕ НАШЕГО ХОДА
+                # ==================================================
 
                 attackers_after = set(
                     board_after.attackers(
-                        not our_color,
+                        opponent_color,
                         square
                     )
                 )
@@ -1142,24 +1222,28 @@ def find_newly_attacked_piece_info(
                 if not attackers_after:
                     continue
 
-                # --------------------------------------------------
-                # Какие атаки существовали ДО нашего хода?
-                # --------------------------------------------------
+                # ==================================================
+                # АТАКИ ДО НАШЕГО ХОДА
+                #
+                # Если фигура осталась на том же поле,
+                # сравниваем реальные атаки.
+                #
+                # Если фигура появилась на новом поле,
+                # до хода именно этой фигуры там не было,
+                # поэтому считаем все атаки новыми.
+                # ==================================================
 
                 if square in before_squares:
 
                     attackers_before = set(
                         board_before.attackers(
-                            not our_color,
+                            opponent_color,
                             square
                         )
                     )
 
                 else:
 
-                    # Фигура появилась на новом поле вследствие
-                    # нашего хода. До хода атак на этом поле для
-                    # неё не существовало.
                     attackers_before = set()
 
                 new_attackers = (
@@ -1171,7 +1255,7 @@ def find_newly_attacked_piece_info(
                     continue
 
                 # ==================================================
-                # ПРОВЕРЯЕМ НОВЫХ АТАКУЮЩИХ
+                # СОХРАНЯЕМ НОВЫХ АТАКУЮЩИХ
                 # ==================================================
 
                 for attacker_square in new_attackers:
@@ -1182,270 +1266,34 @@ def find_newly_attacked_piece_info(
                         )
                     )
 
-                    if not attacker_piece:
+                    if attacker_piece is None:
+                        continue
+
+                    if attacker_piece.color != opponent_color:
                         continue
 
                     # ==================================================
-                    # ПЕШЕЧНАЯ АТАКА
+                    # ПРОВЕРЯЕМ, ЧТО АТАКА ДЕЙСТВИТЕЛЬНО
+                    # ПРИНАДЛЕЖИТ ЭТОЙ ФИГУРЕ
+                    #
+                    # Это особенно полезно для линий:
+                    #
+                    # Rook -> piece
+                    # Bishop -> piece
+                    # Queen -> piece
+                    #
+                    # где атака могла открыться из-за другой фигуры.
                     # ==================================================
 
-                    if attacker_piece.piece_type == chess.PAWN:
-
-                        # ------------------------------------------------
-                        # ВАЖНО:
-                        #
-                        # Если наша фигура появилась на этом поле
-                        # именно после нашего хода и теперь её может
-                        # сразу взять пешка соперника, это может быть
-                        # обычным разменом.
-                        #
-                        # Поэтому сначала проверяем непосредственную
-                        # ответную взятие.
-                        # ------------------------------------------------
-
-                        immediate_pawn_capture = None
-
-                        for enemy_move in board_after.legal_moves:
-
-                            if (
-                                enemy_move.from_square
-                                != attacker_square
-                            ):
-                                continue
-
-                            if (
-                                enemy_move.to_square
-                                != square
-                            ):
-                                continue
-
-                            if not board_after.is_capture(
-                                enemy_move
-                            ):
-                                continue
-
-                            moving_piece = (
-                                board_after.piece_at(
-                                    enemy_move.from_square
-                                )
-                            )
-
-                            if not moving_piece:
-                                continue
-
-                            if (
-                                moving_piece.piece_type
-                                != chess.PAWN
-                            ):
-                                continue
-
-                            if (
-                                moving_piece.color
-                                != (not our_color)
-                            ):
-                                continue
-
-                            immediate_pawn_capture = enemy_move
-                            break
-
-                        # ------------------------------------------------
-                        # Если фигура пришла на это поле нашим последним
-                        # ходом и пешка может немедленно её взять,
-                        # проверяем, не является ли это обычным разменом.
-                        #
-                        # Например:
-                        #
-                        # Bxd6 cxd6
-                        #
-                        # Здесь НЕ нужно писать:
-                        #
-                        # "Вы позволили сопернику атаковать вашего слона
-                        # пешкой."
-                        # ------------------------------------------------
-
-                        if (
-                            square not in before_squares
-                            and immediate_pawn_capture is not None
-                        ):
-
-                            test_board = (
-                                board_after.copy()
-                            )
-
-                            try:
-
-                                test_board.push(
-                                    immediate_pawn_capture
-                                )
-
-                            except Exception:
-
-                                continue
-
-                            # ------------------------------------------------
-                            # После ответной взятия смотрим, может ли
-                            # наша сторона вернуть пешку/фигуру.
-                            # ------------------------------------------------
-
-                            recapture_found = False
-
-                            capture_square = (
-                                immediate_pawn_capture.to_square
-                            )
-
-                            for response_move in (
-                                test_board.legal_moves
-                            ):
-
-                                if (
-                                    response_move.to_square
-                                    != capture_square
-                                ):
-                                    continue
-
-                                target_piece = (
-                                    test_board.piece_at(
-                                        response_move.to_square
-                                    )
-                                )
-
-                                if not target_piece:
-                                    continue
-
-                                if (
-                                    target_piece.color
-                                    != (not our_color)
-                                ):
-                                    continue
-
-                                response_board = (
-                                    test_board.copy()
-                                )
-
-                                try:
-
-                                    response_board.push(
-                                        response_move
-                                    )
-
-                                except Exception:
-
-                                    continue
-
-                                # Ответ не должен оставлять нашего
-                                # короля под шахом.
-                                if response_board.is_check():
-                                    continue
-
-                                recapture_found = True
-                                break
-
-                            # ------------------------------------------------
-                            # Если после cxd6 мы можем спокойно забрать
-                            # пешку обратно, это обычный размен.
-                            # НЕ считаем его атакой фигуры.
-                            # ------------------------------------------------
-
-                            if recapture_found:
-
-                                continue
-
-                        # ------------------------------------------------
-                        # Теперь проверяем более общий случай:
-                        # пешка действительно создаёт материальную угрозу.
-                        # ------------------------------------------------
-
-                        pawn_capture = (
-                            immediate_pawn_capture
+                    actual_attackers = set(
+                        board_after.attackers(
+                            opponent_color,
+                            square
                         )
+                    )
 
-                        if pawn_capture is None:
-
-                            # Пешка формально атакует фигуру,
-                            # но прямо сейчас взять её не может.
-                            continue
-
-                        test_board = (
-                            board_after.copy()
-                        )
-
-                        try:
-
-                            test_board.push(
-                                pawn_capture
-                            )
-
-                        except Exception:
-
-                            continue
-
-                        pawn_square_after = (
-                            pawn_capture.to_square
-                        )
-
-                        # ------------------------------------------------
-                        # Может ли наша сторона после взятия
-                        # вернуть пешку?
-                        # ------------------------------------------------
-
-                        recapture_found = False
-
-                        for response_move in (
-                            test_board.legal_moves
-                        ):
-
-                            if (
-                                response_move.to_square
-                                != pawn_square_after
-                            ):
-                                continue
-
-                            target_piece = (
-                                test_board.piece_at(
-                                    response_move.to_square
-                                )
-                            )
-
-                            if not target_piece:
-                                continue
-
-                            if (
-                                target_piece.color
-                                != (not our_color)
-                            ):
-                                continue
-
-                            response_board = (
-                                test_board.copy()
-                            )
-
-                            try:
-
-                                response_board.push(
-                                    response_move
-                                )
-
-                            except Exception:
-
-                                continue
-
-                            if response_board.is_check():
-                                continue
-
-                            recapture_found = True
-                            break
-
-                        # ------------------------------------------------
-                        # Если пешку можно спокойно забрать обратно,
-                        # это не серьёзная пешечная угроза.
-                        # ------------------------------------------------
-
-                        if recapture_found:
-                            continue
-
-                    # ==================================================
-                    # СОХРАНЯЕМ КАНДИДАТА
-                    # ==================================================
+                    if attacker_square not in actual_attackers:
+                        continue
 
                     candidates.append(
                         {
@@ -1454,12 +1302,23 @@ def find_newly_attacked_piece_info(
                             ),
                             "piece_type": piece_type,
                             "square": square,
-                            "attacker_piece": attacker_piece,
+
+                            "attacker_piece": (
+                                attacker_piece
+                            ),
+
                             "attacker_type": (
                                 attacker_piece.piece_type
                             ),
+
                             "attacker_square": (
                                 attacker_square
+                            ),
+
+                            "is_new": True,
+
+                            "was_on_same_square": (
+                                square in before_squares
                             ),
                         }
                     )
@@ -1472,38 +1331,33 @@ def find_newly_attacked_piece_info(
             return None
 
         # ==================================================
-        # ПЕШЕЧНЫЕ АТАКИ — ПРИОРИТЕТНЫЕ
-        # НО ТОЛЬКО ПОСЛЕ ВСЕХ ФИЛЬТРОВ
+        # ПРИОРИТЕТ:
+        #
+        # 1. Более ценная наша фигура
+        # 2. Более сильный атакующий
+        #
+        # Это НЕ оценка ошибки.
+        # Это только выбор кандидата для объяснения.
         # ==================================================
 
-        pawn_attacks = [
-            candidate
-            for candidate in candidates
-            if candidate.get(
-                "attacker_type"
-            ) == chess.PAWN
-        ]
-
-        if pawn_attacks:
-
-            pawn_attacks.sort(
-                key=lambda x: PIECE_VALUES.get(
-                    x.get("piece_type"),
-                    0
-                ),
-                reverse=True
-            )
-
-            return pawn_attacks[0]
-
-        # ==================================================
-        # ОСТАЛЬНЫЕ АТАКИ
-        # ==================================================
+        attacker_values = {
+            chess.PAWN: 1,
+            chess.KNIGHT: 3,
+            chess.BISHOP: 3,
+            chess.ROOK: 5,
+            chess.QUEEN: 9,
+        }
 
         candidates.sort(
-            key=lambda x: PIECE_VALUES.get(
-                x.get("piece_type"),
-                0
+            key=lambda item: (
+                PIECE_VALUES.get(
+                    item.get("piece_type"),
+                    0
+                ),
+                attacker_values.get(
+                    item.get("attacker_type"),
+                    0
+                ),
             ),
             reverse=True
         )
@@ -1514,7 +1368,7 @@ def find_newly_attacked_piece_info(
 
         print(
             "Ошибка find_newly_attacked_piece_info:",
-            e
+            repr(e)
         )
 
         return None
@@ -1525,6 +1379,15 @@ def find_newly_attacked_piece(
     board_after,
     our_color
 ):
+    """
+    Совместимость со старым кодом.
+
+    Возвращает:
+
+        (piece_name, square)
+
+    либо None.
+    """
 
     info = find_newly_attacked_piece_info(
         board_before,
@@ -1544,18 +1407,41 @@ def detect_tempo_material_loss(
     board,
     played_move,
     best_move_obj,
-    best_move
+    best_move,
+    played_results=None
 ):
+    """
+    Определяет ситуацию:
+
+        мы могли взять материал,
+        но вместо этого сыграли другой ход;
+
+        после нашего хода соперник получает
+        конкретный темп / материальную компенсацию.
+
+    ВАЖНО:
+
+    Используется ПЕРВЫЙ ХОД PV соперника,
+    а не любой возможный legal move.
+
+    Поэтому функция не должна придумывать угрозу,
+    которую Stockfish реально не выбирает.
+    """
 
     if (
-        not board
-        or not played_move
-        or not best_move_obj
+        board is None
+        or played_move is None
+        or best_move_obj is None
         or not best_move
+        or not played_results
     ):
         return None
 
     try:
+
+        # ==================================================
+        # 1. СЫГРАННЫЙ ХОД ДЕЙСТВИТЕЛЬНО ЗАБИРАЕТ МАТЕРИАЛ
+        # ==================================================
 
         captured_name = detect_material_gain(
             board,
@@ -1565,73 +1451,129 @@ def detect_tempo_material_loss(
         if not captured_name:
             return None
 
+        # ==================================================
+        # 2. BEST MOVE НЕ ДОЛЖЕН БЫТЬ ПРОСТЫМ ВЗЯТИЕМ
+        # ==================================================
+
         if detect_material_gain(
             board,
             best_move_obj
         ):
             return None
 
+        # ==================================================
+        # 3. ЛУЧШАЯ ФИГУРА
+        # ==================================================
+
         best_piece = board.piece_at(
             best_move_obj.from_square
         )
 
-        if not best_piece:
+        if best_piece is None:
             return None
+
+        # ==================================================
+        # 4. ПОЗИЦИЯ ПОСЛЕ НАШЕГО ХОДА
+        # ==================================================
 
         after_played = make_position_after(
             board,
             played_move
         )
 
-        if not after_played:
+        if after_played is None:
             return None
 
         opponent_color = after_played.turn
         our_color = not opponent_color
 
-        # --------------------------------------------------
-        # СНАЧАЛА ПРОВЕРЯЕМ ПЕШЕЧНУЮ УГРОЗУ
-        # --------------------------------------------------
+        # ==================================================
+        # 5. ПЕРВЫЙ ХОД PV СОПЕРНИКА
+        # ==================================================
 
-        pawn_threat = (
-            find_pawn_attack_threat(
-                board,
-                after_played,
-                our_color
+        first_result = played_results[0]
+
+        if not isinstance(first_result, dict):
+            return None
+
+        pv = first_result.get("pv")
+
+        if not pv:
+            return None
+
+        opponent_move = pv[0]
+
+        if opponent_move not in after_played.legal_moves:
+            return None
+
+        # ==================================================
+        # 6. SAN ХОДА СОПЕРНИКА
+        # ==================================================
+
+        try:
+            opponent_san = after_played.san(
+                opponent_move
             )
+        except Exception:
+            opponent_san = opponent_move.uci()
+
+        # ==================================================
+        # 7. ПЕШЕЧНАЯ УГРОЗА
+        #
+        # Но только если именно ПЕРВЫЙ ХОД PV
+        # является той самой пешечной атакой.
+        # ==================================================
+
+        pawn_threat = find_pawn_attack_threat(
+            board,
+            after_played,
+            our_color
         )
 
         if pawn_threat:
 
-            attacked_piece_name = (
-                pawn_threat.get(
-                    "piece_name"
+            pawn_move = pawn_threat.get(
+                "pawn_move"
+            )
+
+            if (
+                pawn_move is not None
+                and pawn_move == opponent_move
+            ):
+
+                attacked_piece_name = (
+                    pawn_threat.get(
+                        "piece_name"
+                    )
                 )
-            )
 
-            attacked_square = (
-                pawn_threat.get(
-                    "target_square"
+                attacked_square = (
+                    pawn_threat.get(
+                        "target_square"
+                    )
                 )
-            )
 
-            square_name = chess.square_name(
-                attacked_square
-            )
+                if attacked_square is not None:
 
-            return (
-                f"Вместо взятия {captured_name} "
-                f"ходом {played_move} стоило сыграть "
-                f"{best_move}. После взятия соперник "
-                f"может атаковать вашу "
-                f"{attacked_piece_name} пешкой "
-                f"на {square_name}, получая темп "
-                f"и усиливая свою инициативу."
-            )
+                    square_name = chess.square_name(
+                        attacked_square
+                    )
 
-        # --------------------------------------------------
-        # ТЕМП НА ФЕРЗЯ
-        # --------------------------------------------------
+                    return (
+                        f"Вместо взятия {captured_name} "
+                        f"ходом {played_move} стоило сыграть "
+                        f"{best_move}. После этого соперник "
+                        f"получает темп ходом {opponent_san}, "
+                        f"атакуя вашу {attacked_piece_name} "
+                        f"на {square_name}."
+                    )
+
+        # ==================================================
+        # 8. ТЕМП НА ФЕРЗЯ
+        #
+        # find_queen_tempo() тоже должен совпадать
+        # именно с первым ходом PV.
+        # ==================================================
 
         queen_tempo = find_queen_tempo(
             board,
@@ -1641,33 +1583,45 @@ def detect_tempo_material_loss(
 
         if queen_tempo:
 
-            return (
-                f"Вместо взятия {captured_name} "
-                f"ходом {played_move} стоило сыграть "
-                f"{best_move}. После взятия соперник "
-                f"получает темп, атакуя ферзя, "
-                f"и усиливает свою инициативу."
+            queen_move = queen_tempo.get(
+                "move"
             )
 
-        # --------------------------------------------------
-        # ШАХ
-        # --------------------------------------------------
-
-        for reply in after_played.legal_moves:
-
-            if after_played.gives_check(reply):
+            if (
+                queen_move is not None
+                and queen_move == opponent_move
+            ):
 
                 return (
                     f"Вместо взятия {captured_name} "
                     f"ходом {played_move} стоило сыграть "
-                    f"{best_move}. После взятия соперник "
-                    f"получает темп с шахом и усиливает "
-                    f"свою инициативу."
+                    f"{best_move}. После этого соперник "
+                    f"получает темп ходом "
+                    f"{opponent_san}, атакуя ферзя."
                 )
 
-        # --------------------------------------------------
-        # НОВАЯ АТАКА НА ФИГУРУ
-        # --------------------------------------------------
+        # ==================================================
+        # 9. ПЕРВЫЙ ХОД PV — ШАХ
+        # ==================================================
+
+        if after_played.gives_check(
+            opponent_move
+        ):
+
+            return (
+                f"Вместо взятия {captured_name} "
+                f"ходом {played_move} стоило сыграть "
+                f"{best_move}. После этого соперник "
+                f"получает темп с шахом "
+                f"{opponent_san}."
+            )
+
+        # ==================================================
+        # 10. НОВАЯ АТАКА НА ФИГУРУ
+        #
+        # Здесь используем только если именно первый
+        # ход PV создаёт атаку.
+        # ==================================================
 
         attacked = find_newly_attacked_piece(
             board,
@@ -1693,56 +1647,50 @@ def detect_tempo_material_loss(
                     f"Вместо взятия {captured_name} "
                     f"ходом {played_move} стоило улучшить "
                     f"{best_piece_name} ходом {best_move}. "
-                    f"После взятия соперник получает темп, "
-                    f"атакуя вашу {attacked_piece_name} "
-                    f"на {square_name}, и усиливает "
-                    f"свою инициативу."
+                    f"После этого соперник получает темп "
+                    f"ходом {opponent_san}, атакуя вашу "
+                    f"{attacked_piece_name} на {square_name}."
                 )
 
             return (
                 f"Вместо взятия {captured_name} "
                 f"ходом {played_move} стоило сыграть "
-                f"{best_move}. После взятия соперник "
-                f"получает темп, атакуя вашу "
-                f"{attacked_piece_name} на {square_name}, "
-                f"и усиливает свою инициативу."
+                f"{best_move}. После этого соперник "
+                f"получает темп ходом {opponent_san}, "
+                f"атакуя вашу {attacked_piece_name} "
+                f"на {square_name}."
             )
 
-        # --------------------------------------------------
-        # СОПЕРНИК МОЖЕТ СРАЗУ ЗАБРАТЬ ФИГУРУ
-        # --------------------------------------------------
+        # ==================================================
+        # 11. ПЕРВЫЙ ХОД PV СРАЗУ ЗАБИРАЕТ ФИГУРУ
+        # ==================================================
 
-        for reply in after_played.legal_moves:
+        captured_piece = get_captured_piece(
+            after_played,
+            opponent_move
+        )
 
-            captured_piece = get_captured_piece(
-                after_played,
-                reply
-            )
+        if captured_piece is not None:
 
-            if not captured_piece:
-                continue
-
-            if captured_piece.piece_type in (
+            if captured_piece.piece_type not in (
                 chess.PAWN,
                 chess.KING,
             ):
-                continue
 
-            captured_name_by_reply = piece_name(
-                captured_piece
-            )
+                captured_name_by_reply = piece_name(
+                    captured_piece
+                )
 
-            if not captured_name_by_reply:
-                continue
+                if captured_name_by_reply:
 
-            return (
-                f"Вместо взятия {captured_name} "
-                f"ходом {played_move} стоило сыграть "
-                f"{best_move}. После взятия соперник "
-                f"получает темп и может сразу забрать "
-                f"{captured_name_by_reply}, усиливая "
-                f"свою инициативу."
-            )
+                    return (
+                        f"Вместо взятия {captured_name} "
+                        f"ходом {played_move} стоило сыграть "
+                        f"{best_move}. После этого соперник "
+                        f"сразу играет {opponent_san} "
+                        f"и забирает "
+                        f"{captured_name_by_reply}."
+                    )
 
         return None
 
@@ -1750,11 +1698,11 @@ def detect_tempo_material_loss(
 
         print(
             "Ошибка detect_tempo_material_loss:",
-            e
+            repr(e)
         )
 
         return None
-
+    
 def detect_equal_trade(
     board,
     best_move
@@ -1876,6 +1824,29 @@ def _find_pin_material_sequence(
     board_after,
     our_color
 ):
+    """
+    Ищет конкретную последовательность:
+
+        наш ход
+        ->
+        новый ход соперника
+        ->
+        новая абсолютная связка
+        ->
+        соперник реально может забрать связанную фигуру
+        ->
+        нормального отбоя нет
+
+    ВАЖНО:
+    Этот детектор отвечает именно за материальную потерю
+    через абсолютную связку.
+
+    Он НЕ должен срабатывать просто потому, что:
+        - фигура оказалась связана;
+        - фигура оказалась атакована;
+        - фигура временно неподвижна;
+        - соперник получил шах.
+    """
 
     if (
         board_before is None
@@ -1887,11 +1858,19 @@ def _find_pin_material_sequence(
 
         opponent_color = not our_color
 
+        # ==========================================================
+        # ТИПЫ ФИГУР, КОТОРЫЕ МОГУТ СОЗДАВАТЬ ЛИНЕЙНУЮ СВЯЗКУ
+        # ==========================================================
+
         slider_types = {
             chess.ROOK,
             chess.BISHOP,
             chess.QUEEN,
         }
+
+        # ==========================================================
+        # ЦЕННОСТЬ ФИГУР
+        # ==========================================================
 
         piece_values = {
             chess.PAWN: 1,
@@ -1903,8 +1882,7 @@ def _find_pin_material_sequence(
         }
 
         def get_value(piece):
-
-            if not piece:
+            if piece is None:
                 return 0
 
             return piece_values.get(
@@ -1912,38 +1890,49 @@ def _find_pin_material_sequence(
                 0
             )
 
-        # ==================================================
-        # ПРОВЕРКА: МОЖНО ЛИ ПОСЛЕ ВЗЯТИЯ ОТБИТЬ ФИГУРУ
-        # ==================================================
+        # ==========================================================
+        # ПРОВЕРКА:
+        #
+        # МОЖНО ЛИ ПОСЛЕ ВЗЯТИЯ ОТБИТЬ АТАКУЮЩУЮ ФИГУРУ?
+        #
+        # Например:
+        #
+        # ...Qxe4
+        # Rxe4
+        #
+        # Тогда это не чистая потеря фигуры.
+        # ==========================================================
 
         def can_recapture(
             position,
             capture_move
         ):
-
             try:
 
                 test = position.copy()
 
-                attacker_square = (
-                    capture_move.from_square
-                )
+                # ВАЖНО:
+                #
+                # После capture_move атакующая фигура находится
+                # уже НА to_square.
+                #
+                # Поэтому именно to_square является целью
+                # потенциального ответного взятия.
+
+                attacker_square = capture_move.to_square
 
                 test.push(capture_move)
 
                 for reply in list(test.legal_moves):
 
-                    if (
-                        reply.to_square
-                        != attacker_square
-                    ):
+                    if reply.to_square != attacker_square:
                         continue
 
                     piece = test.piece_at(
                         reply.from_square
                     )
 
-                    if not piece:
+                    if piece is None:
                         continue
 
                     if piece.color != our_color:
@@ -1953,20 +1942,18 @@ def _find_pin_material_sequence(
                         reply.to_square
                     )
 
-                    if not target:
+                    if target is None:
                         continue
 
                     if target.color != opponent_color:
                         continue
 
+                    # Проверяем, что ответ действительно можно сыграть.
                     after = test.copy()
 
                     try:
                         after.push(reply)
                     except Exception:
-                        continue
-
-                    if after.is_check():
                         continue
 
                     return True
@@ -1976,23 +1963,35 @@ def _find_pin_material_sequence(
 
             return False
 
-        # ==================================================
-        # ПРОВЕРКА АБСОЛЮТНОЙ СВЯЗКИ
-        # ==================================================
+        # ==========================================================
+        # ПРОВЕРКА:
+        #
+        # ЯВЛЯЕТСЯ ЛИ ФИГУРА АБСОЛЮТНО СВЯЗАННОЙ?
+        #
+        # Схема:
+        #
+        # атакующая фигура
+        #       |
+        #     наша фигура
+        #       |
+        #      король
+        #
+        # Причём атакующая фигура должна реально атаковать
+        # связанную фигуру.
+        # ==========================================================
 
         def get_absolute_pin_info(
             position,
             pin_move,
             pinned_square
         ):
-
             try:
 
                 pinned_piece = position.piece_at(
                     pinned_square
                 )
 
-                if not pinned_piece:
+                if pinned_piece is None:
                     return None
 
                 if pinned_piece.color != our_color:
@@ -2001,6 +2000,10 @@ def _find_pin_material_sequence(
                 if pinned_piece.piece_type == chess.KING:
                     return None
 
+                # --------------------------------------------------
+                # Король нашей стороны
+                # --------------------------------------------------
+
                 king_square = position.king(
                     our_color
                 )
@@ -2008,22 +2011,29 @@ def _find_pin_material_sequence(
                 if king_square is None:
                     return None
 
-                # Фигура действительно абсолютна связана.
+                # --------------------------------------------------
+                # python-chess уже умеет определять абсолютную
+                # связку.
+                # --------------------------------------------------
+
                 if not position.is_pinned(
                     our_color,
                     pinned_square
                 ):
                     return None
 
-                attacker_square = (
-                    pin_move.to_square
-                )
+                # --------------------------------------------------
+                # Ход соперника должен быть именно той фигурой,
+                # которая сейчас создаёт связку.
+                # --------------------------------------------------
+
+                attacker_square = pin_move.to_square
 
                 attacker_piece = position.piece_at(
                     attacker_square
                 )
 
-                if not attacker_piece:
+                if attacker_piece is None:
                     return None
 
                 if attacker_piece.color != opponent_color:
@@ -2031,6 +2041,10 @@ def _find_pin_material_sequence(
 
                 if attacker_piece.piece_type not in slider_types:
                     return None
+
+                # --------------------------------------------------
+                # Координаты
+                # --------------------------------------------------
 
                 attacker_file = chess.square_file(
                     attacker_square
@@ -2057,7 +2071,7 @@ def _find_pin_material_sequence(
                 )
 
                 # --------------------------------------------------
-                # Все три точки должны лежать на одной линии.
+                # Все три точки должны находиться на одной линии.
                 # --------------------------------------------------
 
                 same_file = (
@@ -2102,7 +2116,7 @@ def _find_pin_material_sequence(
                     return None
 
                 # --------------------------------------------------
-                # Направление:
+                # Проверяем направление:
                 #
                 # attacker -> pinned -> king
                 # --------------------------------------------------
@@ -2114,16 +2128,32 @@ def _find_pin_material_sequence(
                 dy2 = king_rank - pinned_rank
 
                 if dx1 != 0:
-                    dx1 = 1 if dx1 > 0 else -1
+                    dx1 = (
+                        1
+                        if dx1 > 0
+                        else -1
+                    )
 
                 if dy1 != 0:
-                    dy1 = 1 if dy1 > 0 else -1
+                    dy1 = (
+                        1
+                        if dy1 > 0
+                        else -1
+                    )
 
                 if dx2 != 0:
-                    dx2 = 1 if dx2 > 0 else -1
+                    dx2 = (
+                        1
+                        if dx2 > 0
+                        else -1
+                    )
 
                 if dy2 != 0:
-                    dy2 = 1 if dy2 > 0 else -1
+                    dy2 = (
+                        1
+                        if dy2 > 0
+                        else -1
+                    )
 
                 if (
                     dx1 != dx2
@@ -2132,8 +2162,8 @@ def _find_pin_material_sequence(
                     return None
 
                 # --------------------------------------------------
-                # Проверяем, что между связующей фигурой
-                # и связанной фигурой нет другой фигуры.
+                # Проверяем, что между attacker и pinned нет
+                # другой фигуры.
                 # --------------------------------------------------
 
                 current_file = (
@@ -2164,17 +2194,25 @@ def _find_pin_material_sequence(
                     current_file += dx1
                     current_rank += dy1
 
+                # --------------------------------------------------
+                # Король действительно существует.
+                # --------------------------------------------------
+
                 king_piece = position.piece_at(
                     king_square
                 )
 
-                if not king_piece:
+                if king_piece is None:
+                    return None
+
+                if king_piece.color != our_color:
+                    return None
+
+                if king_piece.piece_type != chess.KING:
                     return None
 
                 # --------------------------------------------------
-                # Очень важно:
-                #
-                # Связующая фигура должна реально атаковать
+                # Атакующая фигура должна реально атаковать
                 # связанную фигуру.
                 # --------------------------------------------------
 
@@ -2196,55 +2234,52 @@ def _find_pin_material_sequence(
             except Exception:
                 return None
 
-        # ==================================================
-        # БЫЛА ЛИ СВЯЗКА ДО НАШЕГО ХОДА?
-        # ==================================================
+        # ==========================================================
+        # БЫЛА ЛИ ТАКАЯ СВЯЗКА ДО НАШЕГО ХОДА?
+        #
+        # Если фигура уже была абсолютно связана,
+        # наш ход не создавал эту тактику.
+        # ==========================================================
 
         def pin_already_existed(
-            pinned_square,
-            pin_move
+            pinned_square
         ):
-
             try:
 
                 before_piece = board_before.piece_at(
                     pinned_square
                 )
 
-                if not before_piece:
-                    return True
+                if before_piece is None:
+                    return False
 
                 if before_piece.color != our_color:
-                    return True
+                    return False
 
-                # Если фигура уже была абсолютно связана,
-                # это не новая тактическая причина.
-                if board_before.is_pinned(
+                if before_piece.piece_type == chess.KING:
+                    return False
+
+                return board_before.is_pinned(
                     our_color,
                     pinned_square
-                ):
-                    return True
-
-                # --------------------------------------------------
-                # ВАЖНО:
-                #
-                # pin_move.to_square в старой позиции может быть
-                # пустым, поэтому здесь нельзя считать отсутствие
-                # фигуры доказательством отсутствия связки.
-                #
-                # Нас интересует именно новая связка после хода.
-                # --------------------------------------------------
-
-                return False
+                )
 
             except Exception:
                 return False
 
-        # ==================================================
-        # ИЩЕМ ХОД СОПЕРНИКА, КОТОРЫЙ СОЗДАЁТ НОВУЮ СВЯЗКУ
-        # ==================================================
+        # ==========================================================
+        # КАНДИДАТЫ
+        # ==========================================================
 
         candidates = []
+
+        # ==========================================================
+        # ПЕРЕБИРАЕМ ХОДЫ СОПЕРНИКА ПОСЛЕ НАШЕГО ХОДА
+        #
+        # ВАЖНО:
+        # Мы НЕ признаём сам факт связки достаточным.
+        # Ниже обязательно должно быть конкретное взятие.
+        # ==========================================================
 
         for pin_move in list(
             board_after.legal_moves
@@ -2256,7 +2291,7 @@ def _find_pin_material_sequence(
                     pin_move.from_square
                 )
 
-                if not attacker:
+                if attacker is None:
                     continue
 
                 if attacker.color != opponent_color:
@@ -2266,24 +2301,20 @@ def _find_pin_material_sequence(
                     continue
 
                 # --------------------------------------------------
-                # Делаем ход соперника.
-                #
-                # ВАЖНО:
-                # Здесь разрешаем шах!
-                #
-                # Именно это исправляет проблему Qh4+.
+                # Выполняем ход соперника.
                 # --------------------------------------------------
 
                 test_board = board_after.copy()
 
                 try:
-                    test_board.push(pin_move)
+                    test_board.push(
+                        pin_move
+                    )
                 except Exception:
                     continue
 
                 # --------------------------------------------------
-                # Если ход создаёт новую абсолютную связку,
-                # перебираем наши фигуры.
+                # После хода соперника перебираем наши фигуры.
                 # --------------------------------------------------
 
                 for pinned_square, pinned_piece in list(
@@ -2293,17 +2324,31 @@ def _find_pin_material_sequence(
                     if pinned_piece.color != our_color:
                         continue
 
+                    # Король сам себя не считаем связанной фигурой.
                     if pinned_piece.piece_type == chess.KING:
                         continue
 
-                    # Связывать пешку для этого объяснения
-                    # не считаем выигрышем фигуры.
+                    # Пешка здесь не является материальной целью
+                    # для pin_material_loss.
                     if pinned_piece.piece_type == chess.PAWN:
                         continue
 
-                    # Нужна хотя бы лёгкая фигура.
+                    # Нужна как минимум лёгкая фигура.
                     if get_value(pinned_piece) < 3:
                         continue
+
+                    # --------------------------------------------------
+                    # Связка должна быть новой.
+                    # --------------------------------------------------
+
+                    if pin_already_existed(
+                        pinned_square
+                    ):
+                        continue
+
+                    # --------------------------------------------------
+                    # Проверяем абсолютную связку.
+                    # --------------------------------------------------
 
                     pin_info = get_absolute_pin_info(
                         test_board,
@@ -2314,101 +2359,106 @@ def _find_pin_material_sequence(
                     if not pin_info:
                         continue
 
-                    if pin_already_existed(
-                        pinned_square,
-                        pin_move
-                    ):
-                        continue
-
                     # ==================================================
-                    # НОВОЕ:
+                    # ИЩЕМ КОНКРЕТНОЕ ВЗЯТИЕ СВЯЗАННОЙ ФИГУРЫ
+                    # ==================================================
                     #
-                    # Если pin_move даёт шах, сначала ищем ответы
-                    # на шах, а уже после них проверяем возможность
-                    # выиграть связанную фигуру.
+                    # Если ход pin_move даёт шах, legal_moves уже
+                    # автоматически содержит только допустимые ответы
+                    # на шах.
+                    #
+                    # Но нам НЕ нужно считать ответ на шах самой
+                    # причиной потери.
+                    #
+                    # Нас интересует:
+                    #
+                    # после pin_move
+                    # или после обязательного ответа на шах
+                    # соперник получает реальное взятие фигуры.
                     # ==================================================
 
-                    legal_replies = list(
-                        test_board.legal_moves
-                    )
+                    positions_to_check = []
 
-                    # --------------------------------------------------
-                    # Если это не шах — всё равно рассматриваем
-                    # позицию непосредственно после pin_move.
-                    # --------------------------------------------------
-
-                    positions_after_pin = [
+                    # Позиция сразу после pin_move.
+                    positions_to_check.append(
                         (
                             test_board,
                             None
                         )
-                    ]
+                    )
 
                     # --------------------------------------------------
-                    # Если это шах, добавляем позиции после каждого
-                    # нормального ответа на шах.
+                    # Если pin_move дал шах, добавляем позиции после
+                    # каждого легального ответа.
                     # --------------------------------------------------
 
                     if test_board.is_check():
 
-                        for reply in legal_replies:
+                        for reply in list(
+                            test_board.legal_moves
+                        ):
 
                             reply_board = (
                                 test_board.copy()
                             )
 
                             try:
-                                reply_board.push(reply)
+                                reply_board.push(
+                                    reply
+                                )
                             except Exception:
                                 continue
 
-                            positions_after_pin.append(
+                            positions_to_check.append(
                                 (
                                     reply_board,
                                     reply
                                 )
                             )
 
-                    # ==================================================
-                    # ИЩЕМ РЕАЛЬНЫЙ ВЫИГРЫШ СВЯЗАННОЙ ФИГУРЫ
-                    # ==================================================
+                    # --------------------------------------------------
+                    # Ищем лучший конкретный capture.
+                    # --------------------------------------------------
 
                     best_capture = None
                     best_capture_board = None
                     best_reply = None
 
-                    for position_after_pin, reply in (
-                        positions_after_pin
-                    ):
-
-                        # --------------------------------------------------
-                        # Проверяем: может ли соперник взять связанную
-                        # фигуру следующим ходом?
-                        # --------------------------------------------------
+                    for (
+                        position_after_pin,
+                        reply
+                    ) in positions_to_check:
 
                         for capture_move in list(
                             position_after_pin.legal_moves
                         ):
 
+                            # Целью должна быть именно связанная фигура.
                             if (
                                 capture_move.to_square
                                 != pinned_square
                             ):
                                 continue
 
-                            captured_piece = (
-                                get_captured_piece(
-                                    position_after_pin,
-                                    capture_move
-                                )
+                            # Должно быть настоящее взятие.
+                            if not position_after_pin.is_capture(
+                                capture_move
+                            ):
+                                continue
+
+                            captured_piece = get_captured_piece(
+                                position_after_pin,
+                                capture_move
                             )
 
-                            if not captured_piece:
+                            if captured_piece is None:
                                 continue
 
                             if captured_piece.color != our_color:
                                 continue
 
+                            # Пешка и король здесь не считаются
+                            # материальной потерей через этот детектор.
                             if captured_piece.piece_type in (
                                 chess.PAWN,
                                 chess.KING,
@@ -2421,7 +2471,7 @@ def _find_pin_material_sequence(
                                 )
                             )
 
-                            if not capturing_piece:
+                            if capturing_piece is None:
                                 continue
 
                             if (
@@ -2438,14 +2488,19 @@ def _find_pin_material_sequence(
                                 capturing_piece
                             )
 
-                            # Не считаем размен выигрышем материала,
-                            # если более дорогая фигура берёт более
-                            # дешёвую.
+                            # --------------------------------------------------
+                            # Если соперник отдаёт более дорогую фигуру
+                            # за более дешёвую — это не тот случай.
+                            # --------------------------------------------------
+
                             if attacker_value > captured_value:
                                 continue
 
-                            # Если после взятия наша фигура спокойно
-                            # отбивает атакующего — это не выигрыш.
+                            # --------------------------------------------------
+                            # Если мы можем нормально отбить атакующую
+                            # фигуру — чистой потери нет.
+                            # --------------------------------------------------
+
                             if can_recapture(
                                 position_after_pin,
                                 capture_move
@@ -2465,7 +2520,9 @@ def _find_pin_material_sequence(
                                 or
                                 candidate["captured_value"]
                                 >
-                                best_capture["captured_value"]
+                                best_capture[
+                                    "captured_value"
+                                ]
                             ):
                                 best_capture = candidate
                                 best_capture_board = (
@@ -2473,62 +2530,20 @@ def _find_pin_material_sequence(
                                 )
                                 best_reply = reply
 
-                    # ==================================================
-                    # ЕСЛИ НЕМЕДЛЕННОГО ВЗЯТИЯ НЕТ
+                    # --------------------------------------------------
+                    # КРИТИЧЕСКО:
                     #
-                    # Всё равно разрешаем детектору признать новую
-                    # абсолютную связку, если она делает фигуру
-                    # фактически неподвижной.
+                    # Если конкретного взятия нет —
+                    # это НЕ pin_material_loss.
                     #
-                    # Это особенно важно для шаха + связки.
-                    # ==================================================
+                    # Просто новая связка недостаточна.
+                    # --------------------------------------------------
 
                     if best_capture is None:
-
-                        # Фигура должна действительно быть
-                        # неподвижна из-за абсолютной связки.
-                        movable = False
-
-                        for escape_move in list(
-                            test_board.legal_moves
-                        ):
-
-                            if (
-                                escape_move.from_square
-                                != pinned_square
-                            ):
-                                continue
-
-                            movable = True
-                            break
-
-                        # При шахе legal_moves могут вообще не
-                        # содержать ход связанной фигуры.
-                        #
-                        # Поэтому здесь ориентируемся прежде всего
-                        # на сам факт абсолютной связки.
-                        if movable:
-                            continue
-
-                        # Если связующая фигура сама атакует
-                        # связанную фигуру — это достаточное
-                        # тактическое подтверждение.
-                        attacker_square = pin_info.get(
-                            "attacker_square"
-                        )
-
-                        if attacker_square is None:
-                            continue
-
-                        if pinned_square not in (
-                            test_board.attacks(
-                                attacker_square
-                            )
-                        ):
-                            continue
+                        continue
 
                     # ==================================================
-                    # SAN
+                    # SAN ХОДА, СОЗДАЮЩЕГО СВЯЗКУ
                     # ==================================================
 
                     try:
@@ -2541,18 +2556,23 @@ def _find_pin_material_sequence(
                     if not pin_san:
                         continue
 
+                    # ==================================================
+                    # SAN ВЗЯТИЯ
+                    # ==================================================
+
                     capture_san = ""
 
-                    if best_capture is not None:
-
-                        try:
-                            capture_san = (
-                                best_capture_board.san(
-                                    best_capture["move"]
-                                )
+                    try:
+                        capture_san = (
+                            best_capture_board.san(
+                                best_capture["move"]
                             )
-                        except Exception:
-                            capture_san = ""
+                        )
+                    except Exception:
+                        capture_san = ""
+
+                    if not capture_san:
+                        continue
 
                     # ==================================================
                     # ИМЕНА
@@ -2565,6 +2585,33 @@ def _find_pin_material_sequence(
                     if not pinned_name:
                         continue
 
+                    capturing_piece = (
+                        best_capture_board.piece_at(
+                            best_capture["move"].from_square
+                        )
+                    )
+
+                    if capturing_piece is None:
+                        continue
+
+                    capturing_piece_name = piece_name(
+                        capturing_piece
+                    )
+
+                    if not capturing_piece_name:
+                        continue
+
+                    behind_piece = pin_info.get(
+                        "behind_piece"
+                    )
+
+                    behind_piece_name = ""
+
+                    if behind_piece is not None:
+                        behind_piece_name = piece_name(
+                            behind_piece
+                        )
+
                     # ==================================================
                     # СОХРАНЯЕМ КАНДИДАТ
                     # ==================================================
@@ -2572,80 +2619,59 @@ def _find_pin_material_sequence(
                     candidates.append(
                         {
                             "pin_move": pin_move,
+
                             "pin_san": pin_san,
 
                             "capture_move": (
                                 best_capture["move"]
-                                if best_capture
-                                else None
                             ),
 
                             "capture_san": capture_san,
 
                             "pinned_piece": pinned_piece,
 
-                            "pinned_piece_name": pinned_name,
+                            "pinned_piece_name": (
+                                pinned_name
+                            ),
 
-                            "pinned_square": pinned_square,
+                            "pinned_square": (
+                                pinned_square
+                            ),
 
                             "capturing_piece": (
-                                position_after_pin.piece_at(
-                                    best_capture["move"].from_square
-                                )
-                                if (
-                                    best_capture
-                                    and
-                                    position_after_pin
-                                )
-                                else None
+                                capturing_piece
                             ),
 
                             "capturing_piece_name": (
-                                piece_name(
-                                    position_after_pin.piece_at(
-                                        best_capture["move"].from_square
-                                    )
-                                )
-                                if (
-                                    best_capture
-                                    and
-                                    position_after_pin
-                                )
-                                else ""
+                                capturing_piece_name
                             ),
 
-                            "behind_piece": pin_info.get(
-                                "behind_piece"
+                            "behind_piece": (
+                                behind_piece
                             ),
 
                             "behind_piece_name": (
-                                piece_name(
-                                    pin_info.get(
-                                        "behind_piece"
-                                    )
-                                )
-                                if pin_info.get(
-                                    "behind_piece"
-                                )
-                                else ""
+                                behind_piece_name
                             ),
 
-                            "behind_square": pin_info.get(
-                                "behind_square"
+                            "behind_square": (
+                                pin_info.get(
+                                    "behind_square"
+                                )
                             ),
 
                             "pin_type": "absolute",
+
+                            "reply": best_reply,
 
                             "priority": (
                                 1000,
                                 get_value(
                                     pinned_piece
                                 ),
-                                (
-                                    best_capture["captured_value"]
-                                    if best_capture
-                                    else 0
-                                ),
+                                best_capture[
+                                    "captured_value"
+                                ],
                             ),
                         }
                     )
@@ -2654,13 +2680,21 @@ def _find_pin_material_sequence(
 
                 print(
                     "PIN MOVE ANALYSIS ERROR:",
-                    e
+                    repr(e)
                 )
 
                 continue
 
+        # ==========================================================
+        # НИ ОДНОЙ РЕАЛЬНОЙ ПОСЛЕДОВАТЕЛЬНОСТИ
+        # ==========================================================
+
         if not candidates:
             return None
+
+        # ==========================================================
+        # ВЫБИРАЕМ НАИБОЛЕЕ ЗНАЧИМУЮ ПОТЕРЮ
+        # ==========================================================
 
         candidates.sort(
             key=lambda item: item.get(
@@ -2676,7 +2710,7 @@ def _find_pin_material_sequence(
 
         print(
             "Ошибка _find_pin_material_sequence:",
-            e
+            repr(e)
         )
 
         return None
@@ -2687,6 +2721,13 @@ def detect_pin_material_loss(
     played_move,
     loss=0
 ):
+    """
+    Определяет материальную потерю, связанную со связкой.
+
+    Важно:
+    конкретная последовательность связки определяется
+    внутри _find_pin_material_sequence().
+    """
 
     if (
         board_before is None
@@ -2697,15 +2738,27 @@ def detect_pin_material_loss(
 
     try:
 
+        # ==================================================
+        # ПРОВЕРЯЕМ РАЗМЕР ПОТЕРИ
+        # ==================================================
+
         try:
             numeric_loss = float(loss)
-        except Exception:
-            numeric_loss = 0
+        except (TypeError, ValueError):
+            numeric_loss = 0.0
 
         if numeric_loss < 100:
             return None
 
+        # ==================================================
+        # ЦВЕТ НАШЕЙ СТОРОНЫ
+        # ==================================================
+
         our_color = board_before.turn
+
+        # ==================================================
+        # ИЩЕМ КОНКРЕТНУЮ ПОСЛЕДОВАТЕЛЬНОСТЬ СВЯЗКИ
+        # ==================================================
 
         info = _find_pin_material_sequence(
             board_before,
@@ -2716,6 +2769,10 @@ def detect_pin_material_loss(
         if not info:
             return None
 
+        # ==================================================
+        # ДОБАВЛЯЕМ КОНТЕКСТ
+        # ==================================================
+
         info["played_move"] = played_move
         info["loss"] = numeric_loss
 
@@ -2725,7 +2782,7 @@ def detect_pin_material_loss(
 
         print(
             "Ошибка detect_pin_material_loss:",
-            e
+            repr(e)
         )
 
         return None
@@ -2786,538 +2843,575 @@ def detect_apparent_piece_loss_but_recapturable(
     board,
     played_move,
     best_move,
-    loss=0
+    loss=0,
+    played_results=None
 ):
+    """
+    Ищет ситуацию:
+
+        после нашего хода
+            ↓
+        соперник первым ходом из PV забирает нашу фигуру
+            ↓
+        мы можем сразу забрать фигуру соперника
+
+    Это нужно для отделения реальной потери фигуры
+    от кажущейся потери, которая фактически является разменом.
+
+    ВАЖНО:
+
+    Детектор использует конкретный первый ход из PV Stockfish.
+    Он НЕ перебирает произвольные ходы соперника.
+
+    Требуемая последовательность:
+
+        наш ошибочный ход
+            ->
+        конкретный ответ Stockfish
+            ->
+        взятие нашей фигуры
+            ->
+        наше немедленное ответное взятие
+    """
 
     if (
-        not board
-        or not played_move
-        or not best_move
+        board is None
+        or played_move is None
+        or best_move is None
+        or not played_results
     ):
         return None
 
     try:
 
         # ==================================================
-        # БАЗОВЫЕ ДАННЫЕ
+        # БАЗОВАЯ ПРОВЕРКА LOSS
         # ==================================================
 
         try:
             numeric_loss = float(loss)
-        except Exception:
-            numeric_loss = 0
+        except (TypeError, ValueError):
+            numeric_loss = 0.0
 
-        # Эта причина нужна только для серьёзных ошибок
+        # Детектор нужен только для ситуаций,
+        # которые уже выглядят как серьёзная потеря.
         if numeric_loss < 200:
             return None
+
+        # ==================================================
+        # ПОЗИЦИЯ ПОСЛЕ НАШЕГО ХОДА
+        # ==================================================
 
         board_after = make_position_after(
             board,
             played_move
         )
 
-        if not board_after:
+        if board_after is None:
             return None
 
         our_color = board.turn
         opponent_color = not our_color
 
-        candidate_replies = []
-
         # ==================================================
-        # ИЩЕМ ХОДЫ СОПЕРНИКА, КОТОРЫЕ ЗАБИРАЮТ
-        # НАШУ ФИГУРУ
+        # ПОЛУЧАЕМ ПЕРВЫЙ ХОД ИЗ PV
         # ==================================================
 
-        for opponent_move in board_after.legal_moves:
+        first_result = played_results[0]
 
-            captured_piece = get_captured_piece(
-                board_after,
-                opponent_move
-            )
+        if not isinstance(
+            first_result,
+            dict
+        ):
+            return None
 
-            if not captured_piece:
-                continue
+        pv = first_result.get(
+            "pv"
+        )
 
-            # Берём только НАШУ фигуру
-            if captured_piece.color != our_color:
-                continue
+        if not pv:
+            return None
 
-            # Пешки здесь не рассматриваем.
-            # Король тоже не рассматривается.
-            if captured_piece.piece_type in (
-                chess.PAWN,
-                chess.KING,
-            ):
-                continue
+        opponent_move = pv[0]
 
-            attacker_piece = board_after.piece_at(
-                opponent_move.from_square
-            )
-
-            if not attacker_piece:
-                continue
-
-            if attacker_piece.color != opponent_color:
-                continue
-
-            if attacker_piece.piece_type == chess.KING:
-                continue
-
-            captured_value = piece_value(
-                captured_piece
-            )
-
-            attacker_value = piece_value(
-                attacker_piece
-            )
-
-            # ==================================================
-            # КРИТИЧЕСКАЯ ПРОВЕРКА
-            #
-            # Если соперник отдаёт БОЛЕЕ ЦЕННУЮ фигуру
-            # за нашу менее ценную фигуру, это НЕ потеря.
-            #
-            # Например:
-            #
-            # Qxf7+ Kxf7
-            #
-            # captured_piece = ладья = 5
-            # attacker_piece = ферзь = 9
-            #
-            # Соперник отдаёт 9 за 5.
-            # Такой вариант НЕ должен попадать сюда.
-            # ==================================================
-
-            # Равный обмен тоже не является потерей фигуры.
-            # Например Qxf7+ Kxf7 — это размен ферзей,
-            # а не "потеря" ферзя.
-            if attacker_value >= captured_value:
-                continue
-
-            candidate_replies.append(
-                {
-                    "move": opponent_move,
-                    "captured_piece": captured_piece,
-                    "attacker_piece": attacker_piece,
-                    "captured_value": captured_value,
-                    "attacker_value": attacker_value,
-                }
-            )
-
-        if not candidate_replies:
+        if opponent_move is None:
             return None
 
         # ==================================================
-        # СНАЧАЛА ПРОВЕРЯЕМ САМЫЕ ЦЕННЫЕ НАШИ ФИГУРЫ
+        # ПРОВЕРЯЕМ, ЧТО ЭТО ДЕЙСТВИТЕЛЬНО
+        # ПЕРВЫЙ ЛЕГАЛЬНЫЙ ОТВЕТ СОПЕРНИКА
         # ==================================================
 
-        candidate_replies.sort(
-            key=lambda item: (
+        try:
+
+            if opponent_move not in board_after.legal_moves:
+                return None
+
+        except Exception:
+            return None
+
+        # ==================================================
+        # ПЕРВЫЙ ХОД ДОЛЖЕН БЫТЬ ВЗЯТИЕМ
+        # ==================================================
+
+        try:
+
+            if not board_after.is_capture(
+                opponent_move
+            ):
+                return None
+
+        except Exception:
+            return None
+
+        # ==================================================
+        # ЧТО ИМЕННО СОПЕРНИК ЗАБИРАЕТ?
+        # ==================================================
+
+        captured_piece = get_captured_piece(
+            board_after,
+            opponent_move
+        )
+
+        if captured_piece is None:
+            return None
+
+        # Только наша фигура.
+        if captured_piece.color != our_color:
+            return None
+
+        # Пешки и короли здесь не рассматриваются.
+        if captured_piece.piece_type in (
+            chess.PAWN,
+            chess.KING,
+        ):
+            return None
+
+        # ==================================================
+        # ФИГУРА, КОТОРАЯ ДЕЛАЕТ ВЗЯТИЕ
+        # ==================================================
+
+        attacker_piece = (
+            board_after.piece_at(
+                opponent_move.from_square
+            )
+        )
+
+        if attacker_piece is None:
+            return None
+
+        if attacker_piece.color != opponent_color:
+            return None
+
+        if attacker_piece.piece_type == chess.KING:
+            return None
+
+        # ==================================================
+        # СРАВНИВАЕМ СТОИМОСТЬ
+        # ==================================================
+
+        captured_value = piece_value(
+            captured_piece
+        )
+
+        attacker_value = piece_value(
+            attacker_piece
+        )
+
+        # Если соперник забирает нашу фигуру
+        # фигурой равной или большей стоимости,
+        # этот узкий детектор не используем.
+        #
+        # Нас интересует именно ситуация:
+        #
+        # дешёвая фигура
+        #      ↓
+        # забирает дорогую
+        #      ↓
+        # сразу получает ответное взятие
+        if attacker_value >= captured_value:
+            return None
+
+        # ==================================================
+        # ДЕЛАЕМ ХОД СОПЕРНИКА
+        # ==================================================
+
+        board_after_capture = (
+            board_after.copy()
+        )
+
+        try:
+
+            board_after_capture.push(
+                opponent_move
+            )
+
+        except Exception:
+            return None
+
+        # ==================================================
+        # ИЩЕМ НЕМЕДЛЕННОЕ ОТВЕТНОЕ ВЗЯТИЕ
+        # ==================================================
+
+        recapture_candidates = []
+
+        for our_reply in list(
+            board_after_capture.legal_moves
+        ):
+
+            # Нужно забрать именно фигуру,
+            # которая только что забрала нашу фигуру.
+            if (
+                our_reply.to_square
+                != opponent_move.to_square
+            ):
+                continue
+
+            # Это должно быть настоящее взятие.
+            if not board_after_capture.is_capture(
+                our_reply
+            ):
+                continue
+
+            # Что именно мы забираем?
+            recaptured_piece = get_captured_piece(
+                board_after_capture,
+                our_reply
+            )
+
+            if recaptured_piece is None:
+                continue
+
+            # Это должна быть фигура соперника.
+            if recaptured_piece.color != opponent_color:
+                continue
+
+            # Короля забрать нельзя.
+            if recaptured_piece.piece_type == chess.KING:
+                continue
+
+            # ==================================================
+            # НАША ФИГУРА, КОТОРАЯ ДЕЛАЕТ RECAPTURE
+            # ==================================================
+
+            our_recapturing_piece = (
+                board_after_capture.piece_at(
+                    our_reply.from_square
+                )
+            )
+
+            if our_recapturing_piece is None:
+                continue
+
+            if our_recapturing_piece.color != our_color:
+                continue
+
+            # ==================================================
+            # ПРОВЕРЯЕМ ЛЕГАЛЬНОСТЬ RECAPTURE
+            # ==================================================
+
+            test_exchange = (
+                board_after_capture.copy()
+            )
+
+            try:
+
+                test_exchange.push(
+                    our_reply
+                )
+
+            except Exception:
+                continue
+
+            # После нашего взятия на целевой клетке
+            # должна находиться наша фигура.
+            final_piece = (
+                test_exchange.piece_at(
+                    our_reply.to_square
+                )
+            )
+
+            if final_piece is None:
+                continue
+
+            if final_piece.color != our_color:
+                continue
+
+            # НЕ проверяем test_exchange.is_check().
+            #
+            # После нашего recapture соперник может
+            # оказаться под шахом — это нормальная ситуация.
+            #
+            # Сам push() уже гарантирует легальность
+            # нашего хода и то, что наш король не остаётся
+            # под шахом.
+
+            recapture_candidates.append(
+                {
+                    "move":
+                        our_reply,
+
+                    "piece":
+                        our_recapturing_piece,
+
+                    "captured_piece":
+                        recaptured_piece,
+
+                    "board_after":
+                        test_exchange,
+                }
+            )
+
+        # ==================================================
+        # НЕТ НЕМЕДЛЕННОГО RECAPTURE
+        # ==================================================
+
+        if not recapture_candidates:
+            return None
+
+        # ==================================================
+        # ВЫБИРАЕМ RECAPTURE,
+        # КОТОРЫЙ ЗАБИРАЕТ НАИБОЛЕЕ ЦЕННУЮ ФИГУРУ
+        # ==================================================
+
+        recapture_candidates.sort(
+            key=lambda item: piece_value(
                 item.get(
-                    "captured_value",
-                    0
-                ),
-                -item.get(
-                    "attacker_value",
-                    0
+                    "captured_piece"
                 )
             ),
             reverse=True
         )
 
+        selected = recapture_candidates[0]
+
+        recapture_move = selected.get(
+            "move"
+        )
+
+        recapturing_piece = selected.get(
+            "piece"
+        )
+
+        recaptured_attacker = selected.get(
+            "captured_piece"
+        )
+
+        board_after_exchange = selected.get(
+            "board_after"
+        )
+
+        if (
+            recapture_move is None
+            or recapturing_piece is None
+            or recaptured_attacker is None
+            or board_after_exchange is None
+        ):
+            return None
+
         # ==================================================
-        # ПРОВЕРЯЕМ КАЖДЫЙ ВАРИАНТ
+        # SAN
         # ==================================================
 
-        for candidate in candidate_replies:
+        try:
 
-            opponent_move = candidate.get(
-                "move"
+            opponent_san = board_after.san(
+                opponent_move
             )
 
-            captured_piece = candidate.get(
-                "captured_piece"
+        except Exception:
+
+            opponent_san = opponent_move.uci()
+
+        try:
+
+            recapture_san = (
+                board_after_capture.san(
+                    recapture_move
+                )
             )
 
-            attacker_piece = candidate.get(
-                "attacker_piece"
+        except Exception:
+
+            recapture_san = recapture_move.uci()
+
+        # ==================================================
+        # НАЗВАНИЯ ФИГУР
+        # ==================================================
+
+        captured_name = piece_name(
+            captured_piece
+        )
+
+        attacker_name = piece_name(
+            attacker_piece
+        )
+
+        recapturing_name = piece_name(
+            recapturing_piece
+        )
+
+        recaptured_attacker_name = piece_name(
+            recaptured_attacker
+        )
+
+        if not captured_name:
+            return None
+
+        if not attacker_name:
+            return None
+
+        if not recapturing_name:
+            return None
+
+        if not recaptured_attacker_name:
+            return None
+
+        # ==================================================
+        # DEBUG
+        # ==================================================
+
+        print(
+            "\n========== APPARENT PIECE LOSS =========="
+        )
+
+        print(
+            "PLAYED:",
+            played_move.uci()
+        )
+
+        print(
+            "BEST:",
+            (
+                best_move.uci()
+                if isinstance(
+                    best_move,
+                    chess.Move
+                )
+                else best_move
             )
+        )
 
-            captured_value = candidate.get(
-                "captured_value",
-                0
-            )
+        print(
+            "ENGINE REPLY:",
+            opponent_san
+        )
 
-            attacker_value = candidate.get(
-                "attacker_value",
-                0
-            )
+        print(
+            "CAPTURED:",
+            captured_name,
+            captured_value
+        )
 
-            if (
-                not opponent_move
-                or not captured_piece
-                or not attacker_piece
-            ):
-                continue
+        print(
+            "ATTACKER:",
+            attacker_name,
+            attacker_value
+        )
 
-            # ==================================================
-            # ЕЩЁ РАЗ ПРОВЕРЯЕМ СООТНОШЕНИЕ
-            # ==================================================
+        print(
+            "RECAPTURE:",
+            recapture_san
+        )
 
-            # Равный обмен тоже не является потерей фигуры.
-            # Например Qxf7+ Kxf7 — это размен ферзей,
-            # а не "потеря" ферзя.
-            if attacker_value >= captured_value:
-                continue
+        print(
+            "RECAPTURES:",
+            recaptured_attacker_name
+        )
 
-            # ==================================================
-            # ДЕЛАЕМ ХОД СОПЕРНИКА
-            # ==================================================
+        print(
+            "LOSS:",
+            numeric_loss
+        )
 
-            board_after_capture = (
-                board_after.copy()
-            )
+        print(
+            "========== END APPARENT PIECE LOSS ==========\n"
+        )
 
-            try:
+        # ==================================================
+        # ВОЗВРАЩАЕМ РЕЗУЛЬТАТ
+        # ==================================================
 
-                board_after_capture.push(
-                    opponent_move
-                )
+        return {
 
-            except Exception:
+            "opponent_move":
+                opponent_move,
 
-                continue
+            "opponent_san":
+                opponent_san,
 
-            # ==================================================
-            # ИЩЕМ НАШУ РЕАЛЬНУЮ ОТВЕТНУЮ ВЗЯТИЕ
-            # ==================================================
+            "captured_piece":
+                captured_piece,
 
-            recapture_candidates = []
+            "captured_piece_name":
+                captured_name,
 
-            for our_reply in (
-                board_after_capture.legal_moves
-            ):
+            "captured_value":
+                captured_value,
 
-                # Ответ должен забирать именно фигуру,
-                # которая только что взяла нашу фигуру.
-                if (
-                    our_reply.to_square
-                    != opponent_move.to_square
-                ):
-                    continue
+            "attacker_piece":
+                attacker_piece,
 
-                recaptured_piece = (
-                    get_captured_piece(
-                        board_after_capture,
-                        our_reply
-                    )
-                )
+            "attacker_piece_name":
+                attacker_name,
 
-                if not recaptured_piece:
-                    continue
+            "attacker_value":
+                attacker_value,
 
-                if (
-                    recaptured_piece.color
-                    != opponent_color
-                ):
-                    continue
+            "recapture_move":
+                recapture_move,
 
-                if (
-                    recaptured_piece.piece_type
-                    == chess.KING
-                ):
-                    continue
+            "recapture_san":
+                recapture_san,
 
-                our_recapturing_piece = (
-                    board_after_capture.piece_at(
-                        our_reply.from_square
-                    )
-                )
+            "recapturing_piece":
+                recapturing_piece,
 
-                if not our_recapturing_piece:
-                    continue
+            "recapturing_piece_name":
+                recapturing_name,
 
-                if (
-                    our_recapturing_piece.color
-                    != our_color
-                ):
-                    continue
+            "recaptured_attacker":
+                recaptured_attacker,
 
-                # ==================================================
-                # ВАЖНАЯ ПРОВЕРКА:
-                #
-                # После нашего взятия фигура действительно
-                # должна исчезнуть.
-                # ==================================================
+            "recaptured_attacker_name":
+                recaptured_attacker_name,
 
-                test_exchange = (
-                    board_after_capture.copy()
-                )
-
-                try:
-
-                    test_exchange.push(
-                        our_reply
-                    )
-
-                except Exception:
-
-                    continue
-
-                if (
-                    test_exchange.piece_at(
-                        our_reply.to_square
-                    ) is None
-                ):
-                    continue
-
-                final_piece = (
-                    test_exchange.piece_at(
-                        our_reply.to_square
-                    )
-                )
-
-                if not final_piece:
-                    continue
-
-                if (
-                    final_piece.color
-                    != our_color
-                ):
-                    continue
-
-                recapture_candidates.append(
-                    {
-                        "move": our_reply,
-                        "piece": our_recapturing_piece,
-                        "captured_piece":
-                            recaptured_piece,
-                        "board_after":
-                            test_exchange,
-                    }
-                )
-
-            # ==================================================
-            # НЕТ РЕАЛЬНОГО ОТВЕТНОГО ВЗЯТИЯ
-            # ==================================================
-
-            if not recapture_candidates:
-                continue
-
-            # ==================================================
-            # ВЫБИРАЕМ ЛУЧШЕЕ ОТВЕТНОЕ ВЗЯТИЕ
-            # ==================================================
-
-            recapture_candidates.sort(
-                key=lambda item:
+            "recaptured_value":
                 piece_value(
-                    item.get(
-                        "captured_piece"
-                    )
+                    recaptured_attacker
                 ),
-                reverse=True
-            )
 
-            selected_recapture = (
-                recapture_candidates[0]
-            )
+            "loss":
+                numeric_loss,
 
-            recapture_move = (
-                selected_recapture.get(
-                    "move"
-                )
-            )
+            "board_after_exchange":
+                board_after_exchange,
 
-            recapturing_piece = (
-                selected_recapture.get(
-                    "piece"
-                )
-            )
+            "is_immediate_recapture":
+                True,
 
-            recaptured_attacker = (
-                selected_recapture.get(
-                    "captured_piece"
-                )
-            )
-
-            board_after_exchange = (
-                selected_recapture.get(
-                    "board_after"
-                )
-            )
-
-            if not recapture_move:
-                continue
-
-            if not recapturing_piece:
-                continue
-
-            if not recaptured_attacker:
-                continue
-
-            if not board_after_exchange:
-                continue
-
-            # ==================================================
-            # КРИТИЧЕСКАЯ ПРОВЕРКА МАТЕРИАЛЬНОГО РЕЗУЛЬТАТА
+            # Здесь True означает именно:
+            # атакующая фигура дешевле той фигуры,
+            # которую она забрала.
             #
-            # Если после размена мы получаем более ценную
-            # фигуру, чем отдали, это не "потеря фигуры".
-            #
-            # Пример:
-            #
-            # Qxf7+ Kxf7
-            #
-            # Мы отдаём ладью = 5
-            # Забираем ферзя = 9
-            #
-            # Такой вариант полностью исключается.
-            # ==================================================
-
-            recaptured_value = piece_value(
-                recaptured_attacker
-            )
-
-            # Если мы возвращаем фигуру той же или большей
-            # ценности, это обычный размен, а не потеря.
-            if recaptured_value >= captured_value:
-                continue
-
-            # ==================================================
-            # SAN
-            # ==================================================
-
-            try:
-
-                opponent_san = (
-                    board_after.san(
-                        opponent_move
-                    )
-                )
-
-            except Exception:
-
-                opponent_san = ""
-
-            try:
-
-                recapture_san = (
-                    board_after_capture.san(
-                        recapture_move
-                    )
-                )
-
-            except Exception:
-
-                recapture_san = ""
-
-            if not opponent_san:
-                continue
-
-            if not recapture_san:
-                continue
-
-            # ==================================================
-            # НАЗВАНИЯ ФИГУР
-            # ==================================================
-
-            captured_name = piece_name(
-                captured_piece
-            )
-
-            attacker_name = piece_name(
-                attacker_piece
-            )
-
-            recapturing_name = piece_name(
-                recapturing_piece
-            )
-
-            recaptured_attacker_name = piece_name(
-                recaptured_attacker
-            )
-
-            if not captured_name:
-                continue
-
-            if not attacker_name:
-                continue
-
-            if not recapturing_name:
-                continue
-
-            if not recaptured_attacker_name:
-                continue
-
-            # ==================================================
-            # ВОЗВРАЩАЕМ ИНФОРМАЦИЮ
-            # ==================================================
-
-            return {
-                "opponent_move":
-                    opponent_move,
-
-                "opponent_san":
-                    opponent_san,
-
-                "captured_piece":
-                    captured_piece,
-
-                "captured_piece_name":
-                    captured_name,
-
-                "captured_value":
-                    captured_value,
-
-                "attacker_piece":
-                    attacker_piece,
-
-                "attacker_piece_name":
-                    attacker_name,
-
-                "attacker_value":
-                    attacker_value,
-
-                "recapture_move":
-                    recapture_move,
-
-                "recapture_san":
-                    recapture_san,
-
-                "recapturing_piece":
-                    recapturing_piece,
-
-                "recapturing_piece_name":
-                    recapturing_name,
-
-                "recaptured_attacker":
-                    recaptured_attacker,
-
-                "recaptured_attacker_name":
-                    recaptured_attacker_name,
-
-                "recaptured_value":
-                    recaptured_value,
-
-                "loss":
-                    numeric_loss,
-
-                "board_after_exchange":
-                    board_after_exchange,
-            }
-
-        return None
+            # Это НЕ означает, что размен выгоден.
+            "is_attacker_cheaper_than_captured":
+                (
+                    attacker_value
+                    <
+                    captured_value
+                ),
+        }
 
     except Exception as e:
 
         print(
             "Ошибка detect_apparent_piece_loss_but_recapturable:",
-            e
+            repr(e)
         )
 
         return None
-
+    
 def detect_newly_pinned_pawn(
     board_before,
     board_after,
@@ -4751,7 +4845,12 @@ def detect_neutralized_opponent_plan(mistake):
     print("\n========== ПРОВЕРКА НЕЙТРАЛИЗАЦИИ ПЛАНА ==========")
 
     played_results = mistake.get("played_results") or []
-    best_pv = mistake.get("pv") or []
+    best_pv = (
+        mistake.get("best_pv")
+        or mistake.get("best_line")
+        or mistake.get("pv")
+        or []
+    )
     position_after = mistake.get("position_after")
 
     print("PLAYED RESULTS =", played_results)
@@ -5253,32 +5352,23 @@ def get_apparent_piece_loss_text(
     info,
     best
 ):
-
     if not info:
         return ""
 
-    captured_piece_name = (
-        info.get(
-            "captured_piece_name"
-        )
+    captured_piece_name = info.get(
+        "captured_piece_name"
     )
 
-    opponent_san = (
-        info.get(
-            "opponent_san"
-        )
+    opponent_san = info.get(
+        "opponent_san"
     )
 
-    recapture_san = (
-        info.get(
-            "recapture_san"
-        )
+    recapture_san = info.get(
+        "recapture_san"
     )
 
-    attacker_piece_name = (
-        info.get(
-            "attacker_piece_name"
-        )
+    attacker_piece_name = info.get(
+        "attacker_piece_name"
     )
 
     if (
@@ -5288,27 +5378,28 @@ def get_apparent_piece_loss_text(
     ):
         return ""
 
+    best_text = best or "лучшего хода"
+
     if attacker_piece_name:
 
         return (
             f"Соперник может сыграть {opponent_san} "
             f"и забрать вашего {captured_piece_name}, "
             f"но после {recapture_san} вы забираете "
-            f"{attacker_piece_name}. Поэтому это "
-            f"не чистая потеря {captured_piece_name}, "
-            f"а размен. Проблема в том, что такой "
-            f"размен всё равно оставляет позицию "
-            f"значительно хуже, чем после {best}."
+            f"{attacker_piece_name}. Поэтому {captured_piece_name} "
+            f"не теряется безвозвратно. Однако после этого "
+            f"размена позиция остаётся значительно хуже, "
+            f"чем после {best_text}."
         )
 
     return (
         f"Соперник может забрать вашего "
-        f"{captured_piece_name}, но после "
-        f"{recapture_san} вы можете ответить "
-        f"взятием. Поэтому это не чистая потеря "
-        f"фигуры, а размен. При этом позиция "
-        f"остаётся значительно хуже, чем после "
-        f"{best}."
+        f"{captured_piece_name} ходом {opponent_san}, "
+        f"но после {recapture_san} вы можете ответить "
+        f"взятием. Поэтому {captured_piece_name} "
+        f"не теряется безвозвратно. Однако после этого "
+        f"размена позиция остаётся значительно хуже, "
+        f"чем после {best_text}."
     )
 
 # ==========================================================
@@ -6303,34 +6394,67 @@ def detect_newly_undefended_pawn(
     played_move
 ):
     """
-    Ищет пешку нашей стороны, которая:
+    Ищет нашу пешку, которая после played_move:
 
-    1. была защищена до нашего хода;
-    2. после нашего хода больше не имеет защитников;
-    3. после нашего хода соперник реально может
-       атаковать/взять эту пешку.
+    1. существовала до хода;
+    2. была защищена до хода;
+    3. после хода больше не имеет защитников;
+    4. соперник действительно может сразу её взять;
+    5. потеря защиты связана с изменением позиции после played_move.
 
     Возвращает информацию о пешке или None.
     """
 
     if (
-        not position_before
-        or not board_after_played
-        or not played_move
+        position_before is None
+        or board_after_played is None
+        or played_move is None
     ):
         return None
 
     try:
 
-        our_color = board_after_played.turn != position_before.turn
+        # ==================================================
+        # ЦВЕТ НАШЕЙ СТОРОНЫ
+        # ==================================================
+
+        our_color = position_before.turn
+        opponent_color = not our_color
 
         candidate_pawns = []
 
+        # ==================================================
+        # ИЩЕМ НАШИ ПЕШКИ
+        # ==================================================
+
         for square in chess.SQUARES:
 
-            piece_after = board_after_played.piece_at(square)
+            piece_before = (
+                position_before.piece_at(square)
+            )
 
-            if not piece_after:
+            piece_after = (
+                board_after_played.piece_at(square)
+            )
+
+            # --------------------------------------------------
+            # Пешка должна существовать ДО и ПОСЛЕ хода
+            # на том же поле.
+            #
+            # Если пешка сама только что переместилась,
+            # это уже отдельный случай.
+            # --------------------------------------------------
+
+            if piece_before is None:
+                continue
+
+            if piece_before.color != our_color:
+                continue
+
+            if piece_before.piece_type != chess.PAWN:
+                continue
+
+            if piece_after is None:
                 continue
 
             if piece_after.color != our_color:
@@ -6339,69 +6463,58 @@ def detect_newly_undefended_pawn(
             if piece_after.piece_type != chess.PAWN:
                 continue
 
-            # --------------------------------------------------
-            # Была ли пешка защищена ДО нашего хода?
-            # --------------------------------------------------
+            # ==================================================
+            # 1. ЗАЩИТНИКИ ДО НАШЕГО ХОДА
+            # ==================================================
 
-            defenders_before = []
-
-            for attacker_square in position_before.attackers(
-                our_color,
-                square
-            ):
-
-                attacker = position_before.piece_at(
-                    attacker_square
+            defenders_before = set(
+                position_before.attackers(
+                    our_color,
+                    square
                 )
+            )
 
-                if not attacker:
-                    continue
-
-                # Саму пешку не считаем защитником
-                if attacker_square == square:
-                    continue
-
-                defenders_before.append(
-                    attacker_square
-                )
+            # Сама пешка не может быть своим защитником
+            defenders_before.discard(square)
 
             if not defenders_before:
                 continue
 
-            # --------------------------------------------------
-            # Есть ли защитники ПОСЛЕ нашего хода?
-            # --------------------------------------------------
+            # ==================================================
+            # 2. ЗАЩИТНИКИ ПОСЛЕ НАШЕГО ХОДА
+            # ==================================================
 
-            defenders_after = []
-
-            for attacker_square in board_after_played.attackers(
-                our_color,
-                square
-            ):
-
-                attacker = board_after_played.piece_at(
-                    attacker_square
+            defenders_after = set(
+                board_after_played.attackers(
+                    our_color,
+                    square
                 )
+            )
 
-                if not attacker:
-                    continue
+            defenders_after.discard(square)
 
-                if attacker_square == square:
-                    continue
-
-                defenders_after.append(
-                    attacker_square
-                )
-
-            # Если защита сохранилась — это не наш случай
+            # Если хотя бы один защитник остался,
+            # пешка не стала полностью незащищённой.
             if defenders_after:
                 continue
 
-            # --------------------------------------------------
-            # Может ли соперник реально взять эту пешку?
-            # --------------------------------------------------
+            # ==================================================
+            # 3. ПРОВЕРЯЕМ, ЧТО ЗАЩИТА ДЕЙСТВИТЕЛЬНО ИСЧЕЗЛА
+            # ==================================================
 
-            opponent_can_capture = False
+            lost_defenders = (
+                defenders_before
+                - defenders_after
+            )
+
+            if not lost_defenders:
+                continue
+
+            # ==================================================
+            # 4. МОЖЕТ ЛИ СОПЕРНИК СРАЗУ ВЗЯТЬ ПЕШКУ?
+            # ==================================================
+
+            opponent_capture = None
             capture_san = ""
 
             for opponent_move in board_after_played.legal_moves:
@@ -6409,46 +6522,99 @@ def detect_newly_undefended_pawn(
                 if opponent_move.to_square != square:
                     continue
 
-                target = board_after_played.piece_at(
-                    square
-                )
-
-                if not target:
+                if not board_after_played.is_capture(
+                    opponent_move
+                ):
                     continue
 
-                if target.color == board_after_played.turn:
+                captured_piece = (
+                    board_after_played.piece_at(
+                        opponent_move.to_square
+                    )
+                )
+
+                if captured_piece is None:
+                    continue
+
+                if captured_piece.color != our_color:
+                    continue
+
+                if captured_piece.piece_type != chess.PAWN:
                     continue
 
                 try:
-                    capture_san = board_after_played.san(
-                        opponent_move
-                    )
-                except Exception:
-                    capture_san = ""
 
-                opponent_can_capture = True
+                    capture_san = (
+                        board_after_played.san(
+                            opponent_move
+                        )
+                    )
+
+                except Exception:
+
+                    capture_san = (
+                        opponent_move.uci()
+                    )
+
+                opponent_capture = opponent_move
                 break
 
-            if not opponent_can_capture:
+            if opponent_capture is None:
                 continue
 
-            candidate_pawns.append({
-                "square": square,
-                "piece": piece_after,
-                "capture_san": capture_san,
-            })
+            # ==================================================
+            # 5. СОХРАНЯЕМ КАНДИДАТА
+            # ==================================================
+
+            candidate_pawns.append(
+                {
+                    "square": square,
+
+                    "piece": piece_after,
+
+                    "capture_move": (
+                        opponent_capture
+                    ),
+
+                    "capture_san": capture_san,
+
+                    "defenders_before": (
+                        list(defenders_before)
+                    ),
+
+                    "defenders_after": (
+                        list(defenders_after)
+                    ),
+
+                    "lost_defenders": (
+                        list(lost_defenders)
+                    ),
+
+                    "is_newly_undefended": True,
+                }
+            )
+
+        # ==================================================
+        # 6. НИЧЕГО НЕ НАЙДЕНО
+        # ==================================================
 
         if not candidate_pawns:
             return None
 
-        # Если таких пешек несколько, берём первую.
+        # ==================================================
+        # 7. ЕСЛИ ПЕШЕК НЕСКОЛЬКО —
+        # БЕРЁМ БОЛЕЕ ЦЕННУЮ ПОЗИЦИЮ НЕЛЬЗЯ ОЦЕНИВАТЬ
+        # ТОЛЬКО ПО ЦЕННОСТИ ПЕШКИ, ПОЭТОМУ ПРОСТО
+        # ВОЗВРАЩАЕМ ПЕРВУЮ.
+        # ==================================================
+
         return candidate_pawns[0]
 
     except Exception as e:
 
         print(
             "NEWLY UNDEFENDED PAWN ERROR:",
-            e
+            repr(e)
         )
 
         return None
@@ -6826,7 +6992,7 @@ def analyze_move_consequences(mistake):
         if captured_name:
 
             add_event(
-                "material_gain",
+                "material",
                 90,
                 (
                     f"ход {best} "
@@ -6908,7 +7074,8 @@ def analyze_move_consequences(mistake):
                     position_before,
                     played_move,
                     best_move,
-                    loss
+                    loss,
+                    mistake.get("played_results") or []
                 )
             )
 
@@ -7198,7 +7365,7 @@ def analyze_move_consequences(mistake):
             )
 
         add_event(
-            "pawn_tempo",
+            "pawn_attack",
             72,
             text,
             info=pawn_attack_threat,
@@ -7276,18 +7443,112 @@ def analyze_move_consequences(mistake):
         )
 
     # ======================================================
+    # 10. АТАКА НА ФИГУРУ С ТЕМПОМ
+    # ======================================================
+
+    piece_tempo_attack = None
+
+    if (
+        board_after_played
+        and played_move
+    ):
+        try:
+            our_color = not board_after_played.turn
+
+            piece_tempo_attack = find_piece_tempo_attack(
+                board_after_played,
+                played_move,
+                mistake.get("played_results") or [],
+                our_color
+            )
+
+        except Exception as e:
+            print(
+                "CONSEQUENCES PIECE TEMPO ERROR:",
+                repr(e)
+            )
+
+    if piece_tempo_attack:
+
+        add_event(
+            "piece_tempo_attack",
+            72,
+            piece_tempo_attack.get(
+                "text",
+                ""
+            ),
+            info=piece_tempo_attack,
+        )
+
+    # ======================================================
     # 10. НОВЫЙ ШАХ СОПЕРНИКА
+    #
+    # ВАЖНО:
+    #
+    # Недостаточно просто найти шах после played_move.
+    # Нужно убедиться, что этот шах:
+    #
+    #     1. доступен ПОСЛЕ нашего хода;
+    #     2. НЕ был доступен ДО нашего хода.
+    #
+    # Только тогда это действительно новая шаховая угроза.
     # ======================================================
 
     new_check_threat = None
 
-    if board_after_played:
+    if (
+        position_before
+        and board_after_played
+        and played_move
+    ):
 
         try:
 
-            opponent_color = (
-                board_after_played.turn
-            )
+            opponent_color = board_after_played.turn
+
+            # --------------------------------------------------
+            # Шахи, которые уже существовали ДО нашего хода.
+            #
+            # Сохраняем их в виде UCI:
+            #
+            # "e7e1", "d8h4" и т. п.
+            # --------------------------------------------------
+
+            checks_before = set()
+
+            try:
+
+                for opponent_move_before in (
+                    position_before.legal_moves
+                ):
+
+                    try:
+
+                        if (
+                            opponent_move_before
+                            not in position_before.legal_moves
+                        ):
+                            continue
+
+                        if position_before.gives_check(
+                            opponent_move_before
+                        ):
+
+                            checks_before.add(
+                                opponent_move_before.uci()
+                            )
+
+                    except Exception:
+
+                        continue
+
+            except Exception:
+
+                checks_before = set()
+
+            # --------------------------------------------------
+            # Ищем шахи после нашего хода.
+            # --------------------------------------------------
 
             candidate_checks = []
 
@@ -7314,15 +7575,18 @@ def analyze_move_consequences(mistake):
                     ):
                         continue
 
-                    check_board = (
-                        board_after_played.copy()
-                    )
+                    # --------------------------------------------------
+                    # Это уже существовавший шаховой ход?
+                    #
+                    # Если да — он не является новой угрозой.
+                    #
+                    # Важно: после played_move некоторые ходы могут
+                    # получить другой контекст, поэтому сравниваем
+                    # конкретный UCI-ход.
+                    # --------------------------------------------------
 
-                    check_board.push(
-                        opponent_move
-                    )
+                    if opponent_move.uci() in checks_before:
 
-                    if not check_board.is_check():
                         continue
 
                     try:
@@ -7348,6 +7612,12 @@ def analyze_move_consequences(mistake):
                 except Exception:
 
                     continue
+
+            # --------------------------------------------------
+            # Приоритет шахов:
+            #
+            # Q > R > B > N > P
+            # --------------------------------------------------
 
             piece_priority = {
                 chess.QUEEN: 5,
@@ -7384,13 +7654,15 @@ def analyze_move_consequences(mistake):
                     "move": selected_move,
                     "piece": selected_piece,
                     "san": selected_san,
+                    "is_new": True,
+                    "checks_before": checks_before,
                 }
 
         except Exception as e:
 
             print(
                 "CONSEQUENCES NEW CHECK ERROR:",
-                e
+                repr(e)
             )
 
     if new_check_threat:
@@ -7416,13 +7688,12 @@ def analyze_move_consequences(mistake):
             )
 
         add_event(
-            "new_check",
+            "new_check_threat",
             85,
             text,
             info=new_check_threat,
         )
-
-    # ======================================================
+        # ======================================================
     # 11. РАВНОЦЕННЫЙ РАЗМЕН ЛУЧШИМ ХОДОМ
     # ======================================================
 
@@ -7551,7 +7822,8 @@ def analyze_move_consequences(mistake):
                     position_before,
                     played_move,
                     best_move,
-                    best
+                    best,
+                    mistake.get("played_results") or []
                 )
             )
 
@@ -7729,10 +8001,15 @@ def analyze_move_consequences(mistake):
         )
 
     # ======================================================
-    # 20. СТАРАЯ ИНФОРМАЦИЯ О ВИЛКЕ
+    # 20. ВИЛКА ЛУЧШИМ ХОДОМ
     #
-    # Здесь пока только обнаруживаем её.
-    # Выбор главной причины будет позже.
+    # ВАЖНО:
+    #
+    # Недостаточно, чтобы после best_move конь атаковал
+    # две фигуры.
+    #
+    # Нужно проверить, что best_move ДЕЙСТВИТЕЛЬНО
+    # создал новые атаки.
     # ======================================================
 
     if best_move:
@@ -7751,6 +8028,41 @@ def analyze_move_consequences(mistake):
                 == chess.KNIGHT
             ):
 
+                # --------------------------------------------------
+                # Какие ценные фигуры атаковал конь ДО хода?
+                # --------------------------------------------------
+
+                attacks_before = set()
+
+                for square in position_before.attacks(
+                    best_move.from_square
+                ):
+
+                    target_piece = (
+                        position_before.piece_at(
+                            square
+                        )
+                    )
+
+                    if (
+                        target_piece
+                        and target_piece.color
+                        != best_piece.color
+                        and target_piece.piece_type
+                        not in (
+                            chess.PAWN,
+                            chess.KING,
+                        )
+                    ):
+
+                        attacks_before.add(
+                            square
+                        )
+
+                # --------------------------------------------------
+                # Позиция после лучшего хода.
+                # --------------------------------------------------
+
                 board_after_best = (
                     position_before.copy()
                 )
@@ -7759,7 +8071,11 @@ def analyze_move_consequences(mistake):
                     best_move
                 )
 
-                fork_targets = []
+                # --------------------------------------------------
+                # Какие ценные фигуры атакует конь ПОСЛЕ хода?
+                # --------------------------------------------------
+
+                attacks_after = set()
 
                 for square in board_after_best.attacks(
                     best_move.to_square
@@ -7782,12 +8098,56 @@ def analyze_move_consequences(mistake):
                         )
                     ):
 
-                        fork_targets.append(
-                            (
-                                target_piece,
-                                square
-                            )
+                        attacks_after.add(
+                            square
                         )
+
+                # --------------------------------------------------
+                # Только НОВЫЕ атаки.
+                # --------------------------------------------------
+
+                new_attack_squares = (
+                    attacks_after
+                    - attacks_before
+                )
+
+                fork_targets = []
+
+                for square in new_attack_squares:
+
+                    target_piece = (
+                        board_after_best.piece_at(
+                            square
+                        )
+                    )
+
+                    if not target_piece:
+                        continue
+
+                    if (
+                        target_piece.color
+                        == best_piece.color
+                    ):
+                        continue
+
+                    if target_piece.piece_type in (
+                        chess.PAWN,
+                        chess.KING,
+                    ):
+                        continue
+
+                    fork_targets.append(
+                        (
+                            target_piece,
+                            square
+                        )
+                    )
+
+                # --------------------------------------------------
+                # Настоящая новая вилка:
+                #
+                # минимум две новые атаки на фигуры.
+                # --------------------------------------------------
 
                 if len(fork_targets) >= 2:
 
@@ -7815,14 +8175,18 @@ def analyze_move_consequences(mistake):
                         fork_targets[1]
                     )
 
-                    first_name = PIECE_NAMES.get(
-                        first_piece.piece_type,
-                        "фигуру"
+                    first_name = (
+                        PIECE_NAMES.get(
+                            first_piece.piece_type,
+                            "фигуру"
+                        )
                     )
 
-                    second_name = PIECE_NAMES.get(
-                        second_piece.piece_type,
-                        "фигуру"
+                    second_name = (
+                        PIECE_NAMES.get(
+                            second_piece.piece_type,
+                            "фигуру"
+                        )
                     )
 
                     first_square_name = (
@@ -7853,13 +8217,16 @@ def analyze_move_consequences(mistake):
                         best_move=best_move,
                         best=best,
                         targets=fork_targets,
+                        new_attack_squares=(
+                            list(new_attack_squares)
+                        ),
                     )
 
         except Exception as e:
 
             print(
                 "CONSEQUENCES FORK ERROR:",
-                e
+                repr(e)
             )
 
     # ======================================================
@@ -7901,8 +8268,29 @@ def find_piece_tempo_attack(
         - лучший ответ соперника Nd5
         - Nd5 атакует ферзя на e3
 
+    ВАЖНО:
+
+    Детектор считает это piece tempo attack только если:
+
+        1. фигура действительно находится на destination
+           сыгранного хода;
+
+        2. первый ход PV соперника легален;
+
+        3. именно фигура соперника, сделавшая этот ход,
+           атакует нашу фигуру;
+
+        4. эта атака появилась именно после нашего хода,
+           то есть ДО нашего хода такой атаки не было;
+
+        5. наша фигура не является королём.
+
     Возвращает информацию о такой атаке.
     """
+
+    # ==========================================================
+    # 1. ПРОВЕРКА ВХОДНЫХ ДАННЫХ
+    # ==========================================================
 
     if (
         board_after is None
@@ -7913,9 +8301,9 @@ def find_piece_tempo_attack(
 
     try:
 
-        # --------------------------------------------------
-        # Фигура, которую мы только что передвинули
-        # --------------------------------------------------
+        # ======================================================
+        # 2. ФИГУРА, КОТОРУЮ МЫ ТОЛЬКО ЧТО ПЕРЕДВИНУЛИ
+        # ======================================================
 
         attacked_square = played_move.to_square
 
@@ -7923,22 +8311,25 @@ def find_piece_tempo_attack(
             attacked_square
         )
 
-        if not our_piece:
+        if our_piece is None:
             return None
 
         # Короля здесь не рассматриваем.
-        # Шах имеет собственную систему объяснений.
+        # Для шаха существует отдельная логика.
         if our_piece.piece_type == chess.KING:
             return None
 
         if our_piece.color != our_color:
             return None
 
-        # --------------------------------------------------
-        # Первый ответ соперника из PV
-        # --------------------------------------------------
+        # ======================================================
+        # 3. ПЕРВЫЙ ХОД PV — ОТВЕТ СОПЕРНИКА
+        # ======================================================
 
         first_result = played_results[0]
+
+        if not isinstance(first_result, dict):
+            return None
 
         pv = first_result.get("pv")
 
@@ -7947,25 +8338,104 @@ def find_piece_tempo_attack(
 
         opponent_move = pv[0]
 
+        # ======================================================
+        # 4. ПРОВЕРЯЕМ ЛЕГАЛЬНОСТЬ ОТВЕТА
+        # ======================================================
+
         if opponent_move not in board_after.legal_moves:
             return None
 
-        # --------------------------------------------------
-        # Проверяем, действительно ли ход соперника
-        # атакует нашу фигуру
-        # --------------------------------------------------
+        # ======================================================
+        # 5. ФИГУРА, КОТОРАЯ СДЕЛАЛА ОТВЕТ
+        # ======================================================
 
         attacker_piece = board_after.piece_at(
             opponent_move.from_square
         )
 
-        if not attacker_piece:
+        if attacker_piece is None:
             return None
 
+        # Это должна быть фигура соперника.
         if attacker_piece.color == our_color:
             return None
 
-        # Позиция после ответа соперника
+        # ======================================================
+        # 6. ВОССТАНАВЛИВАЕМ ПОЗИЦИЮ ДО НАШЕГО ХОДА
+        #
+        # board_after должен быть позицией непосредственно
+        # после played_move.
+        #
+        # Делаем копию, чтобы не изменять оригинальную доску.
+        # ======================================================
+
+        board_before = None
+
+        try:
+
+            board_before = board_after.copy()
+
+            # Проверяем, что последний ход действительно
+            # соответствует played_move.
+            if not board_before.move_stack:
+                return None
+
+            last_move = board_before.peek()
+
+            if last_move != played_move:
+                return None
+
+            board_before.pop()
+
+        except Exception as e:
+
+            print(
+                "PIECE TEMPO ATTACK RESTORE BEFORE ERROR:",
+                repr(e)
+            )
+
+            return None
+
+        # ======================================================
+        # 7. АТАКОВАЛАСЬ ЛИ ЭТА ФИГУРА ДО НАШЕГО ХОДА?
+        #
+        # Если уже атаковалалась, это НЕ новая tempo attack.
+        #
+        # Например:
+        #
+        # до нашего хода:
+        #     конь уже атакует ферзя
+        #
+        # мы делаем другой ход
+        #     Qe3
+        #
+        # соперник играет Nd5
+        #
+        # Это не новая атака, созданная нашим ходом.
+        # ======================================================
+
+        was_already_attacked = False
+
+        try:
+
+            was_already_attacked = (
+                board_before.is_attacked_by(
+                    not our_color,
+                    attacked_square
+                )
+            )
+
+        except Exception:
+
+            was_already_attacked = False
+
+        if was_already_attacked:
+            return None
+
+        # ======================================================
+        # 8. ДЕЛАЕМ ПЕРВЫЙ ХОД СОПЕРНИКА
+        # ======================================================
+
         board_reply = board_after.copy()
 
         try:
@@ -7974,26 +8444,45 @@ def find_piece_tempo_attack(
                 opponent_move
             )
 
-        except Exception:
+        except Exception as e:
+
+            print(
+                "PIECE TEMPO ATTACK PUSH ERROR:",
+                repr(e)
+            )
 
             return None
 
-        # После ответа соперника наша фигура
-        # должна находиться под атакой.
+        # ======================================================
+        # 9. ПОСЛЕ ХОДА СОПЕРНИКА НАША ФИГУРА
+        #    ДОЛЖНА НАХОДИТЬСЯ ПОД АТАКОЙ
+        # ======================================================
+
         if not board_reply.is_attacked_by(
             not our_color,
             attacked_square
         ):
             return None
 
-        # --------------------------------------------------
-        # Важно:
-        # убеждаемся, что именно сыгравшая фигура
-        # соперника атакует нашу фигуру.
+        # ======================================================
+        # 10. ПРОВЕРЯЕМ, ЧТО ИМЕННО ХОДИВШАЯ ФИГУРА
+        #     СОПЕРНИКА СОЗДАЁТ АТАКУ
         #
-        # Это убирает часть ложных срабатываний,
-        # когда наша фигура стала атакована побочно.
-        # --------------------------------------------------
+        # Это важно.
+        #
+        # После хода соперника наша фигура может стать
+        # атакованной другой фигурой, например из-за открытия
+        # линии слону или ладье.
+        #
+        # Нас это здесь не интересует.
+        #
+        # Нам нужна именно:
+        #
+        #     Qe3 Nd5
+        #          ↑
+        #       этот конь
+        #       атакует ферзя
+        # ======================================================
 
         direct_attack = False
 
@@ -8007,14 +8496,50 @@ def find_piece_tempo_attack(
                 direct_attack = True
 
         except Exception:
+
             direct_attack = False
 
         if not direct_attack:
             return None
 
-        # --------------------------------------------------
-        # SAN ответа соперника
-        # --------------------------------------------------
+        # ======================================================
+        # 11. ДОПОЛНИТЕЛЬНАЯ ПРОВЕРКА:
+        #     АТАКА ДЕЙСТВИТЕЛЬНО НОВАЯ
+        #
+        # Проверяем ту же самую фигуру соперника
+        # в позиции ДО нашего хода.
+        #
+        # Это особенно полезно для случаев, когда фигура
+        # соперника уже стояла на таком поле и уже атаковала
+        # destination.
+        # ======================================================
+
+        attacker_was_on_destination = (
+            board_before.piece_at(
+                opponent_move.to_square
+            )
+        )
+
+        if (
+            attacker_was_on_destination is not None
+            and attacker_was_on_destination.color
+            != our_color
+        ):
+            try:
+
+                old_attacks = board_before.attacks(
+                    opponent_move.to_square
+                )
+
+                if attacked_square in old_attacks:
+                    return None
+
+            except Exception:
+                pass
+
+        # ======================================================
+        # 12. SAN ОТВЕТА СОПЕРНИКА
+        # ======================================================
 
         try:
 
@@ -8030,9 +8555,9 @@ def find_piece_tempo_attack(
                 opponent_move.uci()
             )
 
-        # --------------------------------------------------
-        # Название фигуры
-        # --------------------------------------------------
+        # ======================================================
+        # 13. НАЗВАНИЯ ФИГУР
+        # ======================================================
 
         piece_name = PIECE_NAMES.get(
             our_piece.piece_type,
@@ -8049,6 +8574,10 @@ def find_piece_tempo_attack(
             attacker_piece.piece_type,
             "фигурой"
         )
+
+        # ======================================================
+        # 14. РЕЗУЛЬТАТ
+        # ======================================================
 
         return {
             "piece_tempo_attack": True,
@@ -8084,6 +8613,9 @@ def find_piece_tempo_attack(
             "opponent_move_uci":
                 opponent_move.uci(),
 
+            "is_new_attack":
+                True,
+
             "text": (
                 f"После вашего хода соперник может "
                 f"сыграть {opponent_move_san} с темпом, "
@@ -8096,11 +8628,11 @@ def find_piece_tempo_attack(
 
         print(
             "PIECE TEMPO ATTACK ERROR:",
-            e
+            repr(e)
         )
 
         return None
-
+    
 # ==========================================================
 # СОЗДАНИЕ НОВОЙ ИЗОЛИРОВАННОЙ ПЕШКИ
 # ==========================================================
@@ -8853,11 +9385,11 @@ def detect_forced_piece_loss(
     # ==========================================================
     # 13. КРИТИЧЕСКАЯ ПРОВЕРКА
     #
-    # Если после Rxd4 Stockfish играет Bf1,
-    # значит это НЕ размен.
+    # Если после Rxd4 наша сторона сразу играет Qxd4,
+    # Nxd4, Bxd4 и т.п. — это нормальный размен.
     #
-    # Если после Rxd4 Stockfish играет Qxd4,
-    # Nxd4 и т.п. — тогда это размен.
+    # Если Stockfish после Rxd4 НЕ забирает фигуру соперника,
+    # значит потеря материала не компенсируется немедленно.
     # ==========================================================
 
     normal_recap = False
@@ -8866,28 +9398,30 @@ def detect_forced_piece_loss(
 
         print(
             "BEST REPLY TO SQUARE =",
-            chess.square_name(
-                best_reply.to_square
-            )
+            chess.square_name(best_reply.to_square)
         )
 
         print(
             "OPPONENT CAPTURE TO SQUARE =",
-            chess.square_name(
-                opponent_move.to_square
-            )
+            chess.square_name(opponent_move.to_square)
         )
 
-        if (
-            after_capture.is_capture(
-                best_reply
-            )
-            and
-            best_reply.to_square
-            == opponent_move.to_square
-        ):
+        if after_capture.is_capture(best_reply):
 
-            normal_recap = True
+            print(
+                "BEST REPLY IS CAPTURE = True"
+            )
+
+            # Обычный ответный размен:
+            # наша фигура после взятия соперника
+            # забирает именно фигуру соперника.
+            if best_reply.to_square == opponent_move.to_square:
+                normal_recap = True
+
+        else:
+            print(
+                "BEST REPLY IS CAPTURE = False"
+            )
 
     print(
         "NORMAL RECAPTURE =",
@@ -8898,7 +9432,7 @@ def detect_forced_piece_loss(
 
         print(
             "FORCED LOSS EXIT: "
-            "Stockfish действительно показывает размен"
+            "Stockfish показывает обычный ответный размен"
         )
 
         return None
@@ -9360,24 +9894,45 @@ def detect_trapped_piece(
 
 def detect_pawn_loss(mistake):
     """
-    Ищет потерю нашей пешки, которая возникает вследствие
-    сыгранного хода.
+    Ищет потерю нашей пешки, возникшую после сыгранного хода.
 
-    Логика:
+    Пешка отслеживается по исходному квадрату, поэтому
+    её перемещения учитываются:
 
-        BEFORE
-          ↓
-        наш сыгранный ход
-          ↓
-        PV Stockfish после сыгранного хода
-          ↓
-        соперник забирает нашу пешку
+        e4 -> e5 -> dxe5
 
-    Затем сравниваем с PV лучшего хода:
-    если соответствующая пешка в лучшем варианте не теряется,
-    считаем, что сыгранный ход приводит к потере пешки.
+    или:
 
-    Возвращает dict с информацией или None.
+        d4 -> d5 -> d6 -> Bxd6
+
+    Важно:
+
+    PLAYED PV:
+        рассматривается после сыгранного хода.
+
+    BEST PV может храниться как:
+
+        best_move + ответ + ...
+
+    либо:
+
+        ответ + ...
+
+    В обоих случаях board_best приводится
+    к позиции ПОСЛЕ best_move.
+
+    Дополнительно:
+
+    Если после первого взятия пешки есть короткая
+    материальная последовательность, она сохраняется.
+
+    Например:
+
+        Bxb2+ Nxb2 Qxb2+
+
+    В таком случае текст может показать всю
+    короткую последовательность, а причина всё равно
+    остаётся именно pawn_loss, а не causal_material_loss.
     """
 
     if not mistake:
@@ -9385,7 +9940,7 @@ def detect_pawn_loss(mistake):
 
     position_before = mistake.get("position_before")
 
-    if not position_before:
+    if position_before is None:
         return None
 
     played_san = (
@@ -9402,22 +9957,145 @@ def detect_pawn_loss(mistake):
     )
 
     if not played_results:
+
         print(
             "PAWN LOSS: played_results отсутствует"
         )
-        return None
 
-    # --------------------------------------------------
-    # Цвет нашей стороны
-    # --------------------------------------------------
+        return None
 
     our_color = position_before.turn
 
-    # --------------------------------------------------
-    # Восстанавливаем позицию после нашего хода
-    # --------------------------------------------------
+    # ==========================================================
+    # ВСПОМОГАТЕЛЬНАЯ ФУНКЦИЯ
+    # ==========================================================
+
+    def get_captured_piece(board, move):
+        """
+        Возвращает реально взятую фигуру.
+
+        Учитывает обычное взятие и en passant.
+        """
+
+        try:
+
+            if not board.is_capture(move):
+                return None, None
+
+            # --------------------------------------------------
+            # Обычное взятие
+            # --------------------------------------------------
+
+            if not board.is_en_passant(move):
+
+                return (
+                    board.piece_at(
+                        move.to_square
+                    ),
+                    move.to_square,
+                )
+
+            # --------------------------------------------------
+            # En passant
+            # --------------------------------------------------
+
+            captured_square = chess.square(
+                chess.square_file(
+                    move.to_square
+                ),
+                chess.square_rank(
+                    move.from_square
+                ),
+            )
+
+            return (
+                board.piece_at(
+                    captured_square
+                ),
+                captured_square,
+            )
+
+        except Exception:
+
+            return None, None
+
+    # ==========================================================
+    # ВСПОМОГАТЕЛЬНАЯ ФУНКЦИЯ
+    # ==========================================================
+
+    def material_swing_for_our_side(
+        captured_piece,
+        mover_color,
+    ):
+        """
+        Возвращает изменение материала нашей стороны
+        от одного взятия.
+
+        +N = наша сторона получила материал.
+        -N = наша сторона потеряла материал.
+
+        Например:
+
+            соперник Bxb2:
+                -1
+
+            мы Nxb2:
+                +3
+
+            соперник Qxb2:
+                -3
+
+        Итого:
+
+            -1 + 3 - 3 = -1
+
+        То есть мы потеряли одну пешку.
+        """
+
+        if captured_piece is None:
+            return 0
+
+        piece_value = {
+            chess.PAWN: 1,
+            chess.KNIGHT: 3,
+            chess.BISHOP: 3,
+            chess.ROOK: 5,
+            chess.QUEEN: 9,
+            chess.KING: 0,
+        }.get(
+            captured_piece.piece_type,
+            0,
+        )
+
+        if mover_color != our_color:
+
+            # Соперник забирает нашу фигуру.
+            return -piece_value
+
+        # Мы забираем фигуру соперника.
+        return piece_value
+
+    # ==========================================================
+    # 1. СОЗДАЁМ ОТСЛЕЖИВАНИЕ ПЕШЕК ДО НАШЕГО ХОДА
+    #
+    # original_square -> current_square
+    # ==========================================================
+
+    tracked_pawns = {}
+
+    for square in position_before.pieces(
+        chess.PAWN,
+        our_color
+    ):
+
+        tracked_pawns[square] = square
+
+    # ==========================================================
+    # 2. ПОЗИЦИЯ ПОСЛЕ НАШЕГО ХОДА
+    # ==========================================================
 
     try:
+
         board_after_played = (
             position_before.copy()
         )
@@ -9428,23 +10106,54 @@ def detect_pawn_loss(mistake):
             )
         )
 
+        # ------------------------------------------------------
+        # Если нашим ходом двигалась пешка,
+        # обновляем её реальную позицию ДО push().
+        # ------------------------------------------------------
+
+        played_piece = (
+            board_after_played.piece_at(
+                played_move.from_square
+            )
+        )
+
+        if (
+            played_piece is not None
+            and played_piece.color == our_color
+            and played_piece.piece_type == chess.PAWN
+        ):
+
+            if (
+                played_move.from_square
+                in tracked_pawns
+            ):
+
+                tracked_pawns[
+                    played_move.from_square
+                ] = played_move.to_square
+
         board_after_played.push(
             played_move
         )
 
     except Exception as e:
+
         print(
             "PAWN LOSS: ошибка восстановления "
             "позиции после сыгранного хода:",
             repr(e)
         )
+
         return None
 
-    # --------------------------------------------------
-    # Берём PV сыгранного хода
-    # --------------------------------------------------
+    # ==========================================================
+    # 3. PV ПОСЛЕ СЫГРАННОГО ХОДА
+    # ==========================================================
 
     first_result = played_results[0]
+
+    if not isinstance(first_result, dict):
+        return None
 
     pv_played = (
         first_result.get("pv")
@@ -9452,98 +10161,176 @@ def detect_pawn_loss(mistake):
     )
 
     if not pv_played:
+
         print(
             "PAWN LOSS: PV после сыгранного хода отсутствует"
         )
+
         return None
 
-    # --------------------------------------------------
-    # Проигрываем PV после сыгранного хода
-    # --------------------------------------------------
+    # ==========================================================
+    # 4. ПРОИГРЫВАЕМ PLAYED PV
+    # ==========================================================
 
-    board = board_after_played.copy()
+    board = (
+        board_after_played.copy()
+    )
 
     lost_pawn_square = None
     lost_pawn_move = None
     lost_pawn_san = None
+    lost_pawn_original_square = None
+
+    # ----------------------------------------------------------
+    # Короткая последовательность вокруг потери пешки.
+    #
+    # Например:
+    #
+    # Bxb2+ Nxb2 Qxb2+
+    #
+    # Храним SAN и материальный результат этой
+    # короткой последовательности.
+    # ----------------------------------------------------------
+
+    pawn_loss_sequence = []
+    pawn_loss_sequence_swing = 0
+
+    # После обнаружения потери пешки продолжаем
+    # ещё несколько полуходов.
+    #
+    # 3 полухода достаточно для типичного:
+    #
+    # Bxb2+ Nxb2 Qxb2+
+    #
+    # но сам поиск пешки НЕ зависит от длины
+    # этой последовательности.
+    sequence_plies_after_capture = 2
 
     try:
 
-        for move in pv_played:
+        for move_index, move in enumerate(pv_played):
 
             if move not in board.legal_moves:
+
                 print(
                     "PAWN LOSS: нелегальный ход в PV:",
                     move
                 )
+
                 break
 
-            # ------------------------------------------
-            # Проверяем, является ли взятие потерей
-            # НАШЕЙ пешки
-            # ------------------------------------------
+            # ==================================================
+            # СНАЧАЛА ПОЛУЧАЕМ SAN
+            # ==================================================
 
-            if board.is_capture(move):
+            try:
 
-                captured_piece = None
+                move_san = board.san(move)
 
-                # Обычное взятие
-                if not board.is_en_passant(move):
-                    captured_piece = (
-                        board.piece_at(
-                            move.to_square
-                        )
+            except Exception:
+
+                move_san = ""
+
+            # ==================================================
+            # СНАЧАЛА ПРОВЕРЯЕМ ВЗЯТИЕ
+            # ==================================================
+
+            captured_piece, captured_square = (
+                get_captured_piece(
+                    board,
+                    move
+                )
+            )
+
+            # ==================================================
+            # ЕСЛИ ПЕШКА УЖЕ БЫЛА НАЙДЕНА —
+            # СОБИРАЕМ КОРОТКОЕ ПРОДОЛЖЕНИЕ
+            # ==================================================
+
+            if (
+                lost_pawn_square is not None
+                and len(pawn_loss_sequence)
+                < sequence_plies_after_capture + 1
+            ):
+
+                if move_san:
+
+                    pawn_loss_sequence.append(
+                        move_san
                     )
 
-                # Взятие на проходе
-                else:
-                    captured_piece = (
-                        board.piece_at(
-                            chess.square(
-                                chess.square_file(
-                                    move.to_square
-                                ),
-                                chess.square_rank(
-                                    move.from_square
-                                )
-                            )
-                        )
+                pawn_loss_sequence_swing += (
+                    material_swing_for_our_side(
+                        captured_piece,
+                        board.turn,
                     )
+                )
 
-                if (
-                    captured_piece
-                    and captured_piece.color == our_color
-                    and captured_piece.piece_type == chess.PAWN
-                ):
+            # ==================================================
+            # ИЩЕМ ПЕРВОЕ ВЗЯТИЕ НАШЕЙ ПЕШКИ
+            # ==================================================
+
+            if (
+                lost_pawn_square is None
+                and captured_piece is not None
+                and captured_piece.color == our_color
+                and captured_piece.piece_type == chess.PAWN
+            ):
+
+                for (
+                    original_square,
+                    current_square
+                ) in list(tracked_pawns.items()):
+
+                    if current_square != captured_square:
+                        continue
+
                     lost_pawn_square = (
-                        move.to_square
-                        if not board.is_en_passant(move)
-                        else chess.square(
-                            chess.square_file(
-                                move.to_square
-                            ),
-                            chess.square_rank(
-                                move.from_square
-                            )
-                        )
+                        captured_square
                     )
 
-                    try:
-                        lost_pawn_san = board.san(move)
-                    except Exception:
-                        lost_pawn_san = ""
+                    lost_pawn_original_square = (
+                        original_square
+                    )
 
+                    lost_pawn_san = move_san
                     lost_pawn_move = move
+
+                    # --------------------------------------------------
+                    # Первый ход последовательности.
+                    # --------------------------------------------------
+
+                    if move_san:
+
+                        pawn_loss_sequence = [
+                            move_san
+                        ]
+
+                    pawn_loss_sequence_swing = (
+                        material_swing_for_our_side(
+                            captured_piece,
+                            board.turn,
+                        )
+                    )
 
                     print(
                         "!!! PAWN LOSS FOUND !!!"
                     )
+
+                    print(
+                        "ORIGINAL PAWN =",
+                        chess.square_name(
+                            original_square
+                        )
+                    )
+
                     print(
                         "LOST PAWN =",
                         chess.square_name(
-                            lost_pawn_square
+                            captured_square
                         )
                     )
+
                     print(
                         "CAPTURE MOVE =",
                         lost_pawn_san
@@ -9551,168 +10338,477 @@ def detect_pawn_loss(mistake):
 
                     break
 
+            # ==================================================
+            # ЕСЛИ ЭТО НАШ ХОД —
+            # ПЕРЕМЕЩАЕМ ОТСЛЕЖИВАЕМУЮ ПЕШКУ
+            # ==================================================
+
+            if board.turn == our_color:
+
+                for (
+                    original_square,
+                    current_square
+                ) in list(
+                    tracked_pawns.items()
+                ):
+
+                    if (
+                        current_square
+                        != move.from_square
+                    ):
+                        continue
+
+                    tracked_pawns[
+                        original_square
+                    ] = move.to_square
+
+                    break
+
+            # ==================================================
+            # ДЕЛАЕМ ХОД
+            # ==================================================
+
             board.push(move)
 
+            # ==================================================
+            # ЕСЛИ УЖЕ НАШЛИ ПЕШКУ И СОБРАЛИ
+            # ДОСТАТОЧНО КОРОТКУЮ ПОСЛЕДОВАТЕЛЬНОСТЬ —
+            # ОСТАНАВЛИВАЕМСЯ.
+            # ==================================================
+
+            if (
+                lost_pawn_square is not None
+                and len(pawn_loss_sequence)
+                >= sequence_plies_after_capture + 1
+            ):
+
+                break
+
     except Exception as e:
+
         print(
             "PAWN LOSS: ошибка анализа PV:",
             repr(e)
         )
+
         return None
 
-    if lost_pawn_square is None:
+    # ==========================================================
+    # 5. ПЕШКА НЕ НАЙДЕНА
+    # ==========================================================
+
+    if (
+        lost_pawn_square is None
+        or lost_pawn_original_square is None
+    ):
+
         print(
             "PAWN LOSS: в PV после сыгранного "
             "хода потеря нашей пешки не найдена"
         )
+
         return None
 
-    # --------------------------------------------------
-    # Проверяем PV лучшего хода
-    # --------------------------------------------------
+    # ==========================================================
+    # 6. ПОЛУЧАЕМ BEST PV
+    # ==========================================================
 
     best_results = (
         mistake.get("best_results")
         or []
     )
 
-    # В некоторых версиях структуры best_results
-    # может отсутствовать, поэтому пробуем также
-    # best_pv, если он сохранён отдельно.
-
     pv_best = []
 
     if best_results:
+
         try:
-            pv_best = (
-                best_results[0].get("pv")
-                or []
-            )
+
+            if isinstance(
+                best_results[0],
+                dict
+            ):
+
+                pv_best = (
+                    best_results[0].get("pv")
+                    or []
+                )
+
         except Exception:
+
             pv_best = []
 
     if not pv_best:
+
         pv_best = (
             mistake.get("best_pv")
             or []
         )
 
-    # --------------------------------------------------
-    # Если PV лучшего хода нет,
-    # не делаем ложного вывода.
-    # --------------------------------------------------
+    # ==========================================================
+    # 7. ФОРМИРУЕМ ТЕКСТ
+    #
+    # Здесь используем короткую последовательность,
+    # если она действительно содержит продолжение.
+    # ==========================================================
 
-    if not pv_best:
-        print(
-            "PAWN LOSS: PV лучшего хода отсутствует"
+    pawn_name = chess.square_name(
+        lost_pawn_square
+    )
+
+    def build_pawn_loss_text():
+
+        # ------------------------------------------------------
+        # Если есть последовательность:
+        #
+        # Bxb2+ Nxb2 Qxb2+
+        #
+        # и её итог действительно означает потерю
+        # материала нашей стороны, показываем её.
+        # ------------------------------------------------------
+
+        if (
+            len(pawn_loss_sequence) >= 2
+            and pawn_loss_sequence_swing < 0
+        ):
+
+            sequence_text = (
+                " ".join(
+                    pawn_loss_sequence
+                )
+            )
+
+            return (
+                f"После {played_san} соперник "
+                f"может начать последовательность "
+                f"{sequence_text}, в результате "
+                f"которой выигрывает пешку."
+            )
+
+        # ------------------------------------------------------
+        # Обычная потеря пешки без продолжения.
+        # ------------------------------------------------------
+
+        if lost_pawn_san:
+
+            return (
+                f"После {played_san} соперник "
+                f"может забрать пешку на "
+                f"{pawn_name} ходом "
+                f"{lost_pawn_san}."
+            )
+
+        return (
+            "Ваш ход приводит к потере пешки."
         )
 
-        # Даже без сравнения можем вернуть найденную
-        # конкретную потерю, но с низкой уверенностью.
+    # ==========================================================
+    # 8. ЕСЛИ BEST PV НЕТ
+    #
+    # Возвращаем найденную потерю,
+    # но помечаем её как непроверенную
+    # относительно лучшего хода.
+    # ==========================================================
+
+    if not pv_best:
+
+        text = build_pawn_loss_text()
+
         return {
-            "text": (
-                "Ваш ход приводит к потере пешки."
-            ),
+            "text": text,
             "pawn_square": lost_pawn_square,
-            "pawn_square_name": chess.square_name(
-                lost_pawn_square
+            "pawn_square_name": pawn_name,
+            "pawn_original_square": (
+                lost_pawn_original_square
             ),
             "capture_move": lost_pawn_move,
             "capture_san": lost_pawn_san,
+            "sequence": (
+                pawn_loss_sequence
+            ),
+            "sequence_swing": (
+                pawn_loss_sequence_swing
+            ),
             "verified_against_best": False,
         }
 
-    # --------------------------------------------------
-    # Проигрываем PV лучшего хода
-    # --------------------------------------------------
+    # ==========================================================
+    # 9. ВОССТАНАВЛИВАЕМ BEST MOVE
+    # ==========================================================
 
-    board_best = position_before.copy()
+    board_best = position_before.copy(
+        stack=False
+    )
+
+    best_move_obj = None
+
+    best = (
+        mistake.get("best")
+        or ""
+    )
+
+    if best:
+
+        try:
+
+            best_move_obj = (
+                position_before.parse_san(
+                    best
+                )
+            )
+
+        except Exception:
+
+            best_move_obj = None
+
+    if best_move_obj is None:
+
+        print(
+            "PAWN LOSS: не удалось восстановить best_move"
+        )
+
+        return None
+
+    # ==========================================================
+    # 10. ОПРЕДЕЛЯЕМ ФОРМАТ BEST PV
+    # ==========================================================
+
+    pv_starts_with_best = (
+        bool(pv_best)
+        and pv_best[0] == best_move_obj
+    )
+
+    # ==========================================================
+    # 11. ПРИМЕНЯЕМ BEST MOVE К ДОСКЕ
+    #
+    # board_best должен оказаться
+    # ПОСЛЕ best_move.
+    # ==========================================================
+
+    try:
+
+        if best_move_obj not in board_best.legal_moves:
+
+            print(
+                "PAWN LOSS: best_move нелегален"
+            )
+
+            return None
+
+        board_best.push(
+            best_move_obj
+        )
+
+    except Exception as e:
+
+        print(
+            "PAWN LOSS: не удалось применить "
+            "best_move:",
+            repr(e)
+        )
+
+        return None
+
+    # ==========================================================
+    # 12. ОПРЕДЕЛЯЕМ, ЧТО ОСТАЁТСЯ ПРОИГРАТЬ
+    # ИЗ BEST PV
+    # ==========================================================
+
+    if pv_starts_with_best:
+
+        pv_best_to_play = (
+            pv_best[1:]
+        )
+
+    else:
+
+        pv_best_to_play = pv_best
+
+    # ==========================================================
+    # 13. ОТСЛЕЖИВАЕМ ПЕШКИ В BEST PV
+    # ==========================================================
+
+    best_pawns = {}
+
+    for square in position_before.pieces(
+        chess.PAWN,
+        our_color
+    ):
+
+        best_pawns[square] = square
+
+    # ==========================================================
+    # 14. ЕСЛИ BEST MOVE БЫЛ ХОДОМ НАШЕЙ ПЕШКИ
+    # ==========================================================
+
+    best_move_piece = (
+        position_before.piece_at(
+            best_move_obj.from_square
+        )
+    )
+
+    if (
+        best_move_piece is not None
+        and best_move_piece.color == our_color
+        and best_move_piece.piece_type == chess.PAWN
+    ):
+
+        if (
+            best_move_obj.from_square
+            in best_pawns
+        ):
+
+            best_pawns[
+                best_move_obj.from_square
+            ] = best_move_obj.to_square
+
+    # ==========================================================
+    # 15. ПРОИГРЫВАЕМ ОСТАТОК BEST PV
+    # ==========================================================
 
     pawn_lost_in_best = False
     best_pawn_capture_san = None
 
     try:
 
-        for move in pv_best:
+        for move in pv_best_to_play:
 
             if move not in board_best.legal_moves:
+
+                print(
+                    "PAWN LOSS: нелегальный ход "
+                    "в BEST PV:",
+                    move
+                )
+
                 break
 
-            if board_best.is_capture(move):
+            # ==================================================
+            # ПРОВЕРЯЕМ ВЗЯТИЕ НАШЕЙ ПЕШКИ
+            # ==================================================
 
-                captured_piece = None
+            captured_piece, captured_square = (
+                get_captured_piece(
+                    board_best,
+                    move
+                )
+            )
 
-                if not board_best.is_en_passant(move):
-                    captured_piece = (
-                        board_best.piece_at(
-                            move.to_square
-                        )
-                    )
-                else:
-                    captured_piece = (
-                        board_best.piece_at(
-                            chess.square(
-                                chess.square_file(
-                                    move.to_square
-                                ),
-                                chess.square_rank(
-                                    move.from_square
-                                )
-                            )
-                        )
-                    )
+            if (
+                captured_piece is not None
+                and captured_piece.color == our_color
+                and captured_piece.piece_type == chess.PAWN
+            ):
 
-                if (
-                    captured_piece
-                    and captured_piece.color == our_color
-                    and captured_piece.piece_type == chess.PAWN
+                captured_original_square = None
+
+                for (
+                    original_square,
+                    current_square
+                ) in list(
+                    best_pawns.items()
                 ):
 
-                    captured_square = (
-                        move.to_square
-                        if not board_best.is_en_passant(move)
-                        else chess.square(
-                            chess.square_file(
-                                move.to_square
-                            ),
-                            chess.square_rank(
-                                move.from_square
-                            )
-                        )
+                    if (
+                        current_square
+                        != captured_square
+                    ):
+                        continue
+
+                    captured_original_square = (
+                        original_square
                     )
 
-                    # Нам важно понять,
-                    # теряется ли именно та же пешка.
                     if (
-                        captured_square
-                        == lost_pawn_square
+                        original_square
+                        == lost_pawn_original_square
                     ):
+
                         pawn_lost_in_best = True
 
                         try:
+
                             best_pawn_capture_san = (
                                 board_best.san(move)
                             )
+
                         except Exception:
+
                             best_pawn_capture_san = ""
 
+                        print(
+                            "PAWN LOSS: та же пешка "
+                            "теряется и в BEST PV"
+                        )
+
                         break
+
+                # --------------------------------------------------
+                # Удаляем реально взятую пешку
+                # из отслеживания.
+                # --------------------------------------------------
+
+                if (
+                    captured_original_square
+                    is not None
+                ):
+
+                    best_pawns.pop(
+                        captured_original_square,
+                        None
+                    )
+
+                if pawn_lost_in_best:
+                    break
+
+            # ==================================================
+            # ЕСЛИ ЭТО НАШ ХОД —
+            # ПЕРЕМЕЩАЕМ ОТСЛЕЖИВАЕМУЮ ПЕШКУ
+            # ==================================================
+
+            if board_best.turn == our_color:
+
+                for (
+                    original_square,
+                    current_square
+                ) in list(
+                    best_pawns.items()
+                ):
+
+                    if (
+                        current_square
+                        != move.from_square
+                    ):
+                        continue
+
+                    best_pawns[
+                        original_square
+                    ] = move.to_square
+
+                    break
+
+            # ==================================================
+            # ДЕЛАЕМ ХОД
+            # ==================================================
 
             board_best.push(move)
 
     except Exception as e:
+
         print(
             "PAWN LOSS: ошибка анализа BEST PV:",
             repr(e)
         )
 
-    # --------------------------------------------------
-    # Если та же пешка теряется и при лучшем ходе,
-    # значит сыгранный ход не является причиной
-    # именно этой потери.
-    # --------------------------------------------------
+    # ==========================================================
+    # 16. ЕСЛИ ТА ЖЕ ПЕШКА ТЕРЯЕТСЯ И ПОСЛЕ BEST
+    #
+    # Тогда сыгранный ход не является причиной
+    # именно этой потери пешки.
+    # ==========================================================
 
     if pawn_lost_in_best:
+
         print(
             "PAWN LOSS: та же пешка теряется "
             "и после лучшего хода — НЕ считаем причиной"
@@ -9720,53 +10816,86 @@ def detect_pawn_loss(mistake):
 
         return None
 
-    # --------------------------------------------------
-    # Формируем объяснение
-    # --------------------------------------------------
+    # ==========================================================
+    # 17. ФОРМИРУЕМ ФИНАЛЬНЫЙ ТЕКСТ
+    # ==========================================================
 
-    pawn_name = chess.square_name(
-        lost_pawn_square
-    )
+    text = build_pawn_loss_text()
 
-    if lost_pawn_san:
-        text = (
-            f"Ваш ход приводит к потере пешки "
-            f"на {pawn_name}: соперник может "
-            f"забрать её ходом {lost_pawn_san}."
-        )
-    else:
-        text = (
-            "Ваш ход приводит к потере пешки."
-        )
+    # ==========================================================
+    # 18. DEBUG
+    # ==========================================================
 
     print(
         "=============================================="
     )
+
     print(
         "!!! PAWN LOSS НАЙДЕН !!!"
     )
+
     print(
-        "PAWN SQUARE =",
+        "PAWN ORIGINAL =",
+        chess.square_name(
+            lost_pawn_original_square
+        )
+    )
+
+    print(
+        "PAWN CURRENT =",
         pawn_name
     )
+
     print(
         "CAPTURE =",
         lost_pawn_san
     )
+
+    print(
+        "SEQUENCE =",
+        " ".join(
+            pawn_loss_sequence
+        )
+    )
+
+    print(
+        "SEQUENCE SWING =",
+        pawn_loss_sequence_swing
+    )
+
+    print(
+        "BEST PV CAPTURE =",
+        best_pawn_capture_san
+    )
+
     print(
         "TEXT =",
         text
     )
+
     print(
         "=============================================="
     )
+
+    # ==========================================================
+    # 19. РЕЗУЛЬТАТ
+    # ==========================================================
 
     return {
         "text": text,
         "pawn_square": lost_pawn_square,
         "pawn_square_name": pawn_name,
+        "pawn_original_square": (
+            lost_pawn_original_square
+        ),
         "capture_move": lost_pawn_move,
         "capture_san": lost_pawn_san,
+        "sequence": (
+            pawn_loss_sequence
+        ),
+        "sequence_swing": (
+            pawn_loss_sequence_swing
+        ),
         "verified_against_best": True,
     }
 
@@ -10129,7 +11258,8 @@ def detect_inaccuracy_no_benefit(
 def detect_delayed_capture(
     board_before,
     played_move,
-    best_move
+    best_move,
+    best_pv=None
 ):
     """
     Определяет ситуацию, когда игрок слишком рано забрал материал:
@@ -10137,44 +11267,51 @@ def detect_delayed_capture(
         played_move = взятие
         best_move   = полезный невзятие
 
-    После best_move взятая фигура и наша атакующая фигура
-    всё ещё сохраняются, и после возможного ответа соперника
-    первоначальное взятие остаётся возможным.
+    После best_move используется КОНКРЕТНЫЙ ответ соперника
+    из PV Stockfish. После этого первоначальное взятие должно
+    снова быть легальным.
 
     Пример:
 
-        Nxc2?! вместо h6!
+        сыграно: Nxc2?!
+        лучше:   h6!
 
-        h6 Nb1 Nxc2
+        PV:
+            h6 Nb1 Nxc2
 
-    В этом случае функция сообщает:
+    Тогда функция сообщает:
 
         "Вы слишком рано забрали ладью. Сначала стоило сыграть h6.
         После этого взятие ладьи всё ещё оставалось возможным
         ходом Nxc2."
+
+    ВАЖНО:
+    Не перебираем все legal moves соперника.
+    Иначе можно случайно найти совершенно искусственный ответ,
+    который Stockfish вообще не рассматривал.
     """
 
     print("==============================================")
     print("=== ВХОД В detect_delayed_capture() ===")
     print("==============================================")
 
-    if board_before is None:
-        print("DELAYED CAPTURE: board_before = None")
-        return None
-
-    if played_move is None:
-        print("DELAYED CAPTURE: played_move = None")
-        return None
-
-    if best_move is None:
-        print("DELAYED CAPTURE: best_move = None")
-        return None
-
     try:
 
-        # ------------------------------------------------------
-        # 1. Проверяем легальность ходов в исходной позиции
-        # ------------------------------------------------------
+        # ======================================================
+        # 1. Базовые проверки
+        # ======================================================
+
+        if board_before is None:
+            print("DELAYED CAPTURE: board_before = None")
+            return None
+
+        if played_move is None:
+            print("DELAYED CAPTURE: played_move = None")
+            return None
+
+        if best_move is None:
+            print("DELAYED CAPTURE: best_move = None")
+            return None
 
         if played_move not in board_before.legal_moves:
             print("DELAYED CAPTURE: сыгранный ход нелегален")
@@ -10184,59 +11321,75 @@ def detect_delayed_capture(
             print("DELAYED CAPTURE: лучший ход нелегален")
             return None
 
-        # ------------------------------------------------------
-        # 2. Сыгранный ход ОБЯЗАТЕЛЬНО должен быть взятием
-        # ------------------------------------------------------
+        # ======================================================
+        # 2. Сыгранный ход обязательно должен быть взятием
+        # ======================================================
 
         if not board_before.is_capture(played_move):
-            print("DELAYED CAPTURE: сыгранный ход не является взятием")
+            print(
+                "DELAYED CAPTURE: сыгранный ход "
+                "не является взятием"
+            )
             return None
 
-        # ------------------------------------------------------
-        # 3. Лучший ход НЕ должен быть взятием
-        # ------------------------------------------------------
+        # ======================================================
+        # 3. Лучший ход не должен быть взятием
+        # ======================================================
 
         if board_before.is_capture(best_move):
-            print("DELAYED CAPTURE: лучший ход является взятием")
+            print(
+                "DELAYED CAPTURE: лучший ход "
+                "является взятием"
+            )
             return None
 
-        # ------------------------------------------------------
-        # 4. Получаем фигуру, которой мы ходим
-        # ------------------------------------------------------
+        # ======================================================
+        # 4. Получаем нашу фигуру
+        # ======================================================
 
         played_piece = board_before.piece_at(
             played_move.from_square
         )
 
         if played_piece is None:
-            print("DELAYED CAPTURE: не найдена сыгранная фигура")
+            print(
+                "DELAYED CAPTURE: "
+                "не найдена сыгранная фигура"
+            )
             return None
 
-        # Только наша фигура
         if played_piece.color != board_before.turn:
-            print("DELAYED CAPTURE: цвет фигуры не совпадает с ходом")
+            print(
+                "DELAYED CAPTURE: цвет фигуры "
+                "не совпадает с ходом"
+            )
             return None
 
-        # ------------------------------------------------------
+        # ======================================================
         # 5. Определяем взятую фигуру
         #
-        # Для en passant отдельно обрабатываем пешку.
-        # ------------------------------------------------------
+        # Отдельно учитываем en passant.
+        # ======================================================
 
         captured_piece = None
         captured_square = played_move.to_square
 
         if board_before.is_en_passant(played_move):
 
-            # При en passant взятая пешка находится не на
-            # конечном поле хода.
             if played_piece.piece_type != chess.PAWN:
-                print("DELAYED CAPTURE: странный en passant")
+                print(
+                    "DELAYED CAPTURE: "
+                    "странный en passant"
+                )
                 return None
 
             captured_square = chess.square(
-                chess.square_file(played_move.to_square),
-                chess.square_rank(played_move.from_square)
+                chess.square_file(
+                    played_move.to_square
+                ),
+                chess.square_rank(
+                    played_move.from_square
+                )
             )
 
             captured_piece = board_before.piece_at(
@@ -10244,283 +11397,447 @@ def detect_delayed_capture(
             )
 
         else:
+
             captured_piece = board_before.piece_at(
                 played_move.to_square
             )
 
-        # ------------------------------------------------------
-        # 6. Должна существовать реальная фигура соперника
-        # ------------------------------------------------------
+        # ======================================================
+        # 6. Проверяем взятую фигуру
+        # ======================================================
 
         if captured_piece is None:
-            print("DELAYED CAPTURE: взятая фигура не найдена")
+            print(
+                "DELAYED CAPTURE: "
+                "взятая фигура не найдена"
+            )
             return None
 
         if captured_piece.color == played_piece.color:
-            print("DELAYED CAPTURE: пытаемся взять свою фигуру")
+            print(
+                "DELAYED CAPTURE: "
+                "пытаемся взять свою фигуру"
+            )
             return None
 
-        # Короля не считаем обычным материалом
+        # Короля не рассматриваем как обычный материал.
         if captured_piece.piece_type == chess.KING:
-            print("DELAYED CAPTURE: взятие короля")
+            print(
+                "DELAYED CAPTURE: "
+                "взятие короля"
+            )
             return None
 
-        # ------------------------------------------------------
+        # ======================================================
         # 7. SAN сыгранного хода
+        # ======================================================
+
+        played_san = board_before.san(
+            played_move
+        )
+
+        best_san = board_before.san(
+            best_move
+        )
+
+        print(
+            "PLAYED MOVE =",
+            played_move
+        )
+
+        print(
+            "PLAYED SAN =",
+            played_san
+        )
+
+        print(
+            "BEST MOVE =",
+            best_move
+        )
+
+        print(
+            "BEST SAN =",
+            best_san
+        )
+
+        # ======================================================
+        # 8. Проверяем PV
+        # ======================================================
+        #
+        # Нам нужен ответ соперника ПОСЛЕ best_move.
+        #
+        # Возможны два формата PV:
+        #
+        #   Вариант 1:
+        #       [best_move, opponent_reply, ...]
+        #
+        #   Вариант 2:
+        #       [opponent_reply, ...]
+        #
+        # В нашем анализаторе наиболее вероятен первый вариант,
+        # но поддерживаем оба.
+        # ======================================================
+
+        if not best_pv:
+            print(
+                "DELAYED CAPTURE: "
+                "best_pv отсутствует"
+            )
+            return None
+
+        pv = list(best_pv)
+
+        print(
+            "DELAYED CAPTURE: BEST PV =",
+            pv
+        )
+
+        opponent_reply = None
+
+        # ------------------------------------------------------
+        # Если PV начинается с best_move:
+        #
+        #   best_move
+        #   opponent_reply
+        #   ...
         # ------------------------------------------------------
 
-        played_san = board_before.san(played_move)
+        if len(pv) >= 2 and pv[0] == best_move:
+
+            opponent_reply = pv[1]
+
+            print(
+                "DELAYED CAPTURE: "
+                "PV начинается с best_move"
+            )
 
         # ------------------------------------------------------
-        # 8. Выполняем лучший ход
+        # Если PV уже начинается с ответа соперника:
+        #
+        #   opponent_reply
+        #   ...
         # ------------------------------------------------------
 
-        board_after_best = board_before.copy(stack=False)
+        elif len(pv) >= 1 and pv[0] != best_move:
+
+            opponent_reply = pv[0]
+
+            print(
+                "DELAYED CAPTURE: "
+                "PV начинается с ответа соперника"
+            )
+
+        else:
+
+            print(
+                "DELAYED CAPTURE: "
+                "не удалось определить ответ соперника"
+            )
+
+            return None
+
+        if opponent_reply is None:
+            print(
+                "DELAYED CAPTURE: "
+                "opponent_reply = None"
+            )
+            return None
+
+        # ======================================================
+        # 9. Сыгрываем best_move
+        # ======================================================
+
+        board_after_best = board_before.copy(
+            stack=False
+        )
 
         board_after_best.push(best_move)
 
-        print("BEST MOVE =", best_move)
-        print("BEST SAN =", board_before.san(best_move))
-        print("POSITION AFTER BEST =", board_after_best)
+        print(
+            "POSITION AFTER BEST MOVE:"
+        )
+        print(
+            board_after_best
+        )
 
-        # ------------------------------------------------------
-        # 9. Проверяем, что наша фигура после best_move
-        #    всё ещё находится на исходном поле
-        # ------------------------------------------------------
+        # ======================================================
+        # 10. Проверяем нашу фигуру
+        #
+        # Она должна остаться на исходном поле.
+        # ======================================================
 
-        piece_after_best = board_after_best.piece_at(
-            played_move.from_square
+        piece_after_best = (
+            board_after_best.piece_at(
+                played_move.from_square
+            )
         )
 
         if piece_after_best is None:
             print(
-                "DELAYED CAPTURE: наша фигура исчезла "
-                "после лучшего хода"
+                "DELAYED CAPTURE: "
+                "наша фигура исчезла "
+                "после best_move"
             )
             return None
 
         if piece_after_best.color != played_piece.color:
             print(
-                "DELAYED CAPTURE: на исходном поле "
-                "уже другая сторона"
+                "DELAYED CAPTURE: "
+                "на исходном поле уже "
+                "другая сторона"
             )
             return None
 
         if piece_after_best.piece_type != played_piece.piece_type:
             print(
-                "DELAYED CAPTURE: наша фигура изменилась"
+                "DELAYED CAPTURE: "
+                "наша фигура изменилась"
             )
             return None
 
-        # ------------------------------------------------------
-        # 10. Проверяем, что целевая фигура соперника
-        #     всё ещё находится на исходном поле
-        # ------------------------------------------------------
+        # ======================================================
+        # 11. Проверяем целевую фигуру
+        #
+        # Она тоже должна остаться на исходном поле.
+        # ======================================================
 
-        target_after_best = board_after_best.piece_at(
-            captured_square
+        target_after_best = (
+            board_after_best.piece_at(
+                captured_square
+            )
         )
 
         if target_after_best is None:
             print(
-                "DELAYED CAPTURE: целевая фигура исчезла "
-                "после лучшего хода"
+                "DELAYED CAPTURE: "
+                "целевая фигура исчезла "
+                "после best_move"
             )
             return None
 
         if target_after_best.color == played_piece.color:
             print(
-                "DELAYED CAPTURE: на цели теперь наша фигура"
+                "DELAYED CAPTURE: "
+                "на цели теперь наша фигура"
             )
             return None
 
         if target_after_best.piece_type != captured_piece.piece_type:
             print(
-                "DELAYED CAPTURE: на цели уже другая фигура"
+                "DELAYED CAPTURE: "
+                "на цели уже другая фигура"
             )
             return None
 
-        # ------------------------------------------------------
-        # 11. Теперь главное.
-        #
-        # После best_move ход переходит сопернику.
-        #
-        # Нам НЕ нужно требовать, чтобы played_move был
-        # легален прямо сейчас.
-        #
-        # Проверяем:
-        #
-        #   best_move
-        #       ↓
-        #   ход соперника
-        #       ↓
-        #   played_move снова возможен
-        #
-        # Это позволяет обнаруживать:
-        #
-        #   h6 Nb1 Nxc2
-        #
-        # ------------------------------------------------------
+        # ======================================================
+        # 12. Проверяем конкретный ответ из PV
+        # ======================================================
 
-        delayed_capture_possible = False
-        opponent_reply = None
-        board_after_reply = None
+        if opponent_reply not in board_after_best.legal_moves:
 
-        # На всякий случай ограничиваемся одним ответом соперника.
-        # Это важно: мы хотим доказать, что взятие не пропадает
-        # сразу, а не искать его через половину партии.
+            print(
+                "DELAYED CAPTURE: "
+                "ответ из PV нелегален после best_move"
+            )
 
-        legal_replies = list(board_after_best.legal_moves)
+            print(
+                "BEST MOVE =",
+                best_move
+            )
 
-        print(
-            "DELAYED CAPTURE: количество ответов соперника =",
-            len(legal_replies)
+            print(
+                "OPPONENT REPLY =",
+                opponent_reply
+            )
+
+            return None
+
+        opponent_reply_san = (
+            board_after_best.san(
+                opponent_reply
+            )
         )
 
-        # ------------------------------------------------------
-        # Сначала проверяем редкий случай:
-        # вдруг best_move сам является ходом соперника и
-        # наше взятие каким-то образом уже доступно.
-        # ------------------------------------------------------
+        print(
+            "OPPONENT REPLY =",
+            opponent_reply
+        )
 
-        if played_move in board_after_best.legal_moves:
+        print(
+            "OPPONENT REPLY SAN =",
+            opponent_reply_san
+        )
 
-            delayed_capture_possible = True
-            board_after_reply = board_after_best.copy(stack=False)
+        # ======================================================
+        # 13. Сыгрываем ответ соперника
+        # ======================================================
 
-            print(
-                "DELAYED CAPTURE: взятие доступно сразу после best_move"
+        board_after_reply = (
+            board_after_best.copy(
+                stack=False
             )
+        )
 
-        else:
+        board_after_reply.push(
+            opponent_reply
+        )
 
-            # --------------------------------------------------
-            # Перебираем возможные ответы соперника
-            # --------------------------------------------------
+        # ======================================================
+        # 14. Проверяем, что наша фигура всё ещё существует
+        # ======================================================
 
-            for reply in legal_replies:
+        our_piece_after_reply = (
+            board_after_reply.piece_at(
+                played_move.from_square
+            )
+        )
 
-                # Ответ соперника не должен сам убрать
-                # нашу атакующую фигуру или целевую фигуру.
-                temp_board = board_after_best.copy(stack=False)
-
-                # Проверяем ответ
-                temp_board.push(reply)
-
-                # Наша фигура всё ещё должна быть на исходном поле
-                our_piece_after_reply = temp_board.piece_at(
-                    played_move.from_square
-                )
-
-                if our_piece_after_reply is None:
-                    continue
-
-                if our_piece_after_reply.color != played_piece.color:
-                    continue
-
-                if our_piece_after_reply.piece_type != played_piece.piece_type:
-                    continue
-
-                # Целевая фигура всё ещё должна быть на месте
-                target_after_reply = temp_board.piece_at(
-                    captured_square
-                )
-
-                if target_after_reply is None:
-                    continue
-
-                if target_after_reply.color == played_piece.color:
-                    continue
-
-                if target_after_reply.piece_type != captured_piece.piece_type:
-                    continue
-
-                # --------------------------------------------------
-                # Теперь проверяем именно первоначальное взятие
-                # --------------------------------------------------
-
-                if played_move not in temp_board.legal_moves:
-                    continue
-
-                # Успех
-                delayed_capture_possible = True
-                opponent_reply = reply
-                board_after_reply = temp_board
-
-                print(
-                    "DELAYED CAPTURE FOUND!"
-                )
-
-                print(
-                    "BEST MOVE =",
-                    best_move
-                )
-
-                print(
-                    "BEST SAN =",
-                    board_before.san(best_move)
-                )
-
-                print(
-                    "OPPONENT REPLY =",
-                    reply
-                )
-
-                print(
-                    "OPPONENT REPLY SAN =",
-                    board_after_best.san(reply)
-                )
-
-                print(
-                    "DELAYED CAPTURE =",
-                    played_move
-                )
-
-                print(
-                    "DELAYED CAPTURE SAN =",
-                    temp_board.san(played_move)
-                )
-
-                break
-
-        # ------------------------------------------------------
-        # 12. Если взятие после ответа соперника уже невозможно
-        # ------------------------------------------------------
-
-        if not delayed_capture_possible:
+        if our_piece_after_reply is None:
 
             print(
-                "DELAYED CAPTURE: после лучшего хода "
-                "взятие больше не сохраняется"
+                "DELAYED CAPTURE: "
+                "наша фигура исчезла "
+                "после ответа соперника"
             )
 
             return None
 
-        # ------------------------------------------------------
-        # 13. Получаем SAN лучшего хода
-        # ------------------------------------------------------
+        if (
+            our_piece_after_reply.color
+            != played_piece.color
+        ):
 
-        best_san = board_before.san(best_move)
+            print(
+                "DELAYED CAPTURE: "
+                "после ответа соперника "
+                "на исходном поле другая сторона"
+            )
 
-        # ------------------------------------------------------
-        # 14. Получаем SAN отложенного взятия
-        # ------------------------------------------------------
+            return None
 
-        if board_after_reply is not None:
+        if (
+            our_piece_after_reply.piece_type
+            != played_piece.piece_type
+        ):
 
-            try:
-                delayed_capture_san = board_after_reply.san(
-                    played_move
-                )
-            except Exception:
-                delayed_capture_san = played_san
+            print(
+                "DELAYED CAPTURE: "
+                "наша фигура изменилась "
+                "после ответа соперника"
+            )
 
-        else:
-            delayed_capture_san = played_san
+            return None
 
-        # ------------------------------------------------------
-        # 15. Название взятой фигуры
-        # ------------------------------------------------------
+        # ======================================================
+        # 15. Проверяем, что целевая фигура всё ещё существует
+        # ======================================================
+
+        target_after_reply = (
+            board_after_reply.piece_at(
+                captured_square
+            )
+        )
+
+        if target_after_reply is None:
+
+            print(
+                "DELAYED CAPTURE: "
+                "целевая фигура исчезла "
+                "после ответа соперника"
+            )
+
+            return None
+
+        if (
+            target_after_reply.color
+            == played_piece.color
+        ):
+
+            print(
+                "DELAYED CAPTURE: "
+                "после ответа соперника "
+                "на цели наша фигура"
+            )
+
+            return None
+
+        if (
+            target_after_reply.piece_type
+            != captured_piece.piece_type
+        ):
+
+            print(
+                "DELAYED CAPTURE: "
+                "на цели уже другая фигура "
+                "после ответа соперника"
+            )
+
+            return None
+
+        # ======================================================
+        # 16. Главное доказательство:
+        #
+        # первоначальное взятие снова должно быть
+        # ЛЕГАЛЬНЫМ.
+        # ======================================================
+
+        if played_move not in board_after_reply.legal_moves:
+
+            print(
+                "DELAYED CAPTURE: "
+                "первоначальное взятие "
+                "НЕ стало снова легальным"
+            )
+
+            return None
+
+        # ======================================================
+        # 17. Получаем SAN отложенного взятия
+        # ======================================================
+
+        delayed_capture_san = (
+            board_after_reply.san(
+                played_move
+            )
+        )
+
+        print(
+            "DELAYED CAPTURE FOUND!"
+        )
+
+        print(
+            "BEST MOVE =",
+            best_move
+        )
+
+        print(
+            "BEST SAN =",
+            best_san
+        )
+
+        print(
+            "OPPONENT REPLY =",
+            opponent_reply
+        )
+
+        print(
+            "OPPONENT REPLY SAN =",
+            opponent_reply_san
+        )
+
+        print(
+            "DELAYED CAPTURE =",
+            played_move
+        )
+
+        print(
+            "DELAYED CAPTURE SAN =",
+            delayed_capture_san
+        )
+
+        # ======================================================
+        # 18. Название взятой фигуры
+        # ======================================================
 
         piece_names = {
             chess.PAWN: "пешку",
@@ -10536,24 +11853,21 @@ def detect_delayed_capture(
             "фигуру"
         )
 
-        # ------------------------------------------------------
-        # 16. Главное объяснение
-        #
-        # Именно этот текст нужен пользователю.
-        # Никаких дополнительных "конь оказывается под атакой"
-        # здесь не добавляем.
-        # ------------------------------------------------------
+        # ======================================================
+        # 19. Главное объяснение
+        # ======================================================
 
         text = (
             f"Вы слишком рано забрали {captured_name}. "
             f"Сначала стоило сыграть {best_san}. "
             f"После этого взятие {captured_name} всё ещё "
-            f"оставалось возможным ходом {delayed_capture_san}."
+            f"оставалось возможным ходом "
+            f"{delayed_capture_san}."
         )
 
-        # ------------------------------------------------------
-        # 17. Возвращаем информацию
-        # ------------------------------------------------------
+        # ======================================================
+        # 20. Возвращаем результат
+        # ======================================================
 
         result = {
             "type": "delayed_capture",
@@ -10570,6 +11884,10 @@ def detect_delayed_capture(
             "played_piece": played_piece,
 
             "opponent_reply": opponent_reply,
+            "opponent_reply_san": opponent_reply_san,
+
+            "delayed_capture": played_move,
+            "delayed_capture_san": delayed_capture_san,
 
             "text": text,
         }
@@ -10589,7 +11907,7 @@ def detect_delayed_capture(
         )
 
         return None
-
+    
 # ==========================================================
 # ЛУЧШИЙ ХОД ДОБАВЛЯЕТ ЗАЩИТНИКА К УЯЗВИМОЙ ПЕШКЕ
 # ==========================================================
@@ -10988,11 +12306,17 @@ def detect_material_pressure_on_linked_piece(
         лучший ход позволяет постепенно усилить давление
         на ограниченную / связанную фигуру соперника.
 
-    Пример:
+    Идея:
 
-        ...Ne8 Re1 f6
+        наша дальнобойная фигура
+                |
+                v
+        вражеская target-фигура
+                |
+                v
+        более ценная вражеская фигура
 
-    После ...f6:
+    Например:
 
         Bd6
           \
@@ -11000,18 +12324,30 @@ def detect_material_pressure_on_linked_piece(
              \
               Bf4
 
-    Пешка f6 атакует Ne5.
+    Если мы усиливаем давление на Ne5, сопернику может
+    потребоваться убрать Ne5.
 
-    Если Ne5 уйдёт, линия Bd6-e5-f4 открывается,
-    и слон d6 получает возможность взять слона f4.
+    После ухода Ne5 линия Bd6-e5-f4 открывается,
+    и Bd6 получает возможность взять Bf4.
 
-    Это НЕ классическая связка с королём.
-    Это постепенное усиление давления на фигуру,
-    которая одновременно защищает / блокирует более ценную фигуру.
+    ВАЖНО:
+
+    Самого факта "линия открывается" недостаточно.
+
+    Функция дополнительно проверяет:
+
+        1. target действительно подверглась новому давлению;
+        2. target может легально уйти;
+        3. после ухода target наша конкретная slider-фигура
+           действительно может легально взять behind-фигуру;
+        4. behind-фигура действительно ценнее target.
+
+    Это позволяет не выдавать объяснение просто потому,
+    что на доске существует красивая связанная конструкция.
     """
 
     # ==========================================================
-    # БАЗОВЫЕ ПРОВЕРКИ
+    # 1. БАЗОВЫЕ ПРОВЕРКИ
     # ==========================================================
 
     if board is None:
@@ -11038,7 +12374,7 @@ def detect_material_pressure_on_linked_piece(
         return None
 
     # ==========================================================
-    # НАЗВАНИЯ И ЦЕННОСТИ ФИГУР
+    # 2. НАЗВАНИЯ И ЦЕННОСТИ ФИГУР
     # ==========================================================
 
     piece_names = {
@@ -11070,7 +12406,7 @@ def detect_material_pressure_on_linked_piece(
         )
 
     # ==========================================================
-    # ПОЛУЧИТЬ КЛЕТОЧКИ МЕЖДУ ДВУМЯ ПОЛЯМИ
+    # 3. ПОЛЯ МЕЖДУ ДВУМЯ КЛЕТКАМИ
     # ==========================================================
 
     def get_line_between(a, b):
@@ -11084,12 +12420,15 @@ def detect_material_pressure_on_linked_piece(
         df = bf - af
         dr = br - ar
 
-        # Поля должны находиться на одной линии:
-        # вертикаль, горизонталь или диагональ.
+        # Должна быть вертикаль, горизонталь или диагональ.
         if df != 0 and dr != 0:
 
             if abs(df) != abs(dr):
                 return None
+
+        # Одинаковое поле нам не подходит.
+        if df == 0 and dr == 0:
+            return None
 
         step_f = (
             0
@@ -11126,27 +12465,72 @@ def detect_material_pressure_on_linked_piece(
         return squares
 
     # ==========================================================
-    # ИЩЕМ КОНСТРУКЦИЮ
+    # 4. ПОЛУЧАЕМ ПОЛЕ СРАЗУ ЗА TARGET
+    # ==========================================================
+
+    def get_behind_square(
+        slider_sq,
+        target_sq
+    ):
+
+        sf = chess.square_file(slider_sq)
+        sr = chess.square_rank(slider_sq)
+
+        tf = chess.square_file(target_sq)
+        tr = chess.square_rank(target_sq)
+
+        df = tf - sf
+        dr = tr - sr
+
+        if df != 0 and dr != 0:
+
+            if abs(df) != abs(dr):
+                return None
+
+        if df == 0 and dr == 0:
+            return None
+
+        step_f = (
+            0
+            if df == 0
+            else (1 if df > 0 else -1)
+        )
+
+        step_r = (
+            0
+            if dr == 0
+            else (1 if dr > 0 else -1)
+        )
+
+        behind_f = tf + step_f
+        behind_r = tr + step_r
+
+        if not (
+            0 <= behind_f <= 7
+            and 0 <= behind_r <= 7
+        ):
+            return None
+
+        return chess.square(
+            behind_f,
+            behind_r
+        )
+
+    # ==========================================================
+    # 5. ИЩЕМ СВЯЗАННЫЕ ФИГУРЫ
+    # ==========================================================
     #
-    # НАША ФИГУРА-СЛАЙДЕР
-    #        |
-    # ФИГУРА СОПЕРНИКА
-    #        |
-    # БОЛЕЕ ЦЕННАЯ ФИГУРА СОПЕРНИКА
+    # Наша дальнобойная фигура
+    #          |
+    #          v
+    #       TARGET
+    #          |
+    #          v
+    #       BEHIND
     #
-    # Например:
+    # Между ними не должно быть других фигур.
     #
-    #        Bd6
-    #          \
-    #           Ne5
-    #             \
-    #              Bf4
-    #
-    # Здесь:
-    #
-    # slider   = Bd6
-    # target   = Ne5
-    # behind   = Bf4
+    # BEHIND должен быть строго ценнее TARGET.
     # ==========================================================
 
     def find_linked_targets(position):
@@ -11157,9 +12541,16 @@ def detect_material_pressure_on_linked_piece(
 
         for slider_sq, slider in position.piece_map().items():
 
-            # Нас интересуют только наши дальнобойные фигуры.
+            # --------------------------------------------------
+            # Только наши фигуры.
+            # --------------------------------------------------
+
             if slider.color != our_color:
                 continue
+
+            # --------------------------------------------------
+            # Только дальнобойные фигуры.
+            # --------------------------------------------------
 
             if slider.piece_type not in (
                 chess.BISHOP,
@@ -11168,7 +12559,10 @@ def detect_material_pressure_on_linked_piece(
             ):
                 continue
 
+            # --------------------------------------------------
             # Ищем вражескую target-фигуру.
+            # --------------------------------------------------
+
             for target_sq, target in position.piece_map().items():
 
                 if target.color == our_color:
@@ -11176,6 +12570,10 @@ def detect_material_pressure_on_linked_piece(
 
                 if target.piece_type == chess.KING:
                     continue
+
+                # --------------------------------------------------
+                # Slider и target должны находиться на одной линии.
+                # --------------------------------------------------
 
                 line = get_line_between(
                     slider_sq,
@@ -11185,7 +12583,10 @@ def detect_material_pressure_on_linked_piece(
                 if line is None:
                     continue
 
-                # Между slider и target ничего не должно быть.
+                # --------------------------------------------------
+                # Между slider и target не должно быть фигур.
+                # --------------------------------------------------
+
                 blocked = False
 
                 for sq in line:
@@ -11198,41 +12599,17 @@ def detect_material_pressure_on_linked_piece(
                 if blocked:
                     continue
 
-                # ==================================================
-                # Ищем поле СРАЗУ ЗА target.
-                # ==================================================
+                # --------------------------------------------------
+                # Поле сразу за target.
+                # --------------------------------------------------
 
-                sf = chess.square_file(slider_sq)
-                sr = chess.square_rank(slider_sq)
-
-                tf = chess.square_file(target_sq)
-                tr = chess.square_rank(target_sq)
-
-                step_f = (
-                    0
-                    if tf == sf
-                    else (1 if tf > sf else -1)
+                behind_sq = get_behind_square(
+                    slider_sq,
+                    target_sq
                 )
 
-                step_r = (
-                    0
-                    if tr == sr
-                    else (1 if tr > sr else -1)
-                )
-
-                behind_f = tf + step_f
-                behind_r = tr + step_r
-
-                if not (
-                    0 <= behind_f <= 7
-                    and 0 <= behind_r <= 7
-                ):
+                if behind_sq is None:
                     continue
-
-                behind_sq = chess.square(
-                    behind_f,
-                    behind_r
-                )
 
                 behind_piece = position.piece_at(
                     behind_sq
@@ -11247,7 +12624,10 @@ def detect_material_pressure_on_linked_piece(
                 if behind_piece.piece_type == chess.KING:
                     continue
 
-                # За target должна стоять более ценная фигура.
+                # --------------------------------------------------
+                # Behind должна быть СТРОГО ценнее target.
+                # --------------------------------------------------
+
                 target_value = piece_values.get(
                     target.piece_type,
                     0
@@ -11258,8 +12638,12 @@ def detect_material_pressure_on_linked_piece(
                     0
                 )
 
-                if behind_value < target_value:
+                if behind_value <= target_value:
                     continue
+
+                # --------------------------------------------------
+                # Сохраняем конструкцию.
+                # --------------------------------------------------
 
                 result.append({
                     "target_square": target_sq,
@@ -11275,23 +12659,26 @@ def detect_material_pressure_on_linked_piece(
         return result
 
     # ==========================================================
-    # ПОДГОТОВКА BEST PV
+    # 6. ПОДГОТОВКА PV
     # ==========================================================
 
-    pv_board = board.copy()
+    pv_board = board.copy(
+        stack=False
+    )
 
-    # Нормализуем PV.
+    # ----------------------------------------------------------
+    # Возможны два варианта переданного PV:
     #
-    # В нормальном случае:
+    # A:
     #
-    # pv[0] == best_move
+    #   [best_move, reply, ...]
     #
-    # Например:
+    # B:
     #
-    # f6e8
-    # f1e1
-    # f7f6
-    # ...
+    #   [reply, ...]
+    #
+    # В варианте B самостоятельно выполняем best_move.
+    # ----------------------------------------------------------
 
     if pv[0] == best_move:
 
@@ -11299,23 +12686,26 @@ def detect_material_pressure_on_linked_piece(
 
     else:
 
-        # Если переданный PV начинается уже после best_move,
-        # сначала самостоятельно выполняем best_move.
         try:
+
+            if best_move not in pv_board.legal_moves:
+                return None
+
             pv_board.push(best_move)
+
         except Exception:
             return None
 
         pv_moves = pv
 
     # ==========================================================
-    # ПРОХОДИМ BEST PV
+    # 7. ПРОХОДИМ PV
     # ==========================================================
 
     for index, move in enumerate(pv_moves):
 
         # ------------------------------------------------------
-        # Проверяем легальность хода.
+        # Проверяем легальность.
         # ------------------------------------------------------
 
         try:
@@ -11328,11 +12718,7 @@ def detect_material_pressure_on_linked_piece(
             return None
 
         # ------------------------------------------------------
-        # Определяем фигуру, которая делает ход,
-        # ДО push().
-        #
-        # ВАЖНО:
-        # chess.Move НЕ имеет move.piece().
+        # Получаем фигуру до хода.
         # ------------------------------------------------------
 
         moving_piece = pv_board.piece_at(
@@ -11343,14 +12729,13 @@ def detect_material_pressure_on_linked_piece(
             return None
 
         # ------------------------------------------------------
-        # Если это ход нашей стороны,
-        # проверяем, не создаёт ли он давление.
+        # Нас интересуют только ходы нашей стороны.
         # ------------------------------------------------------
 
         if moving_piece.color == board.turn:
 
             # ==================================================
-            # Ищем конструкции ДО нашего усиливающего хода.
+            # Ищем связанные конструкции ДО нашего хода.
             # ==================================================
 
             linked_targets = find_linked_targets(
@@ -11360,39 +12745,64 @@ def detect_material_pressure_on_linked_piece(
             if linked_targets:
 
                 # ==================================================
-                # Создаём позицию ПОСЛЕ хода.
+                # Позиция после нашего хода.
                 # ==================================================
 
-                test_board = pv_board.copy()
+                test_board = pv_board.copy(
+                    stack=False
+                )
 
                 try:
+
                     test_board.push(move)
+
                 except Exception:
+
                     continue
 
                 # ==================================================
-                # Проверяем каждую связанную фигуру.
+                # Проверяем все найденные конструкции.
                 # ==================================================
 
                 for info in linked_targets:
 
-                    target_sq = info["target_square"]
+                    target_sq = info[
+                        "target_square"
+                    ]
 
-                    slider_sq = info["slider_square"]
+                    slider_sq = info[
+                        "slider_square"
+                    ]
 
-                    behind_sq = info["behind_square"]
+                    behind_sq = info[
+                        "behind_square"
+                    ]
 
-                    target_before = pv_board.piece_at(
-                        target_sq
+                    # --------------------------------------------------
+                    # Фигура target до хода.
+                    # --------------------------------------------------
+
+                    target_before = (
+                        pv_board.piece_at(
+                            target_sq
+                        )
                     )
 
-                    target_after = test_board.piece_at(
-                        target_sq
-                    )
-
-                    # Target должна остаться на месте.
                     if target_before is None:
                         continue
+
+                    if target_before.color == board.turn:
+                        continue
+
+                    # --------------------------------------------------
+                    # Target после нашего хода должна существовать.
+                    # --------------------------------------------------
+
+                    target_after = (
+                        test_board.piece_at(
+                            target_sq
+                        )
+                    )
 
                     if target_after is None:
                         continue
@@ -11400,8 +12810,59 @@ def detect_material_pressure_on_linked_piece(
                     if target_after.color == board.turn:
                         continue
 
+                    if (
+                        target_after.piece_type
+                        != target_before.piece_type
+                    ):
+                        continue
+
                     # ==================================================
-                    # АТАКИ НА TARGET ДО И ПОСЛЕ ХОДА
+                    # SLIDER ДО ХОДА
+                    # ==================================================
+
+                    slider_before = (
+                        pv_board.piece_at(
+                            slider_sq
+                        )
+                    )
+
+                    if slider_before is None:
+                        continue
+
+                    if slider_before.color != board.turn:
+                        continue
+
+                    if slider_before.piece_type not in (
+                        chess.BISHOP,
+                        chess.ROOK,
+                        chess.QUEEN,
+                    ):
+                        continue
+
+                    # ==================================================
+                    # SLIDER ПОСЛЕ ХОДА
+                    # ==================================================
+
+                    slider_after = (
+                        test_board.piece_at(
+                            slider_sq
+                        )
+                    )
+
+                    if slider_after is None:
+                        continue
+
+                    if slider_after.color != board.turn:
+                        continue
+
+                    if (
+                        slider_after.piece_type
+                        != slider_before.piece_type
+                    ):
+                        continue
+
+                    # ==================================================
+                    # АТАКИ НА TARGET ДО И ПОСЛЕ
                     # ==================================================
 
                     attackers_before = list(
@@ -11418,14 +12879,20 @@ def detect_material_pressure_on_linked_piece(
                         )
                     )
 
+                    # --------------------------------------------------
                     # Новая атака.
+                    # --------------------------------------------------
+
                     newly_attacked = (
                         len(attackers_before) == 0
                         and
                         len(attackers_after) > 0
                     )
 
+                    # --------------------------------------------------
                     # Появился дополнительный атакующий.
+                    # --------------------------------------------------
+
                     more_attackers = (
                         len(attackers_after)
                         >
@@ -11433,34 +12900,28 @@ def detect_material_pressure_on_linked_piece(
                     )
 
                     # ==================================================
-                    # ОСОБАЯ ПРОВЕРКА:
-                    #
-                    # Ход самой пешки создаёт атаку.
-                    #
-                    # Например:
-                    #
-                    # f7-f6
-                    #
-                    # после чего:
-                    #
-                    # f6 -> e5
-                    #
+                    # Проверяем, атакует ли target именно сделавшая
+                    # ход пешка.
                     # ==================================================
 
                     pawn_attacks_target = False
 
                     if moving_piece.piece_type == chess.PAWN:
 
-                        pawn_after = test_board.piece_at(
-                            move.to_square
+                        moved_piece_after = (
+                            test_board.piece_at(
+                                move.to_square
+                            )
                         )
 
                         if (
-                            pawn_after is not None
+                            moved_piece_after is not None
                             and
-                            pawn_after.piece_type == chess.PAWN
+                            moved_piece_after.color
+                            == board.turn
                             and
-                            pawn_after.color == board.turn
+                            moved_piece_after.piece_type
+                            == chess.PAWN
                         ):
 
                             pawn_attacks_target = (
@@ -11471,14 +12932,16 @@ def detect_material_pressure_on_linked_piece(
                             )
 
                     # ==================================================
-                    # Для остальных фигур тоже можно определить,
-                    # атакует ли фигура target после своего хода.
+                    # Проверяем, атакует ли target сама сделавшая ход
+                    # фигура.
                     # ==================================================
 
                     piece_attacks_target = False
 
-                    moved_piece_after = test_board.piece_at(
-                        move.to_square
+                    moved_piece_after = (
+                        test_board.piece_at(
+                            move.to_square
+                        )
                     )
 
                     if moved_piece_after is not None:
@@ -11495,6 +12958,10 @@ def detect_material_pressure_on_linked_piece(
                                 )
                             )
 
+                    # ==================================================
+                    # Создано ли вообще давление?
+                    # ==================================================
+
                     pressure_created = (
                         newly_attacked
                         or
@@ -11509,84 +12976,236 @@ def detect_material_pressure_on_linked_piece(
                         continue
 
                     # ==================================================
-                    # ТЕПЕРЬ ПРОВЕРЯЕМ САМОЕ ГЛАВНОЕ:
-                    #
-                    # Если убрать target,
-                    # открывается ли slider -> behind?
+                    # ПРОВЕРЯЕМ BEHIND ПОСЛЕ УСИЛИВАЮЩЕГО ХОДА
                     # ==================================================
 
-                    opened_board = test_board.copy()
-
-                    # Target должна находиться на доске.
-                    if opened_board.piece_at(
-                        target_sq
-                    ) is None:
-                        continue
-
-                    opened_board.remove_piece_at(
-                        target_sq
-                    )
-
-                    slider_piece = opened_board.piece_at(
-                        slider_sq
-                    )
-
-                    if slider_piece is None:
-                        continue
-
-                    if slider_piece.color != board.turn:
-                        continue
-
-                    # После удаления target slider должен видеть
-                    # более ценную behind-фигуру.
-                    slider_attacks_behind = (
-                        behind_sq in
-                        opened_board.attacks(
-                            slider_sq
+                    behind_piece_after = (
+                        test_board.piece_at(
+                            behind_sq
                         )
                     )
 
-                    if not slider_attacks_behind:
+                    if behind_piece_after is None:
                         continue
 
-                    # ==================================================
-                    # ДОПОЛНИТЕЛЬНО:
-                    #
-                    # Проверяем, что behind-фигура действительно
-                    # более ценная.
-                    # ==================================================
-
-                    behind_piece = opened_board.piece_at(
-                        behind_sq
-                    )
-
-                    if behind_piece is None:
+                    if (
+                        behind_piece_after.color
+                        == board.turn
+                    ):
                         continue
 
-                    target_piece = target_before
+                    if (
+                        behind_piece_after.piece_type
+                        == chess.KING
+                    ):
+                        continue
+
+                    # --------------------------------------------------
+                    # Target должна быть более дешёвой.
+                    # --------------------------------------------------
 
                     target_value = piece_values.get(
-                        target_piece.piece_type,
+                        target_before.piece_type,
                         0
                     )
 
                     behind_value = piece_values.get(
-                        behind_piece.piece_type,
+                        behind_piece_after.piece_type,
                         0
                     )
 
-                    if behind_value < target_value:
+                    if behind_value <= target_value:
                         continue
 
                     # ==================================================
-                    # УСПЕШНО НАШЛИ МОТИВ
+                    # Теперь самое важное.
+                    #
+                    # Мы НЕ просто удаляем target и смотрим,
+                    # открылась ли линия.
+                    #
+                    # Сначала ищем РЕАЛЬНЫЙ ЛЕГАЛЬНЫЙ ХОД target,
+                    # которым она может уйти.
+                    # ==================================================
+
+                    target_escape_move = None
+                    board_after_target_escape = None
+
+                    for candidate in list(
+                        test_board.legal_moves
+                    ):
+
+                        if (
+                            candidate.from_square
+                            != target_sq
+                        ):
+                            continue
+
+                        # --------------------------------------------------
+                        # После хода target она действительно должна
+                        # покинуть исходное поле.
+                        # --------------------------------------------------
+
+                        if (
+                            candidate.to_square
+                            == target_sq
+                        ):
+                            continue
+
+                        candidate_board = (
+                            test_board.copy(
+                                stack=False
+                            )
+                        )
+
+                        try:
+
+                            candidate_board.push(
+                                candidate
+                            )
+
+                        except Exception:
+
+                            continue
+
+                        # --------------------------------------------------
+                        # Target должна уйти.
+                        # --------------------------------------------------
+
+                        target_after_escape = (
+                            candidate_board.piece_at(
+                                target_sq
+                            )
+                        )
+
+                        if target_after_escape is not None:
+                            continue
+
+                        # --------------------------------------------------
+                        # Наша slider-фигура должна всё ещё существовать.
+                        # --------------------------------------------------
+
+                        slider_after_escape = (
+                            candidate_board.piece_at(
+                                slider_sq
+                            )
+                        )
+
+                        if slider_after_escape is None:
+                            continue
+
+                        if (
+                            slider_after_escape.color
+                            != board.turn
+                        ):
+                            continue
+
+                        if (
+                            slider_after_escape.piece_type
+                            != slider_before.piece_type
+                        ):
+                            continue
+
+                        # --------------------------------------------------
+                        # Behind-фигура должна всё ещё существовать.
+                        # --------------------------------------------------
+
+                        behind_after_escape = (
+                            candidate_board.piece_at(
+                                behind_sq
+                            )
+                        )
+
+                        if behind_after_escape is None:
+                            continue
+
+                        if (
+                            behind_after_escape.color
+                            == board.turn
+                        ):
+                            continue
+
+                        if (
+                            behind_after_escape.piece_type
+                            == chess.KING
+                        ):
+                            continue
+
+                        # ==================================================
+                        # Ищем КОНКРЕТНЫЙ ЛЕГАЛЬНЫЙ capture:
+                        #
+                        # slider -> behind
+                        #
+                        # Если такого хода нет, мотив не считается
+                        # доказанным.
+                        # ==================================================
+
+                        capture_move = None
+
+                        for candidate_capture in list(
+                            candidate_board.legal_moves
+                        ):
+
+                            if (
+                                candidate_capture.from_square
+                                != slider_sq
+                            ):
+                                continue
+
+                            if (
+                                candidate_capture.to_square
+                                != behind_sq
+                            ):
+                                continue
+
+                            if not candidate_board.is_capture(
+                                candidate_capture
+                            ):
+                                continue
+
+                            capture_move = (
+                                candidate_capture
+                            )
+
+                            break
+
+                        if capture_move is None:
+                            continue
+
+                        # --------------------------------------------------
+                        # Реальное взятие найдено.
+                        # --------------------------------------------------
+
+                        target_escape_move = candidate
+                        board_after_target_escape = (
+                            candidate_board
+                        )
+
+                        break
+
+                    # ==================================================
+                    # Если target вообще не может уйти так,
+                    # чтобы открыть реальное взятие behind,
+                    # этот мотив не подтверждён.
+                    # ==================================================
+
+                    if target_escape_move is None:
+                        continue
+
+                    if board_after_target_escape is None:
+                        continue
+
+                    # ==================================================
+                    # Получаем SAN усиливающего хода.
                     # ==================================================
 
                     try:
+
                         strengthening_move_san = (
                             pv_board.san(move)
                         )
+
                     except Exception:
+
                         strengthening_move_san = (
                             chess.square_name(
                                 move.from_square
@@ -11596,6 +13215,69 @@ def detect_material_pressure_on_linked_piece(
                                 move.to_square
                             )
                         )
+
+                    # ==================================================
+                    # SAN ухода target.
+                    # ==================================================
+
+                    try:
+
+                        target_escape_move_san = (
+                            test_board.san(
+                                target_escape_move
+                            )
+                        )
+
+                    except Exception:
+
+                        target_escape_move_san = None
+
+                    # ==================================================
+                    # SAN будущего взятия behind.
+                    # ==================================================
+
+                    capture_move = None
+
+                    for candidate_capture in list(
+                        board_after_target_escape.legal_moves
+                    ):
+
+                        if (
+                            candidate_capture.from_square
+                            == slider_sq
+                            and
+                            candidate_capture.to_square
+                            == behind_sq
+                            and
+                            board_after_target_escape.is_capture(
+                                candidate_capture
+                            )
+                        ):
+
+                            capture_move = (
+                                candidate_capture
+                            )
+
+                            break
+
+                    if capture_move is None:
+                        continue
+
+                    try:
+
+                        capture_move_san = (
+                            board_after_target_escape.san(
+                                capture_move
+                            )
+                        )
+
+                    except Exception:
+
+                        capture_move_san = None
+
+                    # ==================================================
+                    # УСПЕШНО НАШЛИ МОТИВ
+                    # ==================================================
 
                     return {
                         "type": "material_pressure",
@@ -11607,27 +13289,33 @@ def detect_material_pressure_on_linked_piece(
                         ),
 
                         "target_piece": name_of(
-                            target_piece
+                            target_before
                         ),
 
-                        "target_square": chess.square_name(
-                            target_sq
+                        "target_square": (
+                            chess.square_name(
+                                target_sq
+                            )
                         ),
 
                         "attacker_piece": name_of(
-                            slider_piece
+                            slider_after
                         ),
 
-                        "attacker_square": chess.square_name(
-                            slider_sq
+                        "attacker_square": (
+                            chess.square_name(
+                                slider_sq
+                            )
                         ),
 
                         "behind_piece": name_of(
-                            behind_piece
+                            behind_piece_after
                         ),
 
-                        "behind_square": chess.square_name(
-                            behind_sq
+                        "behind_square": (
+                            chess.square_name(
+                                behind_sq
+                            )
                         ),
 
                         "strengthening_move": move,
@@ -11636,12 +13324,36 @@ def detect_material_pressure_on_linked_piece(
                             strengthening_move_san
                         ),
 
-                        "attacker_count_before": len(
-                            attackers_before
+                        "target_escape_move": (
+                            target_escape_move
                         ),
 
-                        "attacker_count_after": len(
-                            attackers_after
+                        "target_escape_move_san": (
+                            target_escape_move_san
+                        ),
+
+                        "capture_behind_move": (
+                            capture_move
+                        ),
+
+                        "capture_behind_move_san": (
+                            capture_move_san
+                        ),
+
+                        "attacker_count_before": (
+                            len(attackers_before)
+                        ),
+
+                        "attacker_count_after": (
+                            len(attackers_after)
+                        ),
+
+                        "target_value": (
+                            target_value
+                        ),
+
+                        "behind_value": (
+                            behind_value
                         ),
 
                         "pv_index": index,
@@ -11652,8 +13364,11 @@ def detect_material_pressure_on_linked_piece(
         # ======================================================
 
         try:
+
             pv_board.push(move)
+
         except Exception:
+
             return None
 
     return None

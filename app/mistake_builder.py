@@ -267,6 +267,32 @@ def build_mistake(
         "======================"
     )
 
+     # ===== ВРЕМЕННЫЙ ДАМП: вставить сюда =====
+    import json
+    
+    def _conv(x):
+        if isinstance(x, chess.Board):
+            return x.fen()
+        if isinstance(x, chess.Move):
+            return x.uci()
+        if isinstance(x, dict):
+            return {str(k): _conv(v) for k, v in x.items()}
+        if isinstance(x, (list, tuple, set)):
+            return [_conv(v) for v in x]
+        try:
+            json.dumps(x)
+            return x
+        except TypeError:
+            return repr(x)
+
+    with open(
+        f"mistake_{board.fullmove_number}_{played_move_san}.json",
+        "w",
+        encoding="utf-8"
+    ) as f:
+        json.dump(_conv(mistake), f, ensure_ascii=False, indent=2)
+    # ===== конец дампа =====
+
     mistake["explanation"] = (
         generate_explanation(
             mistake

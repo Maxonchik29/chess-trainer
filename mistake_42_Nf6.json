@@ -1,0 +1,212 @@
+{
+  "move": 42,
+  "move_text": "42...",
+  "played_san": "Nf6",
+  "symbol": "??",
+  "theme": "Угроза пешкой",
+  "position_before": "6k1/5ppn/6P1/1pqB1P1p/p6r/P1PQ4/1KPB4/3R4 b - - 0 42",
+  "position_after": "6k1/5pp1/5nP1/1pqB1P1p/p6r/P1PQ4/1KPB4/3R4 w - - 1 43",
+  "best_move": "g8h8",
+  "played": "Nf6",
+  "best": "Kh8",
+  "best_uci": "g8h8",
+  "best_score_obj": "Cp(+851)",
+  "pv": [
+    "g8h8",
+    "d2e3",
+    "c5f8",
+    "d5f7",
+    "b5b4",
+    "a3b4",
+    "a4a3",
+    "b2a3",
+    "h4h3",
+    "a3b2",
+    "h3g3"
+  ],
+  "alternatives": [
+    "Kh8",
+    "Qf8",
+    "Qe7",
+    "b4",
+    "Rd4"
+  ],
+  "loss": 9226,
+  "type": "🔴 Грубая ошибка",
+  "side": "black",
+  "user_side": "black",
+  "fen": "6k1/5ppn/6P1/1pqB1P1p/p6r/P1PQ4/1KPB4/3R4 b - - 0 42",
+  "before_score": 770,
+  "after_score": 9996,
+  "captured_piece": null,
+  "captured_value": null,
+  "hanging_piece": null,
+  "hanging_square": null,
+  "fork_targets": null,
+  "explanation": "",
+  "move_reasons": [],
+  "bishop_attack_reason": null,
+  "best_piece": null,
+  "best_square": null,
+  "target_piece": null,
+  "target_square": null,
+  "equivalent_best_moves": [
+    {
+      "move": "c5f8",
+      "san": "Qf8",
+      "score": 778,
+      "difference": 8
+    }
+  ],
+  "pawn_attack_piece": null,
+  "pawn_attack_square": null,
+  "pawn_attacker_square": null,
+  "pawn_king_attack": false,
+  "knight_sacrifice_attack": false,
+  "knight_sacrifice": false,
+  "knight_sacrifice_explanation": null,
+  "pawn_king_attack_explanation": null,
+  "features": {
+    "theme": "Угроза пешкой",
+    "captured_piece": null,
+    "captured_value": null,
+    "hanging_piece": null,
+    "hanging_square": null,
+    "attacker": null,
+    "attacker_square": null,
+    "fork": false,
+    "pin": false,
+    "pin_piece": null,
+    "pin_square": null,
+    "fork_targets": [
+      {
+        "piece": "слон",
+        "square": "d5"
+      },
+      {
+        "piece": "пешка",
+        "square": "g6"
+      }
+    ],
+    "best_move": "g8h8",
+    "best_piece": null,
+    "best_square": null,
+    "target_piece": null,
+    "target_square": null,
+    "pawn_attack_piece": null,
+    "pawn_attack_square": null,
+    "pawn_attacker_square": null,
+    "new_attack_piece": null,
+    "new_attack_square": null,
+    "new_attack_attacker": null,
+    "new_attack_attacker_square": null,
+    "pawn_tempo_attack": false,
+    "pawn_tempo_piece": null,
+    "pawn_tempo_square": null,
+    "pawn_tempo_move": null,
+    "pawn_tempo_explanation": null,
+    "pawn_threat": true,
+    "pawn_threat_piece": "пешка",
+    "pawn_threat_square": "f7",
+    "pawn_threat_attacker_square": "g6",
+    "pawn_threat_move": "c3-c4",
+    "pawn_threat_explanation": "После вашего хода соперник может атаковать пешка на f7 пешкой с g6.",
+    "pawn_king_attack": false,
+    "pawn_king_attack_explanation": null,
+    "knight_sacrifice": false,
+    "knight_sacrifice_explanation": null,
+    "wasted_king_tempo": false,
+    "wasted_king_tempo_explanation": null,
+    "bad_recapture": false,
+    "bad_recapture_explanation": null,
+    "free_pawn": false,
+    "free_pawn_explanation": null
+  },
+  "pawn_threat_explanation": "После вашего хода соперник может атаковать пешка на f7 пешкой с g6.",
+  "tactical_threats": [
+    {
+      "move": "Bxf7+",
+      "uci": "d5f7",
+      "type": "check"
+    },
+    {
+      "move": "Qd8+",
+      "uci": "d3d8",
+      "type": "check"
+    },
+    {
+      "move": "Qxe8+",
+      "uci": "d8e8",
+      "type": "check"
+    }
+  ],
+  "pawn_tempo_explanation": null,
+  "played_results": [
+    {
+      "string": "Network replica 1: Shared memory.",
+      "depth": 14,
+      "seldepth": 8,
+      "multipv": 1,
+      "score": "PovScore(Mate(+4), WHITE)",
+      "nodes": 115371,
+      "nps": 610428,
+      "hashfull": 109,
+      "tbhits": 0,
+      "time": 0.189,
+      "pv": [
+        "d5f7",
+        "g8h8",
+        "d3d8",
+        "f6e8",
+        "d8e8",
+        "c5f8",
+        "e8f8"
+      ]
+    },
+    {
+      "depth": 14,
+      "seldepth": 29,
+      "multipv": 2,
+      "score": "PovScore(Cp(+834), WHITE)",
+      "nodes": 115371,
+      "nps": 610428,
+      "hashfull": 109,
+      "tbhits": 0,
+      "time": 0.189,
+      "pv": [
+        "d2g5",
+        "h4e4",
+        "d3e4",
+        "f6d5",
+        "e4d5",
+        "c5d5",
+        "d1d5",
+        "f7g6",
+        "f5g6"
+      ]
+    },
+    {
+      "depth": 14,
+      "seldepth": 22,
+      "multipv": 3,
+      "score": "PovScore(Cp(+741), WHITE)",
+      "nodes": 115371,
+      "nps": 610428,
+      "hashfull": 109,
+      "tbhits": 0,
+      "time": 0.189,
+      "pv": [
+        "d5a2",
+        "c5f8",
+        "d2g5",
+        "h4c4",
+        "a2c4",
+        "b5c4",
+        "d3c4",
+        "f8e7",
+        "c4c8",
+        "e7f8"
+      ]
+    }
+  ]
+}

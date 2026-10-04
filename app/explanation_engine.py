@@ -6,6 +6,14 @@ from app.pawn_structure_detector import (
     get_pawn_structure_text,
 )
 
+from app.reason_validator import validate_reason
+
+from app.explanation_counterfactual import (
+    build_explanation_context,
+    find_causal_material_consequence,
+    get_causal_material_reason,
+)
+
 from app.explanation_utils import (
     PIECE_NAMES,
     PIECE_VALUES,
@@ -16,7 +24,6 @@ from app.explanation_utils import (
     make_position_after,
     get_best_move,
     CENTER_SQUARES,
-    PIECE_NAMES,
 )
 
 from app.explanation_detectors import (
@@ -64,6 +71,502 @@ from app.explanation_detectors import (
     detect_material_pressure_on_linked_piece,
 )
 
+def filter_redundant_reasons(reasons):
+    """
+    Убирает только действительно вторичные объяснения.
+
+    ВАЖНО:
+    Эта функция НЕ выбирает главную причину.
+    Она только удаляет очевидные дубли
+    и явно вторичные объяснения.
+
+    Основной выбор причины происходит позже
+    через priority.
+    """
+
+    if not reasons:
+        return reasons
+
+    # --------------------------------------------------
+    # 0. Оставляем только причины с текстом.
+    # --------------------------------------------------
+
+    reasons = [
+        r
+        for r in reasons
+        if r.get("text")
+    ]
+
+    if not reasons:
+        return []
+
+    # --------------------------------------------------
+    # 1. MATE BLUNDER
+    #
+    # Если ход позволил поставить мат,
+    # остальные generic объяснения не нужны.
+    # --------------------------------------------------
+
+    reason_types = {
+        r.get("type")
+        for r in reasons
+    }
+
+    if "mate_blunder" in reason_types:
+
+        blocked = {
+            "new_check_threat",
+            "check",
+            "pawn_attack",
+            "pawn_piece_attack",
+            "piece_attack",
+            "piece_tempo_attack",
+            "queen_tempo",
+            "center",
+            "best_move_idea",
+            "inaccuracy_no_benefit",
+        }
+
+        reasons = [
+            r
+            for r in reasons
+            if r.get("type") not in blocked
+        ]
+
+    # --------------------------------------------------
+    # 2. MATE IN ONE
+    # --------------------------------------------------
+
+    reason_types = {
+        r.get("type")
+        for r in reasons
+    }
+
+    if "mate_in_one" in reason_types:
+
+        blocked = {
+            "new_check_threat",
+            "check",
+            "queen_tempo",
+            "center",
+            "best_move_idea",
+        }
+
+        reasons = [
+            r
+            for r in reasons
+            if r.get("type") not in blocked
+        ]
+
+    # --------------------------------------------------
+    # 3. CHECK RESPONSE
+    #
+    # Если ошибка была сделана под шахом,
+    # generic угрозы не должны повторять это.
+    # --------------------------------------------------
+
+    reason_types = {
+        r.get("type")
+        for r in reasons
+    }
+
+    if "check_response" in reason_types:
+
+        blocked = {
+            "new_check_threat",
+            "check",
+            "queen_tempo",
+            "center",
+            "best_move_idea",
+        }
+
+        reasons = [
+            r
+            for r in reasons
+            if r.get("type") not in blocked
+        ]
+
+    # --------------------------------------------------
+    # 4. FORCED PIECE LOSS
+    #
+    # Если доказана неизбежная потеря фигуры,
+    # generic атака на эту фигуру уже является
+    # следствием основной причины.
+    # --------------------------------------------------
+
+    reason_types = {
+        r.get("type")
+        for r in reasons
+    }
+
+    if "forced_piece_loss" in reason_types:
+
+        blocked = {
+            "piece_attack",
+            "piece_tempo_attack",
+            "pawn_attack",
+            "pawn_piece_attack",
+            "queen_tempo",
+            "new_check_threat",
+            "best_move_idea",
+        }
+
+        reasons = [
+            r
+            for r in reasons
+            if r.get("type") not in blocked
+        ]
+
+    # --------------------------------------------------
+    # 4.5. CAUSAL MATERIAL LOSS + FORCED PIECE LOSS
+    #
+    # Если forced_piece_loss уже доказан,
+    # causal_material_loss обычно описывает
+    # то же самое событие.
+    #
+    # Оставляем только forced_piece_loss.
+    # --------------------------------------------------
+
+    reason_types = {
+        r.get("type")
+        for r in reasons
+    }
+
+    if "forced_piece_loss" in reason_types:
+
+        reasons = [
+            r
+            for r in reasons
+            if r.get("type") != "causal_material_loss"
+        ]
+
+    # --------------------------------------------------
+    # 4.6. NEWLY PINNED PAWN НЕ ЯВЛЯЕТСЯ
+    # ВТОРИЧНОЙ ПРИЧИНОЙ ПРИ ПРЯМОЙ ПОТЕРЕ ФИГУРЫ
+    #
+    # Например:
+    #
+    # 30...Nc3 bxc3
+    #
+    # Главная причина:
+    # forced_piece_loss
+    #
+    # newly_pinned_pawn может одновременно найти
+    # совершенно другую идею вроде Bxd5.
+    #
+    # Это не объяснение ошибки Nc3.
+    # --------------------------------------------------
+
+    reason_types = {
+        r.get("type")
+        for r in reasons
+    }
+
+    if (
+        "forced_piece_loss" in reason_types
+        or "causal_material_loss" in reason_types
+    ):
+
+        reasons = [
+            r
+            for r in reasons
+            if r.get("type") != "newly_pinned_pawn"
+        ]
+
+    # --------------------------------------------------
+    # 5. FORCED PIECE LOSS AFTER PAWN TEMPO
+    # --------------------------------------------------
+
+    reason_types = {
+        r.get("type")
+        for r in reasons
+    }
+
+    if "forced_piece_loss_after_pawn_tempo" in reason_types:
+
+        blocked = {
+            "piece_attack",
+            "piece_tempo_attack",
+            "pawn_attack",
+            "pawn_piece_attack",
+            "queen_tempo",
+            "best_move_idea",
+        }
+
+        reasons = [
+            r
+            for r in reasons
+            if r.get("type") not in blocked
+        ]
+
+    # --------------------------------------------------
+    # 6. DELAYED CAPTURE
+    # --------------------------------------------------
+
+    reason_types = {
+        r.get("type")
+        for r in reasons
+    }
+
+    if "delayed_capture" in reason_types:
+
+        blocked = {
+            "piece_attack",
+            "piece_tempo_attack",
+            "pawn_attack",
+            "pawn_piece_attack",
+            "queen_tempo",
+            "best_move_idea",
+        }
+
+        reasons = [
+            r
+            for r in reasons
+            if r.get("type") not in blocked
+        ]
+
+    # --------------------------------------------------
+    # 7. ADD DEFENDER + DELAYED CAPTURE
+    #
+    # Это уже объединённая конкретная причина.
+    # --------------------------------------------------
+
+    reason_types = {
+        r.get("type")
+        for r in reasons
+    }
+
+    if "add_defender_and_delayed_capture" in reason_types:
+
+        blocked = {
+            "piece_attack",
+            "piece_tempo_attack",
+            "pawn_attack",
+            "pawn_piece_attack",
+            "queen_tempo",
+            "best_move_idea",
+        }
+
+        reasons = [
+            r
+            for r in reasons
+            if r.get("type") not in blocked
+        ]
+
+    # --------------------------------------------------
+    # 8. NEWLY PINNED PAWN
+    #
+    # Если связка сама является объяснением,
+    # generic атаки на ту же пешку не нужны.
+    #
+    # ВАЖНО:
+    # Этот блок НЕ удаляет newly_pinned_pawn.
+    # Он только убирает generic-дубли.
+    #
+    # Прямая потеря фигуры уже была обработана выше.
+    # --------------------------------------------------
+
+    reason_types = {
+        r.get("type")
+        for r in reasons
+    }
+
+    if "newly_pinned_pawn" in reason_types:
+
+        blocked = {
+            "piece_attack",
+            "pawn_attack",
+            "pawn_piece_attack",
+            "piece_tempo_attack",
+            "queen_tempo",
+            "best_move_idea",
+        }
+
+        reasons = [
+            r
+            for r in reasons
+            if r.get("type") not in blocked
+        ]
+
+    # --------------------------------------------------
+    # 9. PAWN LOSS
+    #
+    # pawn_loss НЕ удаляет:
+    # - newly_pinned_pawn
+    # - delayed_capture
+    # - add_defender_and_delayed_capture
+    #
+    # Потому что потеря пешки может быть следствием
+    # именно такой конкретной причины.
+    # --------------------------------------------------
+
+    reason_types = {
+        r.get("type")
+        for r in reasons
+    }
+
+    if "pawn_loss" in reason_types:
+
+        blocked = {
+            "piece_attack",
+            "pawn_attack",
+            "pawn_piece_attack",
+            "piece_tempo_attack",
+            "queen_tempo",
+            "best_move_idea",
+        }
+
+        reasons = [
+            r
+            for r in reasons
+            if r.get("type") not in blocked
+        ]
+
+    # --------------------------------------------------
+    # 10. GENERIC ATTACKS
+    #
+    # Если уже есть конкретная материальная причина,
+    # обычная "фигура атакована" становится вторичной.
+    # --------------------------------------------------
+
+    concrete_material = {
+        "causal_material_loss",
+        "forced_piece_loss",
+        "forced_piece_loss_after_pawn_tempo",
+        "material_pressure",
+        "pin_material_loss",
+        "apparent_piece_loss",
+        "delayed_capture",
+        "add_defender_and_delayed_capture",
+        "add_defender_to_vulnerable_pawn",
+        "newly_pinned_pawn",
+        "pawn_loss",
+        "trapped_piece",
+        "fork",
+        "material",
+        "undefended_pawn",
+    }
+
+    if any(
+        r.get("type") in concrete_material
+        for r in reasons
+    ):
+
+        blocked = {
+            "piece_attack",
+            "pawn_attack",
+            "pawn_piece_attack",
+            "piece_tempo_attack",
+            "queen_tempo",
+            "new_check_threat",
+            "best_move_idea",
+        }
+
+        reasons = [
+            r
+            for r in reasons
+            if r.get("type") not in blocked
+        ]
+    
+    # --------------------------------------------------
+    # 10.5. NEWLY PINNED PAWN НЕ ДОЛЖЕН ПЕРЕКРЫВАТЬ
+    # БОЛЕЕ НЕПОСРЕДСТВЕННУЮ МАТЕРИАЛЬНУЮ ПРИЧИНУ
+    #
+    # Связка может быть абсолютно реальной, но она может
+    # возникать только как последующее продолжение.
+    #
+    # Например:
+    #
+    # 26...Qxg6
+    #
+    # Stockfish: 26...axb3
+    #
+    # После Qxg6 действительно возможно Bxd5,
+    # после чего c6 оказывается связана с Ra8.
+    #
+    # Но это не главная причина Qxg6:
+    # непосредственная проблема — пропущено axb3.
+    # --------------------------------------------------
+
+    reason_types = {
+        r.get("type")
+        for r in reasons
+    }
+
+    strong_material_reasons = {
+        "forced_piece_loss",
+        "forced_piece_loss_after_pawn_tempo",
+        "causal_material_loss",
+        "material",
+        "material_pressure",
+        "pin_material_loss",
+        "apparent_piece_loss",
+        "pawn_loss",
+        "trapped_piece",
+        "fork",
+        "undefended_pawn",
+        "delayed_capture",
+        "add_defender_and_delayed_capture",
+        "add_defender_to_vulnerable_pawn",
+    }
+
+    if (
+        "newly_pinned_pawn" in reason_types
+        and any(
+            reason_type in strong_material_reasons
+            for reason_type in reason_types
+        )
+    ):
+
+        # Связка может остаться вторичной,
+        # но не должна выигрывать priority.
+        for r in reasons:
+
+            if r.get("type") == "newly_pinned_pawn":
+
+                r["priority"] = min(
+                    r.get("priority", 0) or 0,
+                    79
+                )
+
+    # --------------------------------------------------
+    # 11. GENERIC INACCURACY
+    #
+    # Если появилась конкретная причина,
+    # generic inaccuracy больше не нужна.
+    #
+    # Если конкретной причины нет,
+    # inaccuracy_no_benefit остаётся.
+    # --------------------------------------------------
+
+    if any(
+        r.get("type") != "inaccuracy_no_benefit"
+        and r.get("priority", 0) > 0
+        for r in reasons
+    ):
+
+        reasons = [
+            r
+            for r in reasons
+            if r.get("type") != "inaccuracy_no_benefit"
+        ]
+
+    # --------------------------------------------------
+    # 12. Финальная сортировка.
+    #
+    # Здесь уже НЕ меняем priority.
+    # Только выбираем порядок.
+    # --------------------------------------------------
+
+    reasons.sort(
+        key=lambda x: x.get(
+            "priority",
+            0
+        ),
+        reverse=True
+    )
+
+    return reasons
 
 def generate_explanation(mistake):
 
@@ -240,16 +743,7 @@ def generate_explanation(mistake):
         )
 
     if board_after_played is None:
-
-        try:
-
-            board_after_played = (
-                position_before.copy()
-            )
-
-        except Exception:
-
-            board_after_played = None
+        board_after_played = None
 
     # ======================================================
     # REASONS
@@ -257,24 +751,228 @@ def generate_explanation(mistake):
 
     reasons = []
 
+    # ======================================================
+    # COUNTERFACTUAL CAUSAL MATERIAL REASON
+    #
+    # Проверяем не просто наличие материальной потери,
+    # а причинную связь именно со сыгранным ходом.
+    #
+    # Это новая система.
+    # Старые material/pin detectors пока НЕ удаляем.
+    # ======================================================
+
+    counterfactual_ctx = None
+    causal_material_consequence = None
+    causal_material_reason = None
+
+    try:
+
+        counterfactual_ctx = (
+            build_explanation_context(
+                mistake
+            )
+        )
+
+        if counterfactual_ctx is not None:
+
+            causal_material_consequence = (
+                find_causal_material_consequence(
+                    counterfactual_ctx
+                )
+            )
+
+            if causal_material_consequence is not None:
+
+                causal_material_reason = (
+                    get_causal_material_reason(
+                        counterfactual_ctx,
+                        causal_material_consequence,
+                    )
+                )
+
+    except Exception as e:
+
+        print(
+            "COUNTERFACTUAL MATERIAL ERROR:",
+            repr(e)
+        )
+
+        counterfactual_ctx = None
+        causal_material_consequence = None
+        causal_material_reason = None
+
+    print(
+        "COUNTERFACTUAL MATERIAL REASON:",
+        causal_material_reason
+    )
+
     def add_reason(
         reason_type,
         priority,
         text,
         data=None
     ):
-
         if not text:
             return
 
-        reasons.append(
-            {
-                "type": reason_type,
-                "priority": priority,
-                "text": text,
-                "data": data,
-            }
+        candidate = {
+            "type": reason_type,
+            "priority": priority,
+            "text": text,
+            "data": data,
+        }
+
+        # ==================================================
+        # REASON VALIDATOR
+        # ==================================================
+
+        if not validate_reason(
+            candidate,
+            mistake,
+            counterfactual_ctx=counterfactual_ctx,
+            causal_material_consequence=(
+                causal_material_consequence
+            ),
+        ):
+            print(
+                "REASON REJECTED BY VALIDATOR:",
+                reason_type,
+            )
+            return
+
+        reasons.append(candidate)
+
+
+    # ======================================================
+    # CAUSAL MATERIAL REASON
+    # ======================================================
+
+    if (
+        causal_material_reason is not None
+        and causal_material_consequence is not None
+        and counterfactual_ctx is not None
+    ):
+
+        reason_type = (
+            causal_material_reason.get(
+                "type"
+            )
         )
+
+        causal_text = None
+
+        if reason_type == (
+            "direct_capture_of_played_piece"
+        ):
+
+            sequence = (
+                causal_material_consequence.get(
+                    "sequence"
+                )
+                or []
+            )
+
+            if sequence:
+
+                first_reply = sequence[0]
+
+                causal_text = (
+                    f"После {played} соперник "
+                    f"может сразу начать "
+                    f"материальную последовательность "
+                    f"ходом {first_reply}."
+                )
+
+            else:
+
+                causal_text = (
+                    f"После {played} возникает "
+                    "конкретная материальная потеря."
+                )
+
+            add_reason(
+                "causal_material_loss",
+                118,
+                causal_text,
+                {
+                    "causal_reason": causal_material_reason,
+                    "consequence": (
+                        causal_material_consequence
+                    ),
+                }
+            )
+
+        elif reason_type == (
+            "played_move_removed_defender"
+        ):
+
+            sequence = (
+                causal_material_consequence.get(
+                    "sequence"
+                )
+                or []
+            )
+
+            if sequence:
+
+                first_reply = sequence[0]
+
+                second_reply = (
+                    sequence[1]
+                    if len(sequence) > 1
+                    else None
+                )
+
+                if second_reply:
+
+                    causal_text = (
+                        f"После {played} вы снимаете "
+                        f"защиту с важной фигуры. "
+                        f"Соперник начинает комбинацию "
+                        f"ходом {first_reply}, "
+                        f"а затем получает возможность "
+                        f"сыграть {second_reply}."
+                    )
+
+                else:
+
+                    causal_text = (
+                        f"После {played} вы снимаете "
+                        f"защиту с важной фигуры, "
+                        f"что позволяет сопернику "
+                        f"начать тактическую "
+                        f"последовательность ходом "
+                        f"{first_reply}."
+                    )
+
+            else:
+
+                causal_text = (
+                    f"После {played} вы снимаете "
+                    "защиту с важной фигуры, "
+                    "что приводит к материальной потере."
+                )
+
+            add_reason(
+                "causal_material_loss",
+                117,
+                causal_text,
+                {
+                    "causal_reason": (
+                        causal_material_reason
+                    ),
+                    "consequence": (
+                        causal_material_consequence
+                    ),
+                }
+            )
+
+        if causal_text is not None:
+
+            print(
+                "CAUSAL MATERIAL REASON ADDED:",
+                causal_text
+            )
 
     # ======================================================
     # 1. MATE AFTER OUR MOVE
@@ -460,6 +1158,7 @@ def generate_explanation(mistake):
 
         pin_material_loss_info = None
 
+
     if pin_material_loss_info:
 
         try:
@@ -470,7 +1169,12 @@ def generate_explanation(mistake):
                 )
             )
 
-        except Exception:
+        except Exception as e:
+
+            print(
+                "PIN MATERIAL LOSS TEXT ERROR:",
+                repr(e)
+            )
 
             pin_text = None
 
@@ -481,215 +1185,6 @@ def generate_explanation(mistake):
                 97,
                 pin_text,
                 pin_material_loss_info
-            )
-
-    # ======================================================
-    # 5. INDEPENDENT NEW PIN
-    # ======================================================
-
-    if (
-        board_after_played
-        and played_move
-    ):
-
-        try:
-
-            our_color = not board_after_played.turn
-
-            for square in board_after_played.pieces(
-                chess.KNIGHT,
-                our_color
-            ) | board_after_played.pieces(
-                chess.BISHOP,
-                our_color
-            ) | board_after_played.pieces(
-                chess.ROOK,
-                our_color
-            ) | board_after_played.pieces(
-                chess.QUEEN,
-                our_color
-            ):
-
-                try:
-
-                    piece = board_after_played.piece_at(
-                        square
-                    )
-
-                    if not piece:
-                        continue
-
-                    if not board_after_played.is_pinned(
-                        our_color,
-                        square
-                    ):
-                        continue
-
-                    attacker_square = None
-                    attacker_piece = None
-
-                    king_square = (
-                        board_after_played.king(
-                            our_color
-                        )
-                    )
-
-                    if king_square is None:
-                        continue
-
-                    direction = (
-                        chess.square_file(square)
-                        - chess.square_file(king_square),
-                        chess.square_rank(square)
-                        - chess.square_rank(king_square),
-                    )
-
-                    step_file = (
-                        0
-                        if direction[0] == 0
-                        else (
-                            1
-                            if direction[0] > 0
-                            else -1
-                        )
-                    )
-
-                    step_rank = (
-                        0
-                        if direction[1] == 0
-                        else (
-                            1
-                            if direction[1] > 0
-                            else -1
-                        )
-                    )
-
-                    if (
-                        step_file == 0
-                        and step_rank == 0
-                    ):
-                        continue
-
-                    f = (
-                        chess.square_file(square)
-                        + step_file
-                    )
-
-                    r = (
-                        chess.square_rank(square)
-                        + step_rank
-                    )
-
-                    while (
-                        0 <= f <= 7
-                        and 0 <= r <= 7
-                    ):
-
-                        sq = chess.square(
-                            f,
-                            r
-                        )
-
-                        p = (
-                            board_after_played.piece_at(
-                                sq
-                            )
-                        )
-
-                        if p:
-
-                            if (
-                                p.color != our_color
-                                and p.piece_type in (
-                                    chess.BISHOP,
-                                    chess.ROOK,
-                                    chess.QUEEN,
-                                )
-                            ):
-
-                                attacker_square = sq
-                                attacker_piece = p
-
-                            break
-
-                        f += step_file
-                        r += step_rank
-
-                    if (
-                        attacker_square is None
-                        or attacker_piece is None
-                    ):
-                        continue
-
-                    capture_move = chess.Move(
-                        attacker_square,
-                        square
-                    )
-
-                    if (
-                        capture_move
-                        not in board_after_played.legal_moves
-                    ):
-                        continue
-
-                    capture_san = (
-                        board_after_played.san(
-                            capture_move
-                        )
-                    )
-
-                    pinned_piece_name = (
-                        chess.piece_name(
-                            piece.piece_type
-                        )
-                    )
-
-                    attacker_name = (
-                        chess.piece_name(
-                            attacker_piece.piece_type
-                        )
-                    )
-
-                    pinned_square_name = (
-                        chess.square_name(
-                            square
-                        )
-                    )
-
-                    attacker_square_name = (
-                        chess.square_name(
-                            attacker_square
-                        )
-                    )
-
-                    text = (
-                        f"После {played} соперник "
-                        f"может связать вашего "
-                        f"{pinned_piece_name} на "
-                        f"{pinned_square_name} "
-                        f"с королём атакой "
-                        f"{attacker_name} с "
-                        f"{attacker_square_name} "
-                        f"и затем выиграть эту фигуру "
-                        f"ходом {capture_san}."
-                    )
-
-                    add_reason(
-                        "pin_material_loss",
-                        98,
-                        text
-                    )
-
-                    break
-
-                except Exception:
-                    continue
-
-        except Exception as e:
-
-            print(
-                "INDEPENDENT PIN ERROR:",
-                repr(e)
             )
 
     # ======================================================
@@ -705,7 +1200,8 @@ def generate_explanation(mistake):
                 position_before,
                 played_move,
                 best_move,
-                loss
+                loss,
+                played_results
             )
         )
 
@@ -718,144 +1214,38 @@ def generate_explanation(mistake):
 
         apparent_piece_loss_info = None
 
-    apparent_piece_loss_is_real = (
-        apparent_piece_loss_info is not None
-    )
+
+    # ======================================================
+    # ЕСЛИ ДЕТЕКТОР НАШЁЛ СИТУАЦИЮ,
+    # ЗНАЧИТ ОНА УЖЕ ПРОВЕРЕНА ВНУТРИ ДЕТЕКТОРА
+    #
+    # detect_apparent_piece_loss_but_recapturable()
+    # специально возвращает ситуацию:
+    #
+    # соперник забирает нашу фигуру
+    # ->
+    # мы можем сразу забрать фигуру соперника
+    #
+    # Поэтому здесь НЕ нужно второй раз искать recapture.
+    # ======================================================
 
     if apparent_piece_loss_info:
 
         try:
 
-            opponent_move = (
-                apparent_piece_loss_info.get(
-                    "opponent_move"
+            apparent_text = (
+                get_apparent_piece_loss_text(
+                    apparent_piece_loss_info,
+                    best
                 )
             )
-
-            if opponent_move:
-
-                test_board = (
-                    board_after_played.copy()
-                )
-
-                if (
-                    opponent_move
-                    not in test_board.legal_moves
-                ):
-                    apparent_piece_loss_is_real = False
-
-                else:
-
-                    attacker_square = (
-                        opponent_move.from_square
-                    )
-
-                    test_board.push(
-                        opponent_move
-                    )
-
-                    recapturable = False
-
-                    for recapture in (
-                        test_board.legal_moves
-                    ):
-
-                        if (
-                            recapture.to_square
-                            != attacker_square
-                        ):
-                            continue
-
-                        recapture_test = (
-                            test_board.copy()
-                        )
-
-                        recapture_test.push(
-                            recapture
-                        )
-
-                        if not recapture_test.is_check():
-                            recapturable = True
-                            break
-
-                    if recapturable:
-                        apparent_piece_loss_is_real = False
-
-            else:
-
-                found_recapture = False
-
-                for enemy_move in (
-                    board_after_played.legal_moves
-                ):
-
-                    if not board_after_played.is_capture(
-                        enemy_move
-                    ):
-                        continue
-
-                    attacker_square = (
-                        enemy_move.from_square
-                    )
-
-                    test_board = (
-                        board_after_played.copy()
-                    )
-
-                    test_board.push(
-                        enemy_move
-                    )
-
-                    for recapture in (
-                        test_board.legal_moves
-                    ):
-
-                        if (
-                            recapture.to_square
-                            != attacker_square
-                        ):
-                            continue
-
-                        recapture_test = (
-                            test_board.copy()
-                        )
-
-                        recapture_test.push(
-                            recapture
-                        )
-
-                        if not recapture_test.is_check():
-
-                            found_recapture = True
-                            break
-
-                    if found_recapture:
-                        break
-
-                if found_recapture:
-                    apparent_piece_loss_is_real = False
 
         except Exception as e:
 
             print(
-                "APPARENT PIECE LOSS VALIDATION ERROR:",
+                "APPARENT PIECE LOSS TEXT ERROR:",
                 repr(e)
             )
-
-    if (
-        apparent_piece_loss_info
-        and apparent_piece_loss_is_real
-    ):
-
-        try:
-
-            apparent_text = (
-                get_apparent_piece_loss_text(
-                    apparent_piece_loss_info
-                )
-            )
-
-        except Exception:
 
             apparent_text = None
 
@@ -868,14 +1258,14 @@ def generate_explanation(mistake):
                 apparent_piece_loss_info
             )
 
-    elif apparent_piece_loss_info:
+        else:
 
-        print(
-            "APPARENT PIECE LOSS ОТМЕНЁН: "
-            "обнаружен полноценный ответный размен."
-        )
-
-    # ======================================================
+            print(
+                "APPARENT PIECE LOSS: "
+                "информация найдена, но текст не сформирован."
+            )
+            
+        # ======================================================
     # 7. OPEN FILE ROOK
     # ======================================================
 
@@ -961,7 +1351,7 @@ def generate_explanation(mistake):
 
             add_reason(
                 "add_defender_to_vulnerable_pawn",
-                116,
+                104,
                 defender_text,
                 add_defender_info
             )
@@ -989,7 +1379,12 @@ def generate_explanation(mistake):
                 detect_delayed_capture(
                     position_before,
                     played_move,
-                    best_move
+                    best_move,
+                    best_pv=(
+                        mistake.get("best_pv")
+                        or mistake.get("best_line")
+                        or mistake.get("pv")
+                    )
                 )
             )
 
@@ -1175,7 +1570,7 @@ def generate_explanation(mistake):
 
                 add_reason(
                     "delayed_capture",
-                    115,
+                    96,
                     delayed_text,
                     delayed_capture_info
                 )
@@ -1200,7 +1595,6 @@ def generate_explanation(mistake):
         if item["type"] in {
             "tempo_material_loss",
             "piece_attack",
-            "piece_tempo_attack",
             "pawn_attack",
             "pawn_piece_attack",
             "queen_tempo",
@@ -1219,13 +1613,18 @@ def generate_explanation(mistake):
 
         if played_results:
 
-            pv = played_results[0].get(
-                "pv",
-                []
-            )
+            first_result = played_results[0]
 
-            if pv:
-                preferred_reply = pv[0]
+            if isinstance(first_result, dict):
+
+                pv = first_result.get(
+                    "pv",
+                    []
+                )
+
+                if pv:
+
+                    preferred_reply = pv[0]
 
     except Exception as e:
 
@@ -1328,7 +1727,7 @@ def generate_explanation(mistake):
                     and pin_move == preferred_reply
                 ):
 
-                    pin_priority = 96
+                    pin_priority = 106
 
             except Exception:
 
@@ -1741,7 +2140,8 @@ def generate_explanation(mistake):
                 position_before,
                 played_move,
                 best_move,
-                best
+                best,
+                played_results
             )
         )
 
@@ -1806,7 +2206,7 @@ def generate_explanation(mistake):
         if pawn_loss_text:
             add_reason(
                 "pawn_loss",
-                105,
+                100,
                 pawn_loss_text,
                 pawn_loss_info
             )
@@ -1876,7 +2276,7 @@ def generate_explanation(mistake):
                         == "newly_pinned_pawn"
                     ):
 
-                        # Pawn loss = 105.
+                        # Pawn loss = 100.
                         # Связка должна быть немного выше.
                         item["priority"] = max(
                             item.get(
@@ -1949,8 +2349,8 @@ def generate_explanation(mistake):
         if forced_text:
 
             add_reason(
-                "forced_piece_loss",
-                95,
+                "forced_piece_loss_after_pawn_tempo",
+                105,
                 forced_text,
                 forced_after_pawn_tempo
             )
@@ -2017,7 +2417,7 @@ def generate_explanation(mistake):
 
                 target_square = (
                     pawn_attack_info.get(
-                        "square"
+                        "target_square"
                     )
                 )
 
@@ -2032,8 +2432,8 @@ def generate_explanation(mistake):
                 # на эту клетку.
                 if (
                     played_move
-                    and target_square
-                    == played_move.to_square
+                    and target_square is not None
+                    and target_square == played_move.to_square
                 ):
 
                     pawn_attack_info = None
@@ -2108,7 +2508,7 @@ def generate_explanation(mistake):
                     "piece_type"
                 ),
                 "square": pawn_attack_info.get(
-                    "square"
+                    "target_square"
                 ),
                 "attacker_type": chess.PAWN,
                 "attacker_square": pawn_attack_info.get(
@@ -2209,16 +2609,40 @@ def generate_explanation(mistake):
 
     if (
         board_after_played
+        and played_move
         and not mate_blunder
     ):
 
         try:
 
+            # --------------------------------------------------
+            # Шахи, которые соперник уже имел ДО нашего хода.
+            # --------------------------------------------------
+
+            checks_before = set()
+
+            for enemy_move_before in position_before.legal_moves:
+
+                try:
+
+                    if position_before.gives_check(
+                        enemy_move_before
+                    ):
+                        checks_before.add(
+                            enemy_move_before.uci()
+                        )
+
+                except Exception:
+                    continue
+
+            # --------------------------------------------------
+            # Ищем шахи ПОСЛЕ нашего хода,
+            # которых ДО нашего хода не было.
+            # --------------------------------------------------
+
             opponent_moves = []
 
-            for enemy_move in (
-                board_after_played.legal_moves
-            ):
+            for enemy_move in board_after_played.legal_moves:
 
                 try:
 
@@ -2227,11 +2651,15 @@ def generate_explanation(mistake):
                     ):
                         continue
 
+                    if enemy_move.uci() in checks_before:
+                        continue
+
                     test_board = (
                         board_after_played.copy()
                     )
 
                     captured_piece = None
+
                     captured_square = (
                         enemy_move.to_square
                     )
@@ -2259,21 +2687,23 @@ def generate_explanation(mistake):
                         enemy_move
                     )
 
+                    # Мат рассматривается отдельным детектором.
                     if test_board.is_checkmate():
                         continue
 
-                    # Если атакующую фигуру можно
-                    # немедленно забрать без шаха себе,
-                    # это не считаем полноценной угрозой.
+                    # --------------------------------------------------
+                    # Если атакующую фигуру можно сразу забрать
+                    # обычным ходом без шаха себе, это слабее
+                    # как самостоятельная угроза.
+                    # --------------------------------------------------
+
                     attacker_square = (
                         enemy_move.to_square
                     )
 
                     can_capture_attacker = False
 
-                    for response in (
-                        test_board.legal_moves
-                    ):
+                    for response in test_board.legal_moves:
 
                         if (
                             response.to_square
@@ -2329,33 +2759,268 @@ def generate_explanation(mistake):
 
                 except Exception:
                     continue
-
             if opponent_moves:
 
-                opponent_moves.sort(
-                    key=lambda x: x[0],
-                    reverse=True
-                )
+                # ==================================================
+                # NEW CHECK THREAT
+                #
+                # ВАЖНО:
+                #
+                # Раньше здесь выбирался просто самый "сильный"
+                # новый шах из opponent_moves.
+                #
+                # Это могло давать ложное объяснение:
+                #
+                #   "после вашего хода соперник может дать шах"
+                #
+                # хотя Stockfish в PV вообще не собирался играть
+                # этот шах.
+                #
+                # Поэтому сначала пытаемся взять РЕАЛЬНЫЙ первый
+                # ответ из played_results[0]["pv"].
+                # ==================================================
 
-                (
-                    _,
-                    check_move,
-                    captured_piece,
-                    captured_square,
-                ) = opponent_moves[0]
+                real_pv_check_move = None
 
-                check_san = (
-                    board_after_played.san(
-                        check_move
+                try:
+
+                    if played_results:
+
+                        first_result = (
+                            played_results[0]
+                            if isinstance(
+                                played_results[0],
+                                dict
+                            )
+                            else {}
+                        )
+
+                        pv = (
+                            first_result.get(
+                                "pv"
+                            )
+                            or []
+                        )
+
+                        if pv:
+
+                            candidate = pv[0]
+
+                            if isinstance(
+                                candidate,
+                                chess.Move
+                            ):
+
+                                if candidate in (
+                                    board_after_played.legal_moves
+                                ):
+
+                                    real_pv_check_move = (
+                                        candidate
+                                    )
+
+                            elif isinstance(
+                                candidate,
+                                str
+                            ):
+
+                                try:
+
+                                    candidate_move = (
+                                        chess.Move.from_uci(
+                                            candidate
+                                        )
+                                    )
+
+                                    if candidate_move in (
+                                        board_after_played.legal_moves
+                                    ):
+
+                                        real_pv_check_move = (
+                                            candidate_move
+                                        )
+
+                                except Exception:
+                                    pass
+
+                except Exception as e:
+
+                    print(
+                        "NEW CHECK THREAT PV ERROR:",
+                        repr(e)
                     )
-                )
 
-                new_check_threat_info = {
-                    "move": check_move,
-                    "san": check_san,
-                    "captured_piece": captured_piece,
-                    "captured_square": captured_square,
-                }
+                    real_pv_check_move = None
+
+                # ==================================================
+                # Если первый ход PV действительно даёт шах —
+                # используем именно его.
+                # ==================================================
+
+                if real_pv_check_move:
+
+                    try:
+
+                        pv_test_board = (
+                            board_after_played.copy()
+                        )
+
+                        captured_piece_from_pv = (
+                            pv_test_board.piece_at(
+                                real_pv_check_move.to_square
+                            )
+                        )
+
+                        is_capture_from_pv = (
+                            pv_test_board.is_capture(
+                                real_pv_check_move
+                            )
+                        )
+
+                        pv_test_board.push(
+                            real_pv_check_move
+                        )
+
+                        if pv_test_board.is_check():
+
+                            check_san = (
+                                board_after_played.san(
+                                    real_pv_check_move
+                                )
+                            )
+
+                            new_check_threat_info = {
+                                "move":
+                                    real_pv_check_move,
+
+                                "san":
+                                    check_san,
+
+                                "captured_piece":
+                                    (
+                                        captured_piece_from_pv
+                                        if is_capture_from_pv
+                                        else None
+                                    ),
+
+                                "captured_square":
+                                    (
+                                        real_pv_check_move.to_square
+                                        if is_capture_from_pv
+                                        else None
+                                    ),
+
+                                "checks_before":
+                                    checks_before,
+
+                                "is_new":
+                                    True,
+
+                                "from_pv":
+                                    True,
+                            }
+
+                    except Exception as e:
+
+                        print(
+                            "NEW CHECK THREAT PV VALIDATION ERROR:",
+                            repr(e)
+                        )
+
+                # ==================================================
+                # FALLBACK
+                #
+                # Если PV недоступен или первый PV-ход не является
+                # шахом, сохраняем старую возможность поиска
+                # нового шаха.
+                #
+                # Но такой fallback имеет пониженную ценность:
+                # он не должен перебивать конкретную причину.
+                # ==================================================
+
+                if (
+                    new_check_threat_info is None
+                ):
+
+                    try:
+
+                        opponent_moves.sort(
+                            key=lambda x: x[0],
+                            reverse=True
+                        )
+
+                        for candidate in opponent_moves:
+
+                            if len(candidate) < 4:
+                                continue
+
+                            (
+                                _,
+                                check_move,
+                                captured_piece,
+                                captured_square,
+                            ) = candidate
+
+                            try:
+
+                                check_test = (
+                                    board_after_played.copy()
+                                )
+
+                                if check_move not in (
+                                    check_test.legal_moves
+                                ):
+                                    continue
+
+                                check_test.push(
+                                    check_move
+                                )
+
+                                if not check_test.is_check():
+                                    continue
+
+                            except Exception:
+                                continue
+
+                            check_san = (
+                                board_after_played.san(
+                                    check_move
+                                )
+                            )
+
+                            new_check_threat_info = {
+                                "move":
+                                    check_move,
+
+                                "san":
+                                    check_san,
+
+                                "captured_piece":
+                                    captured_piece,
+
+                                "captured_square":
+                                    captured_square,
+
+                                "checks_before":
+                                    checks_before,
+
+                                "is_new":
+                                    True,
+
+                                "from_pv":
+                                    False,
+                            }
+
+                            break
+
+                    except Exception as e:
+
+                        print(
+                            "NEW CHECK THREAT FALLBACK ERROR:",
+                            repr(e)
+                        )
+
+                        new_check_threat_info = None
 
         except Exception as e:
 
@@ -2555,7 +3220,7 @@ def generate_explanation(mistake):
 
                 add_reason(
                     "check",
-                    83,
+                    78,
                     (
                         f"После {played} вы упустили "
                         f"возможность создать шах "
@@ -2576,34 +3241,103 @@ def generate_explanation(mistake):
     # 18. MATERIAL GAIN
     # ======================================================
 
-    try:
+    material_gain_info = None
 
-        captured_name = (
-            detect_material_gain(
+    try:
+        if best_move:
+            captured_piece = get_captured_piece(
                 position_before,
                 best_move
             )
-        )
+
+            if captured_piece:
+                captured_piece_type = captured_piece.piece_type
+
+                captured_names = {
+                    chess.PAWN: "пешку",
+                    chess.KNIGHT: "коня",
+                    chess.BISHOP: "слона",
+                    chess.ROOK: "ладью",
+                    chess.QUEEN: "ферзя",
+                    chess.KING: "короля",
+                }
+
+                captured_name = captured_names.get(
+                    captured_piece_type,
+                    "фигуру"
+                )
+
+                captured_value = {
+                    chess.PAWN: 1,
+                    chess.KNIGHT: 3,
+                    chess.BISHOP: 3,
+                    chess.ROOK: 5,
+                    chess.QUEEN: 9,
+                    chess.KING: 100,
+                }.get(
+                    captured_piece_type,
+                    0
+                )
+
+                material_gain_info = {
+                    "captured_piece_type": captured_piece_type,
+                    "captured_name": captured_name,
+                    "captured_value": captured_value,
+                    "move": best_move,
+                    "san": best,
+                    "immediate": True,
+                }
 
     except Exception as e:
+        print("MATERIAL GAIN ERROR:", repr(e))
+        material_gain_info = None
 
-        print(
-            "MATERIAL GAIN ERROR:",
-            repr(e)
+
+    if material_gain_info:
+
+        captured_name = material_gain_info.get(
+            "captured_name",
+            "фигуру"
         )
 
-        captured_name = None
+        captured_value = (
+            material_gain_info.get(
+                "captured_value",
+                0
+            )
+            or 0
+        )
 
-    if captured_name:
+        # Взятие фигуры является непосредственной
+        # материальной причиной.
+        #
+        # Пешку оставляем ниже, потому что само по себе
+        # взятие пешки обычно не должно перекрывать
+        # более конкретную тактическую причину.
+        if captured_value >= 3:
+            material_priority = 108
+        else:
+            material_priority = 92
 
         add_reason(
             "material",
-            94,
+            material_priority,
             (
                 f"Лучшим было забрать "
                 f"{captured_name} ходом {best}."
-            )
+            ),
+            material_gain_info
         )
+
+        print(
+            "MATERIAL GAIN:",
+            captured_name,
+            "VALUE =",
+            captured_value,
+            "PRIORITY =",
+            material_priority
+        )
+
 
     # ======================================================
     # 19. FORK
@@ -2627,29 +3361,19 @@ def generate_explanation(mistake):
                 == chess.KNIGHT
             ):
 
-                test_board = (
-                    position_before.copy()
-                )
+                # --------------------------------------------------
+                # Кого конь атаковал ДО best_move?
+                # --------------------------------------------------
 
-                test_board.push(
-                    best_move
-                )
+                attacks_before = set()
 
-                knight_square = (
-                    best_move.to_square
-                )
-
-                targets = []
-
-                for target_square in (
-                    test_board.attacks(
-                        knight_square
-                    )
+                for square in position_before.attacks(
+                    best_move.from_square
                 ):
 
                     target_piece = (
-                        test_board.piece_at(
-                            target_square
+                        position_before.piece_at(
+                            square
                         )
                     )
 
@@ -2668,6 +3392,79 @@ def generate_explanation(mistake):
                     ):
                         continue
 
+                    attacks_before.add(square)
+
+                # --------------------------------------------------
+                # Позиция после лучшего хода.
+                # --------------------------------------------------
+
+                test_board = (
+                    position_before.copy()
+                )
+
+                test_board.push(
+                    best_move
+                )
+
+                knight_square = (
+                    best_move.to_square
+                )
+
+                # --------------------------------------------------
+                # Кого конь атакует ПОСЛЕ best_move?
+                # --------------------------------------------------
+
+                attacks_after = set()
+
+                for square in test_board.attacks(
+                    knight_square
+                ):
+
+                    target_piece = (
+                        test_board.piece_at(
+                            square
+                        )
+                    )
+
+                    if not target_piece:
+                        continue
+
+                    if (
+                        target_piece.color
+                        == best_piece.color
+                    ):
+                        continue
+
+                    if target_piece.piece_type in (
+                        chess.PAWN,
+                        chess.KING,
+                    ):
+                        continue
+
+                    attacks_after.add(square)
+
+                # --------------------------------------------------
+                # Только НОВЫЕ атаки.
+                # --------------------------------------------------
+
+                new_attack_squares = (
+                    attacks_after
+                    - attacks_before
+                )
+
+                targets = []
+
+                for target_square in new_attack_squares:
+
+                    target_piece = (
+                        test_board.piece_at(
+                            target_square
+                        )
+                    )
+
+                    if not target_piece:
+                        continue
+
                     targets.append(
                         (
                             {
@@ -2684,7 +3481,143 @@ def generate_explanation(mistake):
                         )
                     )
 
-                if len(targets) >= 2:
+                # --------------------------------------------------
+                # Проверяем, что вилка действительно имеет смысл.
+                #
+                # Если соперник первым ходом просто забирает
+                # коня на поле best_move.to_square, то это не
+                # нормальная вилка.
+                # --------------------------------------------------
+
+                fork_survives = True
+                fork_response = None
+
+                try:
+
+                    pv_after_best = []
+
+                    if played_results:
+
+                        first_result = (
+                            played_results[0]
+                            if isinstance(
+                                played_results[0],
+                                dict
+                            )
+                            else {}
+                        )
+
+                        pv_after_best = (
+                            first_result.get(
+                                "pv"
+                            )
+                            or []
+                        )
+
+                    # --------------------------------------------------
+                    # В некоторых структурах PV может начинаться
+                    # не с ответа соперника, поэтому проверяем только
+                    # первый корректный легальный ход.
+                    # --------------------------------------------------
+
+                    if pv_after_best:
+
+                        candidate = (
+                            pv_after_best[0]
+                        )
+
+                        response_move = None
+
+                        if isinstance(
+                            candidate,
+                            chess.Move
+                        ):
+
+                            response_move = candidate
+
+                        elif isinstance(
+                            candidate,
+                            str
+                        ):
+
+                            try:
+
+                                response_move = (
+                                    chess.Move.from_uci(
+                                        candidate
+                                    )
+                                )
+
+                            except Exception:
+                                response_move = None
+
+                        if (
+                            response_move
+                            and response_move in
+                            test_board.legal_moves
+                        ):
+
+                            fork_response = (
+                                response_move
+                            )
+
+                            if (
+                                test_board.is_capture(
+                                    response_move
+                                )
+                                and
+                                response_move.to_square
+                                == knight_square
+                            ):
+
+                                fork_survives = False
+
+                    # --------------------------------------------------
+                    # Дополнительная проверка:
+                    #
+                    # даже если PV не удалось получить, если соперник
+                    # может сразу легально взять самого коня,
+                    # не считаем вилку надёжной.
+                    #
+                    # Это особенно важно для false positive.
+                    # --------------------------------------------------
+
+                    if fork_survives:
+
+                        for response_move in (
+                            test_board.legal_moves
+                        ):
+
+                            if not test_board.is_capture(
+                                response_move
+                            ):
+                                continue
+
+                            if (
+                                response_move.to_square
+                                != knight_square
+                            ):
+                                continue
+
+                            # Если коня можно просто забрать,
+                            # не называем это полноценной вилкой.
+                            fork_survives = False
+                            fork_response = (
+                                response_move
+                            )
+                            break
+
+                except Exception as e:
+
+                    print(
+                        "FORK SURVIVAL CHECK ERROR:",
+                        repr(e)
+                    )
+
+                if (
+                    len(targets) >= 2
+                    and fork_survives
+                ):
 
                     targets.sort(
                         key=lambda x: x[0],
@@ -2707,19 +3640,25 @@ def generate_explanation(mistake):
                     )
 
                     first_square = (
-                        test_board.square_name(
+                        chess.square_name(
                             first[2]
                         )
                     )
 
                     second_square = (
-                        test_board.square_name(
+                        chess.square_name(
                             second[2]
                         )
                     )
 
                     fork_info = {
-                        "targets": targets
+                        "targets": targets,
+                        "new_attack_squares":
+                            new_attack_squares,
+                        "fork_survives":
+                            fork_survives,
+                        "response":
+                            fork_response,
                     }
 
                     add_reason(
@@ -2729,7 +3668,7 @@ def generate_explanation(mistake):
                             f"После {played} вы упустили "
                             f"возможность сыграть {best}. "
                             f"После этого хода конь "
-                            f"одновременно атакует "
+                            f"начинал одновременно атаковать "
                             f"{first_name} на "
                             f"{first_square} и "
                             f"{second_name} на "
@@ -2794,7 +3733,7 @@ def generate_explanation(mistake):
 
             add_reason(
                 "material_pressure",
-                109,
+                103,
                 material_pressure_text,
                 material_pressure_info
             )
@@ -2840,7 +3779,7 @@ def generate_explanation(mistake):
 
             add_reason(
                 "forced_piece_loss",
-                110,
+                112,
                 forced_piece_loss_text,
                 forced_piece_loss_info
             )
@@ -2885,7 +3824,7 @@ def generate_explanation(mistake):
 
             add_reason(
                 "trapped_piece",
-                85,
+                82,
                 trapped_text,
                 trapped_piece_info
             )
@@ -2940,7 +3879,6 @@ def generate_explanation(mistake):
                 piece_tempo_text,
                 piece_tempo_attack_info
             )
-
 
     # ======================================================
     # 23.5. QUEEN ACTIVITY
@@ -3016,7 +3954,7 @@ def generate_explanation(mistake):
 
         add_reason(
             "queen_activity",
-            82,
+            65,
             queen_activity_text,
             queen_activity_info
         )
@@ -3174,30 +4112,18 @@ def generate_explanation(mistake):
 
     if center_pawn_move:
 
-        center_priority = 35
-
-        try:
-
-            if (
-                pawn_attack_info
-                and played_move
-                and pawn_attack_info.get(
-                    "square"
-                ) == played_move.to_square
-            ):
-
-                center_priority = 75
-
-            elif pawn_threat:
-
-                center_priority = 70
-
-        except Exception:
-            pass
+        # --------------------------------------------------
+        # Центр — только общая позиционная идея.
+        #
+        # Не повышаем её до 70/75 только потому,
+        # что одновременно есть pawn_threat.
+        # Конкретная материальная причина должна
+        # объяснять ошибку отдельно.
+        # --------------------------------------------------
 
         add_reason(
             "center",
-            center_priority,
+            35,
             (
                 f"Лучшим было ударить по центру "
                 f"пешкой ходом {best}. Ваш ход "
@@ -3274,7 +4200,7 @@ def generate_explanation(mistake):
 
         add_reason(
             "king_safety",
-            30,
+            60,
             (
                 f"В этой позиции важнее было "
                 f"обезопасить короля ходом {best}."
@@ -3378,7 +4304,7 @@ def generate_explanation(mistake):
 
         add_reason(
             "pawn_king_safety",
-            88,
+            40,
             (
                 "Пешки — это первая линия "
                 "обороны вашего короля; их "
@@ -3524,7 +4450,7 @@ def generate_explanation(mistake):
 
             add_reason(
                 "isolated_pawn",
-                96,
+                65,
                 isolated_text,
                 isolated_pawn_info
             )
@@ -3533,121 +4459,86 @@ def generate_explanation(mistake):
     # 34. CONCRETE MATERIAL PRIORITIES
     # ======================================================
 
-    concrete_material_types = {
-        "pin_material_loss",
-        "material_pressure",
-        "apparent_piece_loss",
-        "tempo_material_loss",
-        "forced_piece_loss",
-        "delayed_capture",
-        "material",
-        "fork",
+    # Здесь НЕ создаём новые причины.
+    #
+    # Этот блок только гарантирует минимальный приоритет
+    # для конкретных материальных объяснений.
+    #
+    # Основная задача выбора причины выполняется позже.
+
+    MIN_CONCRETE_PRIORITIES = {
+
+        "causal_material_loss": 117,
+
+        "forced_piece_loss": 112,
+
+        "add_defender_and_delayed_capture": 116,
+
+        "material_pressure": 109,
+
+        "newly_pinned_pawn": 90,
+
+        "forced_piece_loss_after_pawn_tempo": 105,
+
+        "add_defender_to_vulnerable_pawn": 104,
+
+        "pawn_loss": 100,
+
+        "delayed_capture": 96,
+
+        "pin_material_loss": 97,
+
+        "apparent_piece_loss": 72,
+
+        "tempo_material_loss": 91,
+
+        "material": 92,
+
+        "fork": 95,
+
+        "trapped_piece": 82,
+
+        "undefended_pawn": 60,
     }
 
-    has_concrete_material_reason = any(
-        item.get("type")
-        in concrete_material_types
-        and item.get("priority", 0) > 0
-        for item in reasons
-    )
 
-    if has_concrete_material_reason:
+    for item in reasons:
 
-        for item in reasons:
+        reason_type = item.get(
+            "type"
+        )
 
-            reason_type = item.get(
-                "type"
+        minimum_priority = (
+            MIN_CONCRETE_PRIORITIES.get(
+                reason_type
             )
+        )
 
-            if reason_type == "forced_piece_loss":
+        if minimum_priority is None:
+            continue
 
-                item["priority"] = max(
-                    item["priority"],
-                    110
-                )
+        current_priority = (
+            item.get(
+                "priority",
+                0
+            )
+            or 0
+        )
 
-            elif reason_type == "material_pressure":
-
-                item["priority"] = max(
-                    item["priority"],
-                    109
-                )
-
-            elif reason_type == "delayed_capture":
-
-                item["priority"] = max(
-                    item["priority"],
-                    96
-                )
-
-            elif reason_type in {
-                "pawn_attack",
-                "pawn_piece_attack",
-                "piece_attack",
-                "undefended_pawn",
-                "queen_tempo",
-            }:
-
-                item["priority"] = min(
-                    item["priority"],
-                    50
-                )
-
-            elif reason_type == "piece_tempo_attack":
-
-                item["priority"] = min(
-                    item["priority"],
-                    72
-                )
-
-            elif reason_type == "new_check_threat":
-
-                if (
-                    item.get("data")
-                    and item["data"].get(
-                        "captured_piece"
-                    )
-                ):
-
-                    item["priority"] = max(
-                        item["priority"],
-                        80
-                    )
-
-                else:
-
-                    item["priority"] = min(
-                        item["priority"],
-                        50
-                    )
+        item["priority"] = max(
+            current_priority,
+            minimum_priority
+        )
 
     # ======================================================
     # 34.5. INACCURACY WITHOUT CONCRETE BENEFIT
-    # ======================================================
-    #
-    # ВАЖНО:
-    #
-    # Этот детектор добавляется ПОСЛЕ существующих
-    # конкретных причин.
-    #
-    # Поэтому он не пытается самостоятельно определять
-    # форки, связки, потери материала и т. п.
-    #
-    # Его задача:
-    #
-    #   "ход немного хуже, но конкретной тактической
-    #    причины для этого нет."
-    #
-    # Приоритет 68:
-    #
-    #   выше generic piece_attack = 65
-    #   ниже конкретных тактических причин.
-    #
     # ======================================================
 
     inaccuracy_no_benefit = None
 
     concrete_reason_types = {
+
+        # Тактика / непосредственная потеря
         "mate_blunder",
         "mate_in_one",
         "mate",
@@ -3658,23 +4549,29 @@ def generate_explanation(mistake):
         "pin_material_loss",
         "material_pressure",
         "forced_piece_loss",
-        "delayed_capture",
+        "forced_piece_loss_after_pawn_tempo",
         "tempo_material_loss",
         "apparent_piece_loss",
-        "new_check_threat",
-        "isolated_pawn",
+        "delayed_capture",
+        "add_defender_and_delayed_capture",
+        "add_defender_to_vulnerable_pawn",
+        "newly_pinned_pawn",
+
+        # Материальные / конкретные проблемы
+        "free_pawn",
+        "pawn_loss",
         "undefended_pawn",
         "trapped_piece",
-        "piece_tempo_attack",
-        "piece_attack",
-        "pawn_piece_attack",
-        "pawn_attack",
-        "queen_tempo",
-        "queen_activity",
-        "free_pawn",
-        "bad_recapture",
+
+        # Конкретные позиционные последствия
+        "isolated_pawn",
         "open_file_rook",
-        "pawn_king_safety",
+        "pawn_structure",
+
+        # Конкретные стратегические причины
+        "bad_recapture",
+        "neutralized_plan",
+        "queen_activity",
     }
 
     has_concrete_reason = any(
@@ -3714,21 +4611,25 @@ def generate_explanation(mistake):
                     dict
                 ):
 
-                    best_after_score = (
-                        best_result.get(
-                            "score"
-                        )
-                        or best_result.get(
-                            "after_score"
-                        )
-                    )
+                    best_after_score = None
 
-            # --------------------------------------------------
-            # ВАЖНО:
-            #
-            # Не используем здесь внешнюю переменную `best`.
-            # SAN получаем непосредственно из позиции.
-            # --------------------------------------------------
+                    if (
+                        "score" in best_result
+                        and best_result.get("score") is not None
+                    ):
+
+                        best_after_score = (
+                            best_result.get("score")
+                        )
+
+                    elif (
+                        "after_score" in best_result
+                        and best_result.get("after_score") is not None
+                    ):
+
+                        best_after_score = (
+                            best_result.get("after_score")
+                        )
 
             try:
 
@@ -3755,8 +4656,7 @@ def generate_explanation(mistake):
                 best_san_for_inaccuracy = best
 
             # --------------------------------------------------
-            # Если сыгранный ход уже считается равноценным,
-            # отдельная "неточность" не нужна.
+            # Проверяем равноценные ходы.
             # --------------------------------------------------
 
             is_equivalent = False
@@ -3802,7 +4702,7 @@ def generate_explanation(mistake):
             if not is_equivalent:
 
                 # --------------------------------------------------
-                # Проверяем, что best — тихий позиционный ход.
+                # Best должен быть тихим ходом.
                 # --------------------------------------------------
 
                 best_is_quiet = True
@@ -3827,23 +4727,7 @@ def generate_explanation(mistake):
 
                 if best_is_quiet:
 
-                    # --------------------------------------------------
-                    # Если после best оценка известна,
-                    # проверяем, что best действительно улучшает
-                    # позицию относительно before.
-                    #
-                    # Для белых:
-                    #     больше = лучше
-                    #
-                    # Для чёрных:
-                    #     меньше = лучше
-                    #
-                    # Поэтому здесь нужно учитывать POV Stockfish.
-                    # В твоей системе before/after обычно уже
-                    # хранятся относительно стороны игрока.
-                    # --------------------------------------------------
-
-                    positional_improvement = True
+                    positional_improvement = False
 
                     if (
                         best_after_score is not None
@@ -3865,24 +4749,18 @@ def generate_explanation(mistake):
                                 - before_score_for_best
                             )
 
-                            # Оценка считается POV игрока.
-                            # Небольшой допуск против шума Stockfish.
-                            if improvement < 5:
+                            if improvement >= 5:
 
-                                positional_improvement = False
+                                positional_improvement = True
 
-                        except Exception:
+                        except (
+                            TypeError,
+                            ValueError
+                        ):
 
-                            positional_improvement = True
+                            positional_improvement = False
 
                     if positional_improvement:
-
-                        # --------------------------------------------------
-                        # Близкие хорошие ходы.
-                        #
-                        # Они не обязательны для срабатывания.
-                        # Если есть — формулировка будет мягче.
-                        # --------------------------------------------------
 
                         close_alternatives = []
 
@@ -4012,361 +4890,78 @@ def generate_explanation(mistake):
 
         for item in reasons:
 
-            if item["type"] == "check_response":
+            reason_type = item.get("type")
+
+            # --------------------------------------------------
+            # ОТВЕТ НА ШАХ — ВСЕГДА 105
+            # --------------------------------------------------
+
+            if reason_type == "check_response":
 
                 item["priority"] = 105
 
-            elif item["type"] == "mate_in_one":
+            # --------------------------------------------------
+            # MATE IN ONE — ВЫШЕ ОТВЕТА НА ШАХ
+            # --------------------------------------------------
+
+            elif reason_type == "mate_in_one":
 
                 item["priority"] = 115
+
+            # --------------------------------------------------
+            # КОНКРЕТНЫЕ МАТЕРИАЛЬНЫЕ ПРИЧИНЫ
+            #
+            # НЕ СНИЖАЕМ ИХ ДО 90.
+            # Если детектор уже доказал конкретное
+            # материальное последствие, оно должно
+            # сохранить свой приоритет.
+            # --------------------------------------------------
+
+            elif reason_type in {
+                "causal_material_loss",
+
+                "forced_piece_loss",
+                "forced_piece_loss_after_pawn_tempo",
+
+                "material_pressure",
+                "pawn_loss",
+
+                "add_defender_and_delayed_capture",
+                "add_defender_to_vulnerable_pawn",
+
+                "delayed_capture",
+                "tempo_material_loss",
+
+                "apparent_piece_loss",
+                "pin_material_loss",
+
+                "newly_pinned_pawn",
+
+                "fork",
+                "material",
+                "undefended_pawn",
+                "trapped_piece",
+            }:
+
+                # Ничего не меняем.
+                # Их priority уже установлен конкретным
+                # детектором / блоком concrete material.
+                pass
+
+            # --------------------------------------------------
+            # GENERIC ПРИЧИНЫ
+            #
+            # Вот их действительно можно опустить ниже
+            # check_response.
+            # --------------------------------------------------
 
             else:
 
                 item["priority"] = min(
-                    item["priority"],
+                    item.get("priority", 0),
                     90
                 )
-
-    # ======================================================
-    # INACCURACY WITHOUT CONCRETE TACTICAL BENEFIT
-    # ======================================================
-    #
-    # Идея:
-    # Небольшая потеря оценки сама по себе не означает
-    # конкретную тактическую ошибку.
-    #
-    # Если ход:
-    #   - потерял 30-79 cp,
-    #   - не является взятием,
-    #   - не даёт шах/мат,
-    #   - не приводит к потере материала,
-    #   - не создаёт вилку/связку/жертву,
-    #   - не является серьёзной тактической угрозой,
-    #   - и при этом лучший ход действительно улучшает позицию,
-    #
-    # то считаем это позиционной неточностью.
-    #
-    # Приоритет 68:
-    #   выше обычных piece_attack / pawn_attack,
-    #   но ниже конкретных тактических объяснений.
-    # ======================================================
-
-    inaccuracy_no_benefit = False
-
-    if (
-        30 <= loss < 80
-        and best_move is not None
-        and played_move is not None
-        and position_before is not None
-    ):
-
-        # --------------------------------------------------
-        # 1. Сыгранный ход не должен быть взятием
-        # --------------------------------------------------
-        played_is_capture = False
-
-        try:
-            played_is_capture = position_before.is_capture(
-                played_move
-            )
-        except Exception:
-            played_is_capture = False
-
-        # --------------------------------------------------
-        # 2. Сыгранный ход не должен давать шах
-        # --------------------------------------------------
-        played_gives_check = False
-
-        try:
-            test_board = position_before.copy()
-            test_board.push(played_move)
-            played_gives_check = test_board.is_check()
-        except Exception:
-            played_gives_check = False
-
-        # --------------------------------------------------
-        # 3. Лучший ход не должен быть тем же самым ходом
-        # --------------------------------------------------
-        same_as_best = (
-            played_move == best_move
-        )
-
-        # --------------------------------------------------
-        # 4. Проверяем равноценность сыгранного хода
-        #
-        # Важный момент:
-        # equivalent_best_moves содержит ходы, которые
-        # уже признаны системой практически равноценными.
-        # Если сыгранный ход там находится — это НЕ
-        # inaccuracy_no_benefit.
-        # --------------------------------------------------
-        played_is_equivalent = False
-
-        played_san_for_equivalent = played
-
-        for item in equivalent_best_moves:
-            if not isinstance(item, dict):
-                continue
-
-            item_san = item.get("san") or ""
-
-            if (
-                item_san
-                and played_san_for_equivalent
-                and item_san == played_san_for_equivalent
-            ):
-                played_is_equivalent = True
-                break
-
-        # --------------------------------------------------
-        # 5. Проверяем конкретные тактические причины.
-        #
-        # Эти причины должны иметь приоритет над общей
-        # позиционной неточностью.
-        # --------------------------------------------------
-
-        concrete_reason_types = {
-            "mate_blunder",
-            "mate_in_one",
-            "mate",
-            "check",
-            "check_response",
-
-            "material",
-            "material_pressure",
-            "tempo_material_loss",
-            "forced_piece_loss",
-            "apparent_piece_loss",
-            "pin_material_loss",
-            "fork",
-
-            "delayed_capture",
-            "queen_activity",
-        }
-
-        has_concrete_reason = any(
-            r.get("type") in concrete_reason_types
-            for r in reasons
-        )
-
-        # --------------------------------------------------
-        # 6. Отдельно проверяем fork / pin по features.
-        #
-        # Это дополнительная защита на случай, если
-        # соответствующий reason ещё не был добавлен.
-        # --------------------------------------------------
-
-        feature_has_fork = bool(
-            features.get("fork")
-        )
-
-        feature_has_pin = bool(
-            features.get("pin")
-        )
-
-        feature_has_sacrifice = bool(
-            features.get("knight_sacrifice")
-            or features.get("sacrifice")
-        )
-
-        # --------------------------------------------------
-        # 7. Серьёзная угроза.
-        #
-        # Обычная атака фигуры или пешки НЕ считается
-        # серьёзной угрозой — именно поэтому они могут
-        # остаться вторичными объяснениями.
-        # --------------------------------------------------
-
-        serious_threat = False
-
-        tactical_threats = mistake.get(
-            "tactical_threats"
-        ) or []
-
-        if tactical_threats:
-            serious_threat = True
-
-        # Если уже есть конкретные тактические reason-типы,
-        # тоже считаем угрозу конкретной.
-        serious_threat_types = {
-            "mate_in_one",
-            "mate_blunder",
-            "forced_piece_loss",
-            "material_pressure",
-            "tempo_material_loss",
-            "fork",
-            "pin_material_loss",
-            "apparent_piece_loss",
-        }
-
-        if any(
-            r.get("type") in serious_threat_types
-            for r in reasons
-        ):
-            serious_threat = True
-
-        # --------------------------------------------------
-        # 8. Проверяем, что лучший ход действительно лучше
-        # сыгранного.
-        #
-        # loss >= 30 уже говорит об ухудшении позиции.
-        # Дополнительно смотрим BEST SCORE / AFTER SCORE,
-        # если они доступны.
-        # --------------------------------------------------
-
-        best_really_improves = True
-
-        if (
-            after is not None
-            and mistake.get("best_score") is not None
-        ):
-            try:
-                best_score_value = float(
-                    mistake.get("best_score")
-                )
-                after_value = float(after)
-
-                # Здесь оценки уже должны быть приведены
-                # к одной перспективе пользователем.
-                #
-                # Если сыгранная позиция хуже лучшей,
-                # разница должна соответствовать loss.
-                if abs(after_value - best_score_value) < 20:
-                    best_really_improves = False
-
-            except Exception:
-                pass
-
-        # --------------------------------------------------
-        # 9. Наличие близких хороших ходов.
-        #
-        # НЕ делаем это обязательным условием.
-        #
-        # Если есть несколько близких ходов — это особенно
-        # хороший признак того, что позиция была просто
-        # неточно сыграна, а не что существовал единственный
-        # "спасающий" ход.
-        # --------------------------------------------------
-
-        close_good_moves = []
-
-        for item in equivalent_best_moves:
-            if not isinstance(item, dict):
-                continue
-
-            san_value = item.get("san") or ""
-
-            if not san_value:
-                continue
-
-            if best and san_value == best:
-                continue
-
-            try:
-                difference = float(
-                    item.get("difference", 999)
-                )
-            except Exception:
-                difference = 999
-
-            if difference <= 20:
-                close_good_moves.append(
-                    san_value
-                )
-
-        has_close_good_moves = bool(
-            close_good_moves
-        )
-
-        # --------------------------------------------------
-        # 10. Финальное условие
-        # --------------------------------------------------
-
-        if (
-            not played_is_capture
-            and not played_gives_check
-            and not same_as_best
-            and not played_is_equivalent
-            and not has_concrete_reason
-            and not feature_has_fork
-            and not feature_has_pin
-            and not feature_has_sacrifice
-            and not serious_threat
-            and best_really_improves
-        ):
-
-            # Дополнительная проверка:
-            # если есть близкие хорошие ходы — это идеальный
-            # случай для inaccuracy_no_benefit.
-            #
-            # Но отсутствие таких ходов НЕ запрещает
-            # детектору работать.
-            #
-            # Это важно: иначе мы будем пропускать обычные
-            # позиционные неточности, где Stockfish нашёл
-            # один наиболее точный ход.
-
-            text = (
-                f"Ход {played} был неточным: "
-                f"он не даёт конкретной тактической выгоды "
-                f"и позволяет сопернику улучшить свою позицию."
-            )
-
-            if best:
-                if has_close_good_moves:
-                    text += (
-                        f" Сильнее было {best}, "
-                        "но в позиции было несколько близких "
-                        "хороших продолжений."
-                    )
-                else:
-                    text += (
-                        f" Сильнее было {best}, "
-                        "но это не означает, что только этот "
-                        "ход сохранял позицию."
-                    )
-
-            add_reason(
-                "inaccuracy_no_benefit",
-                68,
-                text,
-                {
-                    "loss": loss,
-                    "best_move": best,
-                    "played_move": played,
-                    "close_good_moves": close_good_moves,
-                    "has_close_good_moves": has_close_good_moves,
-                }
-            )
-
-            inaccuracy_no_benefit = True
-
-            print(
-                "=============================================="
-            )
-            print(
-                "INACCURACY NO BENEFIT FOUND"
-            )
-            print(
-                "LOSS =",
-                loss
-            )
-            print(
-                "PLAYED =",
-                played
-            )
-            print(
-                "BEST =",
-                best
-            )
-            print(
-                "CLOSE GOOD MOVES =",
-                close_good_moves
-            )
-            print(
-                "=============================================="
-            )
-
+                
     # ======================================================
     # 37. MATE AFTER MOVE PRIORITY
     # ======================================================
@@ -4405,7 +5000,6 @@ def generate_explanation(mistake):
             "pawn_piece_attack",
             "queen_tempo",
             "best_move_idea",
-            "delayed_capture"
         }
 
         reasons = [
@@ -4414,25 +5008,6 @@ def generate_explanation(mistake):
             if item.get("type")
             not in blocked_types
         ]
-
-    # ======================================================
-    # DEBUG REASONS
-    # ======================================================
-
-    print(
-        "\nDEBUG ALL REASONS:"
-    )
-
-    for item in reasons:
-
-        print(
-            "  ",
-            item.get("type"),
-            "PRIORITY =",
-            item.get("priority"),
-            "TEXT =",
-            item.get("text")
-        )
 
     # ======================================================
     # INACCURACY NO BENEFIT — BELOW CONCRETE EXPLANATIONS
@@ -4445,50 +5020,56 @@ def generate_explanation(mistake):
             reason_type = item.get("type")
 
             if reason_type == "open_file_rook":
+
                 item["priority"] = min(
                     item.get("priority", 0),
                     62
                 )
 
             elif reason_type == "piece_tempo_attack":
+
                 item["priority"] = min(
                     item.get("priority", 0),
                     60
                 )
 
             elif reason_type == "piece_attack":
+
                 item["priority"] = min(
                     item.get("priority", 0),
                     55
                 )
 
             elif reason_type == "pawn_attack":
+
                 item["priority"] = min(
                     item.get("priority", 0),
                     50
                 )
 
             elif reason_type == "pawn_piece_attack":
+
                 item["priority"] = min(
                     item.get("priority", 0),
                     50
                 )
 
             elif reason_type == "queen_tempo":
+
                 item["priority"] = min(
                     item.get("priority", 0),
                     60
                 )
 
-            
-
             elif reason_type == "center":
+
                 item["priority"] = min(
                     item.get("priority", 0),
-                    60
+                    35
                 )
 
             elif reason_type == "best_move_idea":
+
                 item["priority"] = min(
                     item.get("priority", 0),
                     50
@@ -4505,66 +5086,32 @@ def generate_explanation(mistake):
 
     if has_piece_tempo_attack:
 
-        reasons = [
-            r
-            for r in reasons
-            if r.get("type") != "pawn_attack"
-        ]
-
-
-    # ======================================================
-    # PAWN LOSS PRIORITY
-    #
-    # Если обнаружена конкретная потеря пешки,
-    # delayed_capture не должна становиться главной причиной.
-    # ======================================================
-
-    has_pawn_loss = any(
-        item.get("type") == "pawn_loss"
-        for item in reasons
-    )
-
-    if has_pawn_loss:
         for item in reasons:
 
-            if item.get("type") == "delayed_capture":
+            if item.get("type") == "pawn_attack":
 
                 item["priority"] = min(
                     item.get("priority", 0),
-                    96
-                )
-
-                print(
-                    "DEBUG: delayed_capture lowered "
-                    "because pawn_loss exists"
-                )
-
-    # ======================================================
-    # PAWN LOSS vs FORCED PIECE LOSS
-    #
-    # Если конкретная потеря пешки обнаружена,
-    # для объяснения ошибки предпочитаем pawn_loss.
-    # ======================================================
-
-    if has_pawn_loss:
-
-        for item in reasons:
-
-            if item.get("type") == "forced_piece_loss":
-
-                item["priority"] = min(
-                    item.get("priority", 0),
-                    104
-                )
-
-                print(
-                    "DEBUG: forced_piece_loss lowered "
-                    "because pawn_loss exists"
+                    45
                 )
 
     # ======================================================
     # SORT
     # ======================================================
+
+    # Убираем полностью пустые причины.
+    #
+    # Причина без текста не должна случайно стать
+    # основной причиной ошибки.
+    reasons = [
+        item
+        for item in reasons
+        if item.get("text")
+    ]
+
+    reasons = filter_redundant_reasons(
+        reasons
+    )
 
     reasons.sort(
         key=lambda x: x.get(
@@ -4575,7 +5122,7 @@ def generate_explanation(mistake):
     )
 
     print(
-        "DEBUG SORTED REASONS:"
+        "\nDEBUG FINAL REASONS:"
     )
 
     for item in reasons:
@@ -4584,7 +5131,9 @@ def generate_explanation(mistake):
             "  ",
             item.get("type"),
             "=>",
-            item.get("priority")
+            item.get("priority"),
+            "TEXT =",
+            item.get("text")
         )
 
     # ======================================================
@@ -4594,28 +5143,7 @@ def generate_explanation(mistake):
     reason = None
     reason_type = "general"
 
-    if loss < 100:
-
-        reason = {
-            "type": "inaccuracy_no_benefit",
-            "priority": 0,
-            "text": (
-                f"Можно было сыграть лучше: "
-                f"{best} был более точным ходом."
-            ),
-        }
-
-        reason_type = "inaccuracy_no_benefit"
-
-        print(
-            "DEBUG SMALL LOSS:",
-            "LOSS =",
-            loss,
-            "MAIN REASON =",
-            reason_type
-        )
-
-    elif reasons:
+    if reasons:
 
         reason = reasons[0]
 
@@ -4632,7 +5160,32 @@ def generate_explanation(mistake):
             "TEXT =",
             reason.get("text")
         )
-        
+
+    elif loss < 100:
+
+        reason = {
+            "type": "inaccuracy_no_benefit",
+            "priority": 0,
+            "text": (
+                f"Можно было сыграть лучше: "
+                f"{best} был более точным ходом."
+            ),
+        }
+
+        reason_type = reason.get(
+            "type",
+            "general"
+        )
+
+        print(
+            "DEBUG SELECTED MAIN REASON:",
+            reason_type,
+            "PRIORITY =",
+            reason.get("priority"),
+            "TEXT =",
+            reason.get("text")
+        )
+
     # ======================================================
     # FALLBACK REASON
     # ======================================================
@@ -4718,7 +5271,6 @@ def generate_explanation(mistake):
         )
     )
 
-   
     # ======================================================
     # SECONDARY IDEAS
     # ======================================================
@@ -4730,29 +5282,48 @@ def generate_explanation(mistake):
         "isolated_pawn",
         "equal_trade",
         "equivalent_trade_idea",
+
         "material",
         "material_pressure",
         "tempo_material_loss",
+        "mate",
+        "mate_blunder",
         "forced_piece_loss",
+        "forced_piece_loss_after_pawn_tempo",
+        "apparent_piece_loss",
+
+        "fork",
+        "trapped_piece",
+
         "delayed_capture",
+        "add_defender_and_delayed_capture",
+        "add_defender_to_vulnerable_pawn",
+        "newly_pinned_pawn",
+
+        "pawn_loss",
+        "undefended_pawn",
+
         "inaccuracy_no_benefit",
         "queen_tempo",
         "queen_activity",
+
         "piece_tempo_attack",
         "piece_attack",
         "pawn_piece_attack",
         "pawn_attack",
+
         "free_pawn",
         "bad_recapture",
+
         "king_safety",
+        "pawn_king_safety",
         "center",
         "best_move_idea",
         "new_check_threat",
-        "undefended_pawn",
+
         "check_response",
         "mate_in_one",
-        "inaccuracy_no_benefit",
-        "pawn_king_safety",
+
         "neutralized_plan",
     }
 
@@ -4844,15 +5415,27 @@ def generate_explanation(mistake):
         "pin_material_loss",
         "material_pressure",
         "fork",
+        "trapped_piece",
+
         "mate",
         "mate_blunder",
         "mate_in_one",
+
         "material",
         "check_response",
         "new_check_threat",
+
         "tempo_material_loss",
         "apparent_piece_loss",
         "forced_piece_loss",
+        "forced_piece_loss_after_pawn_tempo",
+
+        "delayed_capture",
+        "add_defender_and_delayed_capture",
+        "add_defender_to_vulnerable_pawn",
+        "newly_pinned_pawn",
+
+        "pawn_loss",
     }
 
     for item in reasons[1:]:
@@ -4879,7 +5462,7 @@ def generate_explanation(mistake):
             continue
 
         # --------------------------------------------------
-        # Если мат — остальные идеи почти не нужны.
+        # Мат — остальные generic идеи почти не нужны.
         # --------------------------------------------------
 
         if reason_type == "mate_blunder":
@@ -4900,7 +5483,7 @@ def generate_explanation(mistake):
                 continue
 
         # --------------------------------------------------
-        # Если mate in one — не перегружаем объяснение.
+        # Mate in one.
         # --------------------------------------------------
 
         if reason_type == "mate_in_one":
@@ -4964,8 +5547,8 @@ def generate_explanation(mistake):
             continue
 
         # --------------------------------------------------
-        # Если новый детектор является главной причиной,
-        # не добавляем generic piece_attack.
+        # Если главная причина — generic inaccuracy,
+        # не добавляем ещё один generic attack.
         # --------------------------------------------------
 
         if (
@@ -5000,6 +5583,14 @@ def generate_explanation(mistake):
             "pin_material_loss",
             "material_pressure",
             "fork",
+            "trapped_piece",
+            "forced_piece_loss",
+            "forced_piece_loss_after_pawn_tempo",
+            "pawn_loss",
+            "delayed_capture",
+            "add_defender_and_delayed_capture",
+            "add_defender_to_vulnerable_pawn",
+            "newly_pinned_pawn",
             "mate",
             "mate_blunder",
             "mate_in_one",
@@ -5113,6 +5704,49 @@ def generate_explanation(mistake):
             "и только потом позиционные ходы."
         )
 
+    elif reason_type == "add_defender_and_delayed_capture":
+
+        training_tip = (
+            "Не спешите сразу забирать материал. "
+            "Если можно сначала усилить защиту, "
+            "создать дополнительное давление или "
+            "лишить соперника активной защиты, "
+            "такой промежуточный ход может быть сильнее."
+        )
+
+    elif reason_type == "add_defender_to_vulnerable_pawn":
+
+        training_tip = (
+            "Если пешка уязвима, ищите ход, который "
+            "одновременно улучшает фигуру и добавляет "
+            "ей защитника."
+        )
+
+    elif reason_type == "newly_pinned_pawn":
+
+        training_tip = (
+            "Следите за новыми связками. После хода "
+            "пешка или фигура может оказаться связанной "
+            "с королём или более ценной фигурой."
+        )
+
+    elif reason_type == "forced_piece_loss_after_pawn_tempo":
+
+        training_tip = (
+            "После нападения пешкой проверяйте не только "
+            "безопасное поле отхода фигуры, но и следующий "
+            "темп соперника."
+        )
+
+    elif reason_type == "pawn_loss":
+
+        training_tip = (
+            "После каждого хода проверяйте, какие ваши "
+            "пешки становятся уязвимыми и может ли "
+            "соперник выиграть их следующим ходом или "
+            "через несколько ходов."
+        )
+
     elif reason_type == "delayed_capture":
 
         training_tip = (
@@ -5132,9 +5766,20 @@ def generate_explanation(mistake):
     elif reason_type == "forced_piece_loss":
 
         training_tip = (
-            "Если фигура подвергается атаке пешкой, "
-            "проверяйте не только первый отход, "
-            "но и следующий ход соперника."
+            "Если ваша фигура оказывается под угрозой, "
+            "проверяйте не только её первый отход, "
+            "но и то, какой ответ соперник получит "
+            "после этого хода."
+        )
+
+    elif reason_type == "trapped_piece":
+
+        training_tip = (
+            "Перед тем как поставить фигуру на активное "
+            "поле, проверяйте, есть ли у неё безопасные "
+            "пути отхода. Особенно внимательно следите "
+            "за фигурами, которые могут быть отрезаны "
+            "пешками или другими фигурами."
         )
 
     elif reason_type == "queen_tempo":
@@ -5177,12 +5822,20 @@ def generate_explanation(mistake):
             "защитников после перемещения фигур."
         )
 
+    elif reason_type == "piece_tempo_attack":
+
+        training_tip = (
+            "После каждого хода проверяйте, "
+            "не получает ли соперник нападение на вашу фигуру "
+            "с темпом, заставляя её снова двигаться."
+        )
+
     elif reason_type == "apparent_piece_loss":
 
         training_tip = (
-            "Перед тем как считать фигуру потерянной, "
-            "обязательно проверяйте, можно ли "
-            "полноценно забрать атакующую фигуру."
+            "Если кажется, что фигура теряется, "
+            "сначала проверьте, можно ли после её взятия "
+            "немедленно или выгодно забрать атакующую фигуру."
         )
 
     elif reason_type == "equal_trade":
@@ -5477,7 +6130,7 @@ def analyze_san(best_san):
     if "x" in best_san:
 
         ideas.append(
-            "Лучший ход позволяет выиграть материал."
+            "Лучший ход включает взятие."
         )
 
     if "=" in best_san:
