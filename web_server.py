@@ -2705,6 +2705,16 @@ def get_mistakes():
         "telegram_user"
     )
 
+    print("========================================")
+    print("MISTAKES REQUEST")
+    print("telegram_user =", telegram_user)
+
+    if isinstance(telegram_user, dict):
+        print("telegram_id =", telegram_user.get("id"))
+        print("username =", telegram_user.get("username"))
+
+    print("========================================")
+
     if not telegram_user:
 
         return jsonify({
