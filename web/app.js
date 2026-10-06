@@ -1089,6 +1089,27 @@ const generalAnalysisButton =
         "generalAnalysisButton"
     );
 
+
+/* ============================================================
+   КНОПКИ ВЫБОРА СТОРОНЫ ДЛЯ АНАЛИЗА
+============================================================ */
+
+const analysisWhiteButton =
+    document.getElementById(
+        "analysisWhiteButton"
+    );
+
+const analysisBlackButton =
+    document.getElementById(
+        "analysisBlackButton"
+    );
+
+const analysisBothButton =
+    document.getElementById(
+        "analysisBothButton"
+    );
+
+
 const analysisMessage =
     document.getElementById(
         "analysisMessage"
@@ -1108,9 +1129,9 @@ if (generalAnalysisButton) {
 
     generalAnalysisButton.addEventListener(
         "click",
-        async () => {
+        () => {
 
-            await startPgnAnalysis(
+            showAnalysisSideSelection(
                 "general"
             );
 
@@ -1123,10 +1144,111 @@ if (deepAnalysisButton) {
 
     deepAnalysisButton.addEventListener(
         "click",
-        async () => {
+        () => {
 
-            await startPgnAnalysis(
+            showAnalysisSideSelection(
                 "deep"
+            );
+
+        }
+    );
+}
+
+
+/* ============================================================
+   КНОПКИ ОБЩЕГО И ГЛУБОКОГО АНАЛИЗА
+============================================================ */
+
+if (generalAnalysisButton) {
+
+    generalAnalysisButton.addEventListener(
+        "click",
+        () => {
+
+            showAnalysisSideSelection(
+                "general"
+            );
+
+        }
+    );
+}
+
+
+if (deepAnalysisButton) {
+
+    deepAnalysisButton.addEventListener(
+        "click",
+        () => {
+
+            showAnalysisSideSelection(
+                "deep"
+            );
+
+        }
+    );
+}
+
+
+/* ============================================================
+   ВЫБОР СТОРОНЫ ДЛЯ АНАЛИЗА
+============================================================ */
+
+if (analysisWhiteButton) {
+
+    analysisWhiteButton.addEventListener(
+        "click",
+        () => {
+
+            const mode =
+                pendingPgnAnalysisMode;
+
+            hideAnalysisSideSelection();
+
+            startPgnAnalysis(
+                mode,
+                "white"
+            );
+
+        }
+    );
+}
+
+
+if (analysisBlackButton) {
+
+    analysisBlackButton.addEventListener(
+        "click",
+        () => {
+
+            const mode =
+                pendingPgnAnalysisMode;
+
+            hideAnalysisSideSelection();
+
+            startPgnAnalysis(
+                mode,
+                "black"
+            );
+
+        }
+    );
+}
+
+
+if (analysisBothButton) {
+
+    analysisBothButton.addEventListener(
+        "click",
+        () => {
+
+            const mode =
+                pendingPgnAnalysisMode;
+
+            hideAnalysisSideSelection();
+
+            startPgnAnalysis(
+                mode,
+                "both"
             );
 
         }
@@ -11110,12 +11232,75 @@ function renderMyMistakes() {
     );
 }
 
+// ============================================================
+// ВЫБОР СТОРОНЫ ДЛЯ АНАЛИЗА PGN
+// ============================================================
+
+let pendingPgnAnalysisMode = null;
+
+
+function showAnalysisSideSelection(
+    analysisMode
+) {
+
+    pendingPgnAnalysisMode =
+        analysisMode;
+
+
+    const selection =
+        document.getElementById(
+            "analysisSideSelection"
+        );
+
+
+    if (!selection) {
+
+        console.error(
+            "Не найден #analysisSideSelection"
+        );
+
+        return;
+    }
+
+
+    selection.classList.remove(
+        "hidden"
+    );
+
+
+    selection.scrollIntoView({
+        behavior: "smooth",
+        block: "center"
+    });
+}
+
+
+function hideAnalysisSideSelection() {
+
+    const selection =
+        document.getElementById(
+            "analysisSideSelection"
+        );
+
+
+    if (!selection) {
+        return;
+    }
+
+
+    selection.classList.add(
+        "hidden"
+    );
+}
+
+
 /* ============================================================
    АНАЛИЗ PGN
 ============================================================ */
 
 async function startPgnAnalysis(
-    analysisMode
+    analysisMode,
+    selectedPlayerColor = null
 ) {
 
     console.log(
@@ -11296,8 +11481,23 @@ async function startPgnAnalysis(
                чтобы оно потом попало в /analyze.
             */
 
-            playerColor =
-                gamePgnData.player_color;
+            // Если пользователь явно выбрал сторону
+            // для анализа — используем её.
+            // Это важнее автоматического цвета текущей партии.
+
+            if (
+                selectedPlayerColor
+            ) {
+
+                playerColor =
+                    selectedPlayerColor;
+
+            } else {
+
+                playerColor =
+                    gamePgnData.player_color;
+
+            }
 
 
             console.log(

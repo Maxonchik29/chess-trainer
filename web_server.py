@@ -2071,14 +2071,14 @@ def run_analysis_job(
             "black",
             "both"
         ):
-
             analysis_mode = player_color
-
         else:
+            print(
+                "!!! ОШИБКА: НЕ УКАЗАНА СТОРОНА ДЛЯ АНАЛИЗА !!!",
+                player_color
+            )
 
-            # Старый режим "my" оставляем
-            # только как fallback для старого frontend.
-            analysis_mode = "my"
+            analysis_mode = "both"
 
         print(
             "РЕЖИМ АНАЛИЗА В run_analysis_job:",
