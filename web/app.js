@@ -1154,41 +1154,6 @@ if (deepAnalysisButton) {
     );
 }
 
-
-/* ============================================================
-   КНОПКИ ОБЩЕГО И ГЛУБОКОГО АНАЛИЗА
-============================================================ */
-
-if (generalAnalysisButton) {
-
-    generalAnalysisButton.addEventListener(
-        "click",
-        () => {
-
-            showAnalysisSideSelection(
-                "general"
-            );
-
-        }
-    );
-}
-
-
-if (deepAnalysisButton) {
-
-    deepAnalysisButton.addEventListener(
-        "click",
-        () => {
-
-            showAnalysisSideSelection(
-                "deep"
-            );
-
-        }
-    );
-}
-
-
 /* ============================================================
    ВЫБОР СТОРОНЫ ДЛЯ АНАЛИЗА
 ============================================================ */
@@ -3502,31 +3467,126 @@ function showGameMistakesButton() {
         return;
     }
 
-
     const button =
         document.createElement(
             "button"
         );
 
-
     button.id =
         "gameMistakesButton";
 
-
     button.textContent =
-        "♟ Мои ошибки";
-
+        "♟ Ошибки анализа";
 
     button.className =
         "main-button";
 
-
     button.addEventListener(
         "click",
-        async () => {
+        () => {
 
-            await loadMyMistakes();
+            if (
+                !currentAnalysisData ||
+                !Array.isArray(
+                    currentAnalysisData.mistakes
+                )
+            ) {
 
+                alert(
+                    "Результаты анализа не найдены."
+                );
+
+                return;
+            }
+
+            /*
+             * Используем именно ошибки
+             * текущего анализа PGN.
+             */
+
+            myMistakesData =
+                currentAnalysisData.mistakes.map(
+                    mistake => {
+
+                        const fen =
+                            mistake.position_fen ??
+                            mistake.fen ??
+                            "";
+
+                        const fenSide =
+                            String(
+                                fen
+                            )
+                            .trim()
+                            .split(/\s+/)[1];
+
+
+                        let side =
+                            mistake.side ??
+                            mistake.user_side ??
+                            mistake.player_color ??
+                            mistake.color;
+
+
+                        /*
+                         * FEN надёжнее:
+                         * он содержит сторону,
+                         * которая должна ходить
+                         * в позиции ошибки.
+                         */
+
+                        if (
+                            fenSide === "b"
+                        ) {
+
+                            side =
+                                "black";
+
+                        } else if (
+                            fenSide === "w"
+                        ) {
+
+                            side =
+                                "white";
+                        }
+
+
+                        return {
+
+                            ...mistake,
+
+                            position_fen:
+                                fen,
+
+                            position_played_uci:
+                                mistake.position_played_uci ??
+                                mistake.played_move_uci ??
+                                mistake.played_move ??
+                                mistake.played_uci,
+
+                            best_move_uci:
+                                mistake.best_move_uci ??
+                                mistake.best_uci ??
+                                mistake.best_move,
+
+                            user_side:
+                                side ||
+                                "white"
+                        };
+                    }
+                );
+
+
+            currentMistakeSource =
+                "analysis";
+
+
+            renderMyMistakes();
+
+
+            showScreen(
+                mistakesScreen
+            );
         }
     );
 
@@ -3539,7 +3599,6 @@ function showGameMistakesButton() {
         );
     }
 }
-
 
 /* ============================================================
    ЗАГРУЗКА ИГРЫ
@@ -7353,16 +7412,8 @@ function showMistakePosition(
 
     if (positionTitle) {
 
-        let mistakes = [];
-
-        if (currentMistakeSource === "mistakes") {
-            mistakes = myMistakesData;
-        } else if (
-            currentAnalysisData &&
-            Array.isArray(currentAnalysisData.mistakes)
-        ) {
-            mistakes = currentAnalysisData.mistakes;
-        }
+        const mistakes =
+            myMistakesData;
 
         const index =
             mistakes.indexOf(mistake);
@@ -7380,13 +7431,7 @@ function showMistakePosition(
     }
 
     positionScreen.currentMistakeIndex =
-        currentMistakeSource === "mistakes"
-            ? myMistakesData.indexOf(mistake)
-            : (
-                currentAnalysisData?.mistakes
-                    ? currentAnalysisData.mistakes.indexOf(mistake)
-                    : 0
-            );
+        myMistakesData.indexOf(mistake);
             
     updateMistakeCounter();
 
@@ -11018,7 +11063,11 @@ function renderMyMistakes() {
         <div class="mistakes-header">
 
             <h2>
-                Мои ошибки
+                ${
+                    currentMistakeSource === "analysis"
+                        ? "Ошибки анализа"
+                        : "Мои ошибки"
+                }
             </h2>
 
             <p>
@@ -11120,6 +11169,19 @@ function renderMyMistakes() {
                 mistake.loss ??
                 "—";
 
+
+            const side =
+                getMistakeSide(
+                    mistake
+                );
+
+
+            const sideText =
+                side === "black"
+                    ? "♚ Чёрные"
+                    : "♔ Белые";
+
+
             html += `
                 <div
                     class="mistake-card"
@@ -11128,6 +11190,14 @@ function renderMyMistakes() {
                     <div>
                         <strong>
                             Ход ${moveNumber}
+                        </strong>
+                    </div>
+
+
+                    <div>
+                        Сторона:
+                        <strong>
+                            ${sideText}
                         </strong>
                     </div>
 
@@ -11154,6 +11224,7 @@ function renderMyMistakes() {
                             ${loss}
                         </strong>
                     </div>
+
 
                     <button
                         type="button"
@@ -11240,9 +11311,13 @@ function renderMyMistakes() {
                     );
 
 
-                    currentMistakeSource =
-                        "mistakes";
-
+                    /*
+                     * Источник уже установлен
+                     * до renderMyMistakes().
+                     *
+                     * Здесь НЕ надо менять
+                     * currentMistakeSource.
+                     */
 
                     showMistakePosition(
                         mistake
@@ -11399,6 +11474,18 @@ async function startPgnAnalysis(
 
     let playerColor =
         null;
+
+
+    /* ========================================================
+    СТОРОНА, ВЫБРАННАЯ ПОЛЬЗОВАТЕЛЕМ
+    ======================================================== */
+
+    if (selectedPlayerColor) {
+
+        playerColor =
+            selectedPlayerColor;
+
+    }
 
 
     /* ========================================================
