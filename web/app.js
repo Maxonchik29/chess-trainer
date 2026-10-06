@@ -5385,30 +5385,19 @@ function getMistakeSide(mistake) {
         return "white";
     }
 
-    const side =
-        mistake.user_side ??
-        mistake.side ??
-        mistake.player_color ??
-        mistake.color;
 
-    if (
-        String(side)
-            .toLowerCase()
-            .trim()
-            .includes("black") ||
-        String(side)
-            .toLowerCase()
-            .trim() === "b" ||
-        String(side)
-            .toLowerCase()
-            .trim() === "черные" ||
-        String(side)
-            .toLowerCase()
-            .trim() === "чёрные"
-    ) {
+    /*
+       ГЛАВНЫЙ ИСТОЧНИК:
 
-        return "black";
-    }
+       position_fen / fen содержит позицию ДО ошибочного хода.
+
+       Второе поле FEN:
+       w = ход белых
+       b = ход чёрных
+
+       Для PGN-анализа это надёжнее,
+       чем user_side / side / player_color.
+    */
 
     const fen =
         mistake.position_fen ??
@@ -5417,19 +5406,51 @@ function getMistakeSide(mistake) {
     if (fen) {
 
         const parts =
-            String(fen).split(" ");
+            String(fen).trim().split(/\s+/);
 
-        if (
-            parts[1] === "b"
-        ) {
+        const fenSide =
+            parts[1];
 
+        if (fenSide === "b") {
             return "black";
+        }
+
+        if (fenSide === "w") {
+            return "white";
         }
     }
 
+
+    /*
+       Если FEN почему-то отсутствует,
+       используем сохранённую сторону как запасной вариант.
+    */
+
+    const side =
+        mistake.user_side ??
+        mistake.side ??
+        mistake.player_color ??
+        mistake.color;
+
+    const normalizedSide =
+        String(side)
+            .toLowerCase()
+            .trim();
+
+
+    if (
+        normalizedSide === "black" ||
+        normalizedSide === "b" ||
+        normalizedSide === "черные" ||
+        normalizedSide === "чёрные"
+    ) {
+
+        return "black";
+    }
+
+
     return "white";
 }
-
 
 /* ============================================================
    ПОЛУЧИТЬ ИМЯ КЛЕТКИ ПО КООРДИНАТАМ

@@ -82,7 +82,11 @@ def build_mistake(
         "type": mistake_type,
 
         "side": side,
-        "user_side": user_color,
+
+        # Сторона конкретной ошибки.
+        # В универсальном анализе нельзя брать её из user_color,
+        # потому что user_color относится к старому режиму "my".
+        "user_side": side,
 
         "fen": fen,
 
