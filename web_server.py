@@ -2062,6 +2062,29 @@ def run_analysis_job(
                 progress
             )
 
+        # ============================================================
+        # РЕЖИМ АНАЛИЗА
+        # ============================================================
+
+        if player_color in (
+            "white",
+            "black",
+            "both"
+        ):
+
+            analysis_mode = player_color
+
+        else:
+
+            # Старый режим "my" оставляем
+            # только как fallback для старого frontend.
+            analysis_mode = "my"
+
+        print(
+            "РЕЖИМ АНАЛИЗА В run_analysis_job:",
+            analysis_mode
+        )
+
         (
             mistakes,
             scores,
@@ -2075,7 +2098,8 @@ def run_analysis_job(
             end_move=end_move,
             progress_callback=progress_callback,
             mistake_threshold=mistake_threshold,
-            user_color=player_color
+            analysis_mode=analysis_mode,
+            user_color=None
         )
 
         board = parsed_game.board()

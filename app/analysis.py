@@ -662,7 +662,8 @@ def save_analysis_result(
     phase_statistics,
     mistakes,
     analysis_start_move=1,
-    analysis_end_move=None
+    analysis_end_move=None,
+    analysis_mode="my"
 ):
     """
     Сохраняет результат анализа одной партии
@@ -784,9 +785,8 @@ def save_analysis_result(
             indent=4
         )
 
-    save_gross_mistakes(
-        mistakes
-    )
+    if analysis_mode == "my":
+        save_gross_mistakes(mistakes)
 
     print(
         "\n========================================"
@@ -844,8 +844,23 @@ def analyze_game(
     end_move=None,
     progress_callback=None,
     mistake_threshold=None,
-    user_color=None
+    user_color=None,
+    analysis_mode="my"
 ):
+
+    # ============================================================
+    # РЕЖИМ АНАЛИЗА
+    # ============================================================
+
+    allowed_analysis_modes = (
+        "my",
+        "both",
+        "white",
+        "black"
+    )
+
+    if analysis_mode not in allowed_analysis_modes:
+        analysis_mode = "my"
 
     # ======================================================
     # ПОРОГ ОШИБКИ ДЛЯ ТЕКУЩЕГО РЕЖИМА
@@ -1065,19 +1080,11 @@ def analyze_game(
         "=========================================================="
     )
 
-    # ======================================================
-    # ОПРЕДЕЛЯЕМ ЦВЕТ ПОЛЬЗОВАТЕЛЯ
-    # ======================================================
+    # ============================================================
+    # ОПРЕДЕЛЕНИЕ ЦВЕТА ПОЛЬЗОВАТЕЛЯ
+    # ============================================================
 
-    # Если цвет уже передан из ChessGame,
-    # используем именно его.
-    #
-    # Это основной вариант для игры против компьютера.
-
-    if user_color not in (
-        "white",
-        "black"
-    ):
+    if analysis_mode == "my":
 
         if user_color not in ("white", "black"):
 
@@ -1089,17 +1096,21 @@ def analyze_game(
             elif "Maximka2912" in black_player:
                 user_color = "black"
 
+        print("ЦВЕТ ПОЛЬЗОВАТЕЛЯ =", user_color)
 
-    print(
-        "ЦВЕТ ПОЛЬЗОВАТЕЛЯ =",
-        user_color
-    )
+        if user_color is None:
+            print(
+                "!!! ВНИМАНИЕ: Не удалось определить "
+                "цвет пользователя !!!"
+            )
 
-    if user_color is None:
+    else:
 
+        # В режимах white / black / both
+        # Maximka2912 не имеет значения.
         print(
-            "!!! ВНИМАНИЕ: "
-            "Не удалось определить цвет пользователя !!!"
+            "РЕЖИМ АНАЛИЗА =",
+            analysis_mode
         )
 
     # ======================================================
@@ -1141,34 +1152,52 @@ def analyze_game(
 
     for progress_move in all_moves:
 
-        progress_move_number = (
-            progress_board.fullmove_number
-        )
+        progress_move_number = progress_board.fullmove_number
 
-        if (
+        if not (
             progress_move_number >= start_move
             and (
                 end_move is None
                 or progress_move_number <= end_move
             )
-            and (
-                (
-                    progress_board.turn == chess.WHITE
-                    and user_color == "white"
-                )
-                or
-                (
-                    progress_board.turn == chess.BLACK
-                    and user_color == "black"
-                )
-            )
         ):
+            progress_board.push(progress_move)
+            continue
 
+        move_side = (
+            "white"
+            if progress_board.turn == chess.WHITE
+            else "black"
+        )
+
+        should_analyze = False
+
+        if analysis_mode == "my":
+
+            should_analyze = (
+                move_side == user_color
+            )
+
+        elif analysis_mode == "both":
+
+            should_analyze = True
+
+        elif analysis_mode == "white":
+
+            should_analyze = (
+                move_side == "white"
+            )
+
+        elif analysis_mode == "black":
+
+            should_analyze = (
+                move_side == "black"
+            )
+
+        if should_analyze:
             total_analysis_moves += 1
 
-        progress_board.push(
-            progress_move
-        )
+        progress_board.push(progress_move)
 
     print(
         "ХОДОВ ПОЛЬЗОВАТЕЛЯ ДЛЯ АНАЛИЗА:",
@@ -1289,12 +1318,33 @@ def analyze_game(
         # ПРОПУСКАЕМ ХОДЫ СОПЕРНИКА
         # ==================================================
 
-        if side != user_color:
+        should_analyze = False
 
-            board.push(
-                move
+        if analysis_mode == "my":
+
+            should_analyze = (
+                side == user_color
             )
 
+        elif analysis_mode == "both":
+
+            should_analyze = True
+
+        elif analysis_mode == "white":
+
+            should_analyze = (
+                side == "white"
+            )
+
+        elif analysis_mode == "black":
+
+            should_analyze = (
+                side == "black"
+            )
+
+        if not should_analyze:
+
+            board.push(move)
             continue
 
         # ==================================================
@@ -2781,9 +2831,8 @@ def analyze_game(
         "========== DEBUG G: ПЕРЕД SAVE_NEW_MISTAKES =========="
     )
 
-    save_new_mistakes(
-        mistakes
-    )
+    if analysis_mode == "my":
+        save_new_mistakes(mistakes)
 
     print(
         "========== DEBUG H: SAVE_NEW_MISTAKES ЗАВЕРШЁН =========="
@@ -2798,33 +2847,20 @@ def analyze_game(
     )
 
     save_analysis_result(
-
         white_player=white_player,
-
         black_player=black_player,
-
         date=date,
-
         event=event,
-
         site=site,
-
         game_result=game_result,
-
         user_color=user_color,
-
         accuracy=accuracy,
-
         statistics=statistics,
-
         phase_statistics=phase_statistics,
-
         mistakes=mistakes,
-
         analysis_start_move=start_move,
-
-        analysis_end_move=end_move
-
+        analysis_end_move=end_move,
+        analysis_mode=analysis_mode
     )
 
     print(
