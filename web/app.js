@@ -5441,16 +5441,9 @@ function updateMistakeCounter() {
 function getMistakeSide(mistake) {
 
     if (!mistake) {
-        console.log("getMistakeSide: mistake отсутствует");
         return "white";
     }
 
-    /*
-     * 1. FEN — главный источник истины.
-     * В FEN поле 2 показывает сторону, которая должна ходить:
-     * w = белые
-     * b = чёрные
-     */
     const fen =
         mistake.position_fen ??
         mistake.fen ??
@@ -5461,25 +5454,34 @@ function getMistakeSide(mistake) {
             .trim()
             .split(/\s+/);
 
-    const fenSide =
-        fenParts[1];
+    /*
+     * В FEN:
+     * [0] позиция фигур
+     * [1] сторона, которая ходит
+     *
+     * w = белые
+     * b = чёрные
+     */
 
-    if (fenSide === "b") {
-        return "black";
+    if (fenParts.length >= 2) {
+
+        if (fenParts[1] === "b") {
+            return "black";
+        }
+
+        if (fenParts[1] === "w") {
+            return "white";
+        }
     }
-
-    if (fenSide === "w") {
-        return "white";
-    }
-
 
     /*
-     * 2. Если FEN отсутствует,
-     * пробуем поля стороны.
+     * Если FEN не содержит сторону,
+     * используем сторону самой ошибки.
      */
+
     const rawSide =
-        mistake.user_side ??
         mistake.side ??
+        mistake.user_side ??
         mistake.player_color ??
         mistake.color ??
         "";
@@ -5489,36 +5491,14 @@ function getMistakeSide(mistake) {
             .toLowerCase()
             .trim();
 
-
     if (
         side === "black" ||
         side === "b" ||
-        side === "чёрные" ||
         side === "черные" ||
-        side === "black_player"
+        side === "чёрные"
     ) {
         return "black";
     }
-
-
-    if (
-        side === "white" ||
-        side === "w" ||
-        side === "белые" ||
-        side === "белые"
-    ) {
-        return "white";
-    }
-
-
-    console.warn(
-        "getMistakeSide: не удалось определить сторону",
-        {
-            mistake: mistake,
-            fen: fen,
-            rawSide: rawSide
-        }
-    );
 
     return "white";
 }
