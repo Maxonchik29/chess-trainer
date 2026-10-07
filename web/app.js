@@ -7443,6 +7443,19 @@ function showMistakePosition(
 
     positionScreen.currentMistake =
         mistake;
+
+    alert(
+        "ОШИБКА\n\n" +
+        "side: " + (mistake.side ?? "-") + "\n" +
+        "user_side: " + (mistake.user_side ?? "-") + "\n\n" +
+        "FEN:\n" + (mistake.position_fen ?? mistake.fen ?? "-") + "\n\n" +
+        "PLAYED:\n" +
+        (mistake.position_played_uci ?? mistake.played_move_uci ?? mistake.played_move ?? "-") +
+        "\n\nBEST:\n" +
+        (mistake.best_move_uci ?? mistake.best_move ?? "-")
+    );
+
+    
     
     const positionTitle =
         document.getElementById(
