@@ -3,6 +3,7 @@ import chess
 from app.explanation_engine import generate_explanation
 from app.pv_explainer import generate_explanation_v2
 
+
 # True  — объяснения строит новый движок (app/pv_explainer.py)
 # False — старый движок (app/explanation_engine.py), запасной вариант
 USE_NEW_EXPLAINER = True
@@ -68,15 +69,50 @@ def build_mistake(
         "position_before": position_before,
         "position_after": position_after,
 
-        "best_move": best_move,
-        "played": played_move_san,
+        # ==================================================
+        # СЫГРАННЫЙ ХОД
+        # ==================================================
 
+        "played": played_move_san,
+        "played_san": played_move_san,
+
+        # Реальный UCI сыгранного хода.
+        # Например: f3h2
+        "played_move_uci": move.uci(),
+
+        # Основное поле, которое использует режим
+        # "Переиграть позицию".
+        "position_played_uci": move.uci(),
+
+        # ==================================================
+        # ЛУЧШИЙ ХОД
+        # ==================================================
+
+        "best_move": best_move,
         "best": best_move_san,
+
+        # Старое поле — сохраняем для совместимости.
         "best_uci": best_move.uci(),
+
+        # Явное поле для frontend.
+        "best_move_uci": best_move.uci(),
 
         "best_score_obj": best_score_obj,
         "pv": best_lines[0]["pv"],
         "alternatives": alternatives,
+
+        # ==================================================
+        # ПОЗИЦИЯ ДО ОШИБКИ
+        #
+        # fen должен быть FEN позиции ДО сыгранного хода.
+        # ==================================================
+
+        "fen": fen,
+        "position_fen": fen,
+
+        # ==================================================
+        # ОСНОВНЫЕ ДАННЫЕ ОШИБКИ
+        # ==================================================
 
         "loss": loss,
         "type": mistake_type,
@@ -84,59 +120,85 @@ def build_mistake(
         "side": side,
 
         # Сторона конкретной ошибки.
-        # В универсальном анализе нельзя брать её из user_color,
-        # потому что user_color относится к старому режиму "my".
+        # НЕ user_color, потому что в общем анализе
+        # ошибка может принадлежать любой стороне.
         "user_side": side,
-
-        "fen": fen,
 
         "before_score": before_score,
         "after_score": after_score,
+
+        # ==================================================
+        # МАТЕРИАЛ / ТАКТИКА
+        # ==================================================
 
         "captured_piece": captured_piece,
         "captured_value": captured_value,
 
         "hanging_piece": hanging_piece,
         "hanging_square": hanging_square,
+
         "fork_targets": fork_targets,
 
+        # ==================================================
+        # ОБЪЯСНЕНИЕ
+        # ==================================================
+
         "explanation": "",
+
         "move_reasons": move_reasons or [],
+
         "bishop_attack_reason": bishop_attack_reason,
+
         "theme": theme,
+
         "best_piece": best_piece,
         "best_square": best_square,
+
         "target_piece": target_piece,
         "target_square": target_square,
+
         "equivalent_best_moves": (
             equivalent_best_moves
             if equivalent_best_moves is not None
             else []
         ),
 
+        # ==================================================
+        # PAWN ATTACK
+        # ==================================================
+
         "pawn_attack_piece": (
             features.get("pawn_attack_piece")
-            if features else None
+            if features
+            else None
         ),
 
         "pawn_attack_square": (
             features.get("pawn_attack_square")
-            if features else None
+            if features
+            else None
         ),
 
         "pawn_attacker_square": (
             features.get("pawn_attacker_square")
-            if features else None
+            if features
+            else None
         ),
 
         "pawn_king_attack": (
             features.get("pawn_king_attack", False)
-            if features else False
+            if features
+            else False
         ),
+
+        # ==================================================
+        # KNIGHT SACRIFICE
+        # ==================================================
 
         "knight_sacrifice_attack": (
             features.get("knight_sacrifice_attack", False)
-            if features else False
+            if features
+            else False
         ),
 
         "knight_sacrifice": (
@@ -148,20 +210,39 @@ def build_mistake(
 
         "knight_sacrifice_explanation": (
             features.get("knight_sacrifice_explanation")
-            if features else None
+            if features
+            else None
         ),
+
+        # ==================================================
+        # PAWN KING ATTACK
+        # ==================================================
 
         "pawn_king_attack_explanation": (
             features.get("pawn_king_attack_explanation")
-            if features else None
+            if features
+            else None
         ),
+
+        # ==================================================
+        # FEATURES
+        # ==================================================
 
         "features": features,
 
+        # ==================================================
+        # PAWN THREAT
+        # ==================================================
+
         "pawn_threat_explanation": (
             features.get("pawn_threat_explanation")
-            if features else None
+            if features
+            else None
         ),
+
+        # ==================================================
+        # TACTICAL THREATS
+        # ==================================================
 
         "tactical_threats": (
             tactical_threats or []
@@ -174,17 +255,23 @@ def build_mistake(
         # ==================================================
         # АНАЛИЗ ПОСЛЕ СЫГРАННОГО ХОДА
         #
-        # played_results — линии движка ПОСЛЕ сыгранного хода.
+        # played_results — линии Stockfish ПОСЛЕ сыгранного
+        # хода.
+        #
         # [0]["pv"] начинается с ответа соперника.
-        # Новый движок (pv_explainer.py) проигрывает эту линию
-        # на доске и по ней находит причину ошибки.
+        #
+        # Новый движок pv_explainer.py проигрывает эту линию
+        # на доске и определяет причину ошибки.
         # ==================================================
 
         "played_results": (
             played_results or []
         ),
-
     }
+
+    # ======================================================
+    # ГЕНЕРАЦИЯ ОБЪЯСНЕНИЯ
+    # ======================================================
 
     mistake["explanation"] = (
         generate_explanation_v2(mistake)
