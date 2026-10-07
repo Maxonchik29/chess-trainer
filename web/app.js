@@ -5013,10 +5013,47 @@ function selectReplayPgnPosition(
 
 
     /* ========================================================
+       ОПРЕДЕЛЯЕМ СТОРОНУ ИЗ FEN
+       Это надёжнее, чем position.side_to_move.
+       В FEN:
+       w = белые
+       b = чёрные
+    ======================================================== */
+
+    const fenParts =
+        String(position.fen).split(" ");
+
+    const fenTurn =
+        fenParts[1] || "w";
+
+    const sideToMove =
+        fenTurn === "b"
+            ? "black"
+            : "white";
+
+
+    console.log(
+        "PGN side_to_move:",
+        position.side_to_move
+    );
+
+    console.log(
+        "FEN turn:",
+        fenTurn
+    );
+
+    console.log(
+        "НОРМАЛИЗОВАННАЯ СТОРОНА:",
+        sideToMove
+    );
+
+
+    /* ========================================================
        СОХРАНЯЕМ ВЫБРАННУЮ ПОЗИЦИЮ
     ======================================================== */
 
     replayMistakeCurrent = {
+
         position_fen:
             position.fen,
 
@@ -5027,7 +5064,10 @@ function selectReplayPgnPosition(
             null,
 
         user_side:
-            position.side_to_move,
+            sideToMove,
+
+        side:
+            sideToMove,
 
         source:
             "pgn",
@@ -5042,10 +5082,13 @@ function selectReplayPgnPosition(
 
     /* ========================================================
        НАПРАВЛЕНИЕ ДОСКИ
+
+       ВАЖНО:
+       здесь всегда только "white" или "black".
     ======================================================== */
 
     replayMistakeOrientation =
-        position.side_to_move;
+        sideToMove;
 
 
     /* ========================================================
@@ -5054,7 +5097,7 @@ function selectReplayPgnPosition(
 
     replayMistakeCurrentFen =
         position.fen;
-    
+
     replayMistakeStartFen =
         position.fen;
 
@@ -5064,7 +5107,6 @@ function selectReplayPgnPosition(
         fenToBoard(
             position.fen
         );
-
 
     replayMistakeSelectedSquare =
         null;
@@ -5077,17 +5119,26 @@ function selectReplayPgnPosition(
        ПЕРЕКЛЮЧАЕМ ЭКРАН
     ======================================================== */
 
-    replayPgnPanel.classList.add(
-        "hidden"
-    );
+    if (replayPgnPanel) {
 
-    replayMistakeList.classList.add(
-        "hidden"
-    );
+        replayPgnPanel.classList.add(
+            "hidden"
+        );
+    }
 
-    replayMistakeGame.classList.remove(
-        "hidden"
-    );
+    if (replayMistakeList) {
+
+        replayMistakeList.classList.add(
+            "hidden"
+        );
+    }
+
+    if (replayMistakeGame) {
+
+        replayMistakeGame.classList.remove(
+            "hidden"
+        );
+    }
 
 
     /* ========================================================
@@ -5101,10 +5152,14 @@ function selectReplayPgnPosition(
     }
 
 
+    /* ========================================================
+       СООБЩЕНИЕ
+    ======================================================== */
+
     if (replayMistakeMessage) {
 
         replayMistakeMessage.textContent =
-            position.side_to_move === "white"
+            sideToMove === "white"
                 ? "Ход белых"
                 : "Ход чёрных";
     }
@@ -5118,7 +5173,17 @@ function selectReplayPgnPosition(
 
 
     console.log(
-        "Позиция из PGN открыта."
+        "Позиция из PGN открыта.",
+        {
+            fen:
+                position.fen,
+
+            sideToMove:
+                sideToMove,
+
+            orientation:
+                replayMistakeOrientation
+        }
     );
 }
 

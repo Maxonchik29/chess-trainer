@@ -18,20 +18,33 @@ def choose_pgn():
 
     os.makedirs("games", exist_ok=True)
 
-    new_file = os.path.join("games", os.path.basename(filename))
+    new_file = os.path.join(
+        "games",
+        os.path.basename(filename)
+    )
 
-    shutil.copy(filename, new_file)
+    shutil.copy(
+        filename,
+        new_file
+    )
 
     print("Файл сохранён:", new_file)
 
+
 def save_pgn(text_box):
 
-    text = text_box.get("1.0", tk.END)
+    text = text_box.get(
+        "1.0",
+        tk.END
+    )
 
     if not text.strip():
         return
 
-    os.makedirs("games", exist_ok=True)
+    os.makedirs(
+        "games",
+        exist_ok=True
+    )
 
     filename = filedialog.asksaveasfilename(
         defaultextension=".pgn",
@@ -42,10 +55,16 @@ def save_pgn(text_box):
     if not filename:
         return
 
-    with open(filename, "w", encoding="utf-8") as file:
+    with open(
+        filename,
+        "w",
+        encoding="utf-8"
+    ) as file:
+
         file.write(text)
 
     print("PGN сохранён:", filename)
+
 
 def open_pgn_editor():
 
@@ -58,14 +77,20 @@ def open_pgn_editor():
         text="Вставьте PGN партии",
         font=("Arial", 16, "bold")
     )
-    title.pack(pady=10)
+
+    title.pack(
+        pady=10
+    )
 
     text_box = tk.Text(
         editor,
         width=80,
         height=25
     )
-    text_box.pack(pady=10)
+
+    text_box.pack(
+        pady=10
+    )
 
     save_button = tk.Button(
         editor,
@@ -73,40 +98,69 @@ def open_pgn_editor():
         font=("Arial", 14),
         command=lambda: save_pgn(text_box)
     )
-    save_button.pack(pady=10)
+
+    save_button.pack(
+        pady=10
+    )
 
     close_button = tk.Button(
         editor,
         text="Закрыть",
         command=editor.destroy
     )
-    close_button.pack(pady=10)
+
+    close_button.pack(
+        pady=10
+    )
 
 
 def get_pgn_files():
 
-    os.makedirs("games", exist_ok=True)
+    os.makedirs(
+        "games",
+        exist_ok=True
+    )
 
     files = []
 
     for file in os.listdir("games"):
+
         if file.endswith(".pgn"):
+
             files.append(file)
 
     return files
 
+
 def open_my_games(window):
 
     games_window = tk.Toplevel(window)
-    games_window.title("Мои партии")
-    games_window.geometry("700x500")
+
+    games_window.title(
+        "Мои партии"
+    )
+
+    games_window.geometry(
+        "700x500"
+    )
+
+    # ======================================================
+    # ЗАГОЛОВОК
+    # ======================================================
 
     title = tk.Label(
         games_window,
         text="📂 Мои партии",
         font=("Arial", 20, "bold")
     )
-    title.pack(pady=15)
+
+    title.pack(
+        pady=15
+    )
+
+    # ======================================================
+    # ЗАГРУЗИТЬ PGN
+    # ======================================================
 
     upload_button = tk.Button(
         games_window,
@@ -115,7 +169,14 @@ def open_my_games(window):
         width=20,
         command=choose_pgn
     )
-    upload_button.pack(pady=5)
+
+    upload_button.pack(
+        pady=5
+    )
+
+    # ======================================================
+    # ВСТАВИТЬ PGN
+    # ======================================================
 
     paste_button = tk.Button(
         games_window,
@@ -124,13 +185,19 @@ def open_my_games(window):
         width=20,
         command=open_pgn_editor
     )
-    paste_button.pack(pady=5)
+
+    paste_button.pack(
+        pady=5
+    )
 
     # ======================================================
     # ПРОКРУЧИВАЕМАЯ ОБЛАСТЬ СО СПИСКОМ ПАРТИЙ
     # ======================================================
 
-    list_frame = tk.Frame(games_window)
+    list_frame = tk.Frame(
+        games_window
+    )
+
     list_frame.pack(
         fill="both",
         expand=True,
@@ -164,7 +231,9 @@ def open_my_games(window):
         expand=True
     )
 
-    games_frame = tk.Frame(canvas)
+    games_frame = tk.Frame(
+        canvas
+    )
 
     canvas_window = canvas.create_window(
         (0, 0),
@@ -187,7 +256,10 @@ def open_my_games(window):
         update_scrollregion
     )
 
-    # Растягиваем внутренний frame по ширине Canvas
+    # ======================================================
+    # РАСТЯГИВАЕМ ВНУТРЕННИЙ FRAME ПО ШИРИНЕ CANVAS
+    # ======================================================
+
     def update_frame_width(event):
 
         canvas.itemconfig(
@@ -211,9 +283,41 @@ def open_my_games(window):
             "units"
         )
 
-    canvas.bind_all(
-        "<MouseWheel>",
-        on_mousewheel
+    # Включаем прокрутку, когда мышь находится
+    # внутри области списка партий.
+    def bind_mousewheel(event):
+
+        canvas.bind_all(
+            "<MouseWheel>",
+            on_mousewheel
+        )
+
+    # Отключаем глобальную привязку,
+    # когда мышь покидает список.
+    def unbind_mousewheel(event):
+
+        canvas.unbind_all(
+            "<MouseWheel>"
+        )
+
+    games_frame.bind(
+        "<Enter>",
+        bind_mousewheel
+    )
+
+    games_frame.bind(
+        "<Leave>",
+        unbind_mousewheel
+    )
+
+    canvas.bind(
+        "<Enter>",
+        bind_mousewheel
+    )
+
+    canvas.bind(
+        "<Leave>",
+        unbind_mousewheel
     )
 
     # ======================================================
@@ -276,4 +380,14 @@ def open_my_games(window):
 
     back_button.pack(
         pady=10
+    )
+
+    # ======================================================
+    # ЗАПУСКАЕМ ОБНОВЛЕНИЕ SCROLLREGION
+    # ======================================================
+
+    games_window.update_idletasks()
+
+    canvas.configure(
+        scrollregion=canvas.bbox("all")
     )
