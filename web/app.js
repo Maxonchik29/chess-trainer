@@ -7452,6 +7452,25 @@ function showMistakePosition(
             mistake
         );
 
+    const debugTitle =
+        document.getElementById(
+            "positionTitle"
+        );
+
+    if (debugTitle) {
+
+        const fen =
+            mistake.position_fen ??
+            mistake.fen ??
+            "-";
+
+        debugTitle.textContent =
+            `ОРИЕНТАЦИЯ: ${positionOrientation} | ` +
+            `side: ${mistake.side ?? "-"} | ` +
+            `user_side: ${mistake.user_side ?? "-"} | ` +
+            `FEN: ${fen}`;
+    }
+
     positionSelectedSquare =
         null;
 
