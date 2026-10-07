@@ -8806,10 +8806,18 @@ async function finishReplayMistake() {
 
     try {
 
+        alert(
+            "ШАГ 1: запускаем анализ переигранной партии"
+        );
+
         await startPgnAnalysis(
             "general",
             replayMistakeOrientation,
             pgn
+        );
+
+        alert(
+            "ШАГ 2: startPgnAnalysis завершился"
         );
 
     } catch (error) {
