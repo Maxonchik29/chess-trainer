@@ -8651,16 +8651,6 @@ function startReplayMistake(mistake) {
 
 async function finishReplayMistake() {
 
-    const finishButton =
-        document.getElementById(
-            "finishReplayMistakeButton"
-        );
-
-    if (finishButton) {
-        finishButton.textContent =
-            "ТЕСТ: КНОПКА РАБОТАЕТ";
-    }
-
     console.log(
         "!!! НОВАЯ ВЕРСИЯ finishReplayMistake !!!"
     );
@@ -8687,19 +8677,12 @@ async function finishReplayMistake() {
     }
 
     /*
-       Отправляем завершение на сервер
-    */
+     * Сохраняем PGN в БД.
+     */
+
+    let data = null;
 
     try {
-
-        alert(
-            "Telegram user:\n" +
-            JSON.stringify(
-                getTelegramUser(),
-                null,
-                2
-            )
-        );
 
         const response =
             await fetch(
@@ -8722,17 +8705,8 @@ async function finishReplayMistake() {
                 }
             );
 
-        const data =
+        data =
             await response.json();
-
-        alert(
-            "ОТВЕТ СЕРВЕРА:\n\n" +
-            JSON.stringify(
-                data,
-                null,
-                2
-            )
-        );
 
         console.log(
             "ОТВЕТ /replay_finish:",
@@ -8771,9 +8745,10 @@ async function finishReplayMistake() {
         return;
     }
 
+
     /*
-       Показываем PGN
-    */
+     * Показываем сохранённый PGN.
+     */
 
     if (replayPgnResultText) {
 
@@ -8781,23 +8756,10 @@ async function finishReplayMistake() {
             pgn;
     }
 
-    alert(
-        "Сохранение в БД: " +
-        (
-            data.saved_to_database
-                ? "УСПЕШНО"
-                : "НЕ СОХРАНЕНО"
-        ) +
-        "\nGame ID: " +
-        (
-            data.game_id ??
-            "нет"
-        )
-    );
 
     /*
-       Скрываем игровую доску
-    */
+     * Закрываем экран переигрывания.
+     */
 
     const game =
         document.getElementById(
@@ -8811,29 +8773,68 @@ async function finishReplayMistake() {
         );
     }
 
+
     /*
-       Скрываем список позиций
-    */
+     * =====================================================
+     * ЗАПУСКАЕМ АНАЛИЗ ТОЛЬКО ЧТО СЫГРАННОЙ ПАРТИИ
+     * =====================================================
+     *
+     * Анализируем сторону пользователя.
+     *
+     * replayMistakeOrientation:
+     *     "white" или "black"
+     *
+     * PGN передаём напрямую, поэтому startPgnAnalysis()
+     * НЕ будет брать старую партию из pgnInput
+     * и НЕ будет запрашивать /game_pgn.
+     */
 
-    const list =
-        document.getElementById(
-            "replayMistakeList"
+    console.log(
+        "=== АНАЛИЗ ПЕРЕИГРАННОЙ ПАРТИИ ==="
+    );
+
+    console.log(
+        "СТОРОНА ПОЛЬЗОВАТЕЛЯ:",
+        replayMistakeOrientation
+    );
+
+    console.log(
+        "PGN ДЛЯ АНАЛИЗА:",
+        pgn
+    );
+
+
+    try {
+
+        await startPgnAnalysis(
+            "general",
+            replayMistakeOrientation,
+            pgn
         );
 
-    if (list) {
+    } catch (error) {
 
-        list.classList.add(
-            "hidden"
+        console.error(
+            "Ошибка анализа переигранной партии:",
+            error
         );
+
+        alert(
+            "Партия сохранена, но не удалось запустить анализ."
+        );
+
+        return;
     }
 
+
     /*
-       Показываем результат
-    */
+     * После запуска анализа старый экран результата
+     * переигрывания больше не нужен.
+     */
 
     if (replayPgnResult) {
 
-        replayPgnResult.classList.remove(
+        replayPgnResult.classList.add(
             "hidden"
         );
     }
@@ -11389,7 +11390,8 @@ function hideAnalysisSideSelection() {
 
 async function startPgnAnalysis(
     analysisMode,
-    selectedPlayerColor = null
+    selectedPlayerColor = null,
+    providedPgn = null
 ) {
 
     console.log(
@@ -11451,6 +11453,7 @@ async function startPgnAnalysis(
     ======================================================== */
 
     const pgn =
+        providedPgn?.trim() ||
         pgnInput
             ?.value
             ?.trim() ||
