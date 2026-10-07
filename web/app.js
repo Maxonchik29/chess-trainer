@@ -5441,72 +5441,84 @@ function updateMistakeCounter() {
 function getMistakeSide(mistake) {
 
     if (!mistake) {
+        console.log("getMistakeSide: mistake отсутствует");
+        return "white";
+    }
+
+    /*
+     * 1. FEN — главный источник истины.
+     * В FEN поле 2 показывает сторону, которая должна ходить:
+     * w = белые
+     * b = чёрные
+     */
+    const fen =
+        mistake.position_fen ??
+        mistake.fen ??
+        "";
+
+    const fenParts =
+        String(fen)
+            .trim()
+            .split(/\s+/);
+
+    const fenSide =
+        fenParts[1];
+
+    if (fenSide === "b") {
+        return "black";
+    }
+
+    if (fenSide === "w") {
         return "white";
     }
 
 
     /*
-       ГЛАВНЫЙ ИСТОЧНИК:
-
-       position_fen / fen содержит позицию ДО ошибочного хода.
-
-       Второе поле FEN:
-       w = ход белых
-       b = ход чёрных
-
-       Для PGN-анализа это надёжнее,
-       чем user_side / side / player_color.
-    */
-
-    const fen =
-        mistake.position_fen ??
-        mistake.fen;
-
-    if (fen) {
-
-        const parts =
-            String(fen).trim().split(/\s+/);
-
-        const fenSide =
-            parts[1];
-
-        if (fenSide === "b") {
-            return "black";
-        }
-
-        if (fenSide === "w") {
-            return "white";
-        }
-    }
-
-
-    /*
-       Если FEN почему-то отсутствует,
-       используем сохранённую сторону как запасной вариант.
-    */
-
-    const side =
+     * 2. Если FEN отсутствует,
+     * пробуем поля стороны.
+     */
+    const rawSide =
         mistake.user_side ??
         mistake.side ??
         mistake.player_color ??
-        mistake.color;
+        mistake.color ??
+        "";
 
-    const normalizedSide =
-        String(side)
+    const side =
+        String(rawSide)
             .toLowerCase()
             .trim();
 
 
     if (
-        normalizedSide === "black" ||
-        normalizedSide === "b" ||
-        normalizedSide === "черные" ||
-        normalizedSide === "чёрные"
+        side === "black" ||
+        side === "b" ||
+        side === "чёрные" ||
+        side === "черные" ||
+        side === "black_player"
     ) {
-
         return "black";
     }
 
+
+    if (
+        side === "white" ||
+        side === "w" ||
+        side === "белые" ||
+        side === "белые"
+    ) {
+        return "white";
+    }
+
+
+    console.warn(
+        "getMistakeSide: не удалось определить сторону",
+        {
+            mistake: mistake,
+            fen: fen,
+            rawSide: rawSide
+        }
+    );
 
     return "white";
 }
