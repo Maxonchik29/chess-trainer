@@ -5444,39 +5444,13 @@ function getMistakeSide(mistake) {
         return "white";
     }
 
-    const fen =
-        mistake.position_fen ??
-        mistake.fen ??
-        "";
-
-    const fenParts =
-        String(fen)
-            .trim()
-            .split(/\s+/);
-
     /*
-     * В FEN:
-     * [0] позиция фигур
-     * [1] сторона, которая ходит
+     * Для анализа PGN сторона ошибки хранится
+     * непосредственно в mistake.side.
      *
-     * w = белые
-     * b = чёрные
-     */
-
-    if (fenParts.length >= 2) {
-
-        if (fenParts[1] === "b") {
-            return "black";
-        }
-
-        if (fenParts[1] === "w") {
-            return "white";
-        }
-    }
-
-    /*
-     * Если FEN не содержит сторону,
-     * используем сторону самой ошибки.
+     * FEN здесь НЕ используем для определения
+     * ориентации, потому что FEN может описывать
+     * позицию уже после ошибочного хода.
      */
 
     const rawSide =
@@ -5498,6 +5472,14 @@ function getMistakeSide(mistake) {
         side === "чёрные"
     ) {
         return "black";
+    }
+
+    if (
+        side === "white" ||
+        side === "w" ||
+        side === "белые"
+    ) {
+        return "white";
     }
 
     return "white";
