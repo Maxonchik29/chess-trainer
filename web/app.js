@@ -12791,14 +12791,20 @@ const moveSound = new Audio("/sounds/move.mp3");
 moveSound.volume = 0.35;
 
 function playMoveSound() {
+    console.log("ЗВУК ХОДА: функция вызвана");
+
     try {
         moveSound.currentTime = 0;
 
-        moveSound.play().catch((error) => {
-            console.warn("Не удалось воспроизвести звук хода:", error);
-        });
+        moveSound.play()
+            .then(() => {
+                console.log("ЗВУК ХОДА: воспроизведение началось");
+            })
+            .catch((error) => {
+                console.error("ОШИБКА ВОСПРОИЗВЕДЕНИЯ:", error);
+            });
 
     } catch (error) {
-        console.warn("Ошибка звука хода:", error);
+        console.error("ОШИБКА ЗВУКА:", error);
     }
 }
