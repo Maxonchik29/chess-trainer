@@ -5308,10 +5308,6 @@ function selectReplayPgnPosition(
     position
 ) {
 
-    console.log(
-        "Выбрана позиция из PGN:",
-        position
-    );
 
     if (!position || !position.fen) {
 
@@ -5341,23 +5337,6 @@ function selectReplayPgnPosition(
         fenTurn === "b"
             ? "black"
             : "white";
-
-
-    console.log(
-        "PGN side_to_move:",
-        position.side_to_move
-    );
-
-    console.log(
-        "FEN turn:",
-        fenTurn
-    );
-
-    console.log(
-        "НОРМАЛИЗОВАННАЯ СТОРОНА:",
-        sideToMove
-    );
-
 
     /* ========================================================
        СОХРАНЯЕМ ВЫБРАННУЮ ПОЗИЦИЮ
@@ -5482,20 +5461,6 @@ function selectReplayPgnPosition(
 
     renderReplayMistakeBoard();
 
-
-    console.log(
-        "Позиция из PGN открыта.",
-        {
-            fen:
-                position.fen,
-
-            sideToMove:
-                sideToMove,
-
-            orientation:
-                replayMistakeOrientation
-        }
-    );
 }
 
 /* ============================================================
@@ -6795,12 +6760,6 @@ async function makePositionComputerMove(
             return false;
         }
 
-        console.log(
-            "Ход компьютера:",
-            data.computer_move,
-            data.computer_san
-        );
-
         // Новый FEN становится
         // текущей тренировочной позицией
         positionTrainingFen =
@@ -7667,13 +7626,6 @@ function updatePositionEvaluation(
         mistake.loss ??
         mistake.evaluation_loss;
 
-    
-    console.log(
-        "DEBUG MISTAKE BEST EVAL:",
-        mistake.position_evaluation_best,
-        mistake
-    );
-
     element.innerHTML = `
 
         <div>
@@ -7755,19 +7707,6 @@ function showMistakePosition(
     positionScreen.currentMistake =
         mistake;
 
-    alert(
-        "ОШИБКА\n\n" +
-        "side: " + (mistake.side ?? "-") + "\n" +
-        "user_side: " + (mistake.user_side ?? "-") + "\n\n" +
-        "FEN:\n" + (mistake.position_fen ?? mistake.fen ?? "-") + "\n\n" +
-        "PLAYED:\n" +
-        (mistake.position_played_uci ?? mistake.played_move_uci ?? mistake.played_move ?? "-") +
-        "\n\nBEST:\n" +
-        (mistake.best_move_uci ?? mistake.best_move ?? "-")
-    );
-
-    
-    
     const positionTitle =
         document.getElementById(
             "positionTitle"
@@ -7802,25 +7741,6 @@ function showMistakePosition(
         getMistakeSide(
             mistake
         );
-
-    const debugTitle =
-        document.getElementById(
-            "positionTitle"
-        );
-
-    if (debugTitle) {
-
-        const fen =
-            mistake.position_fen ??
-            mistake.fen ??
-            "-";
-
-        debugTitle.textContent =
-            `ОРИЕНТАЦИЯ: ${positionOrientation} | ` +
-            `side: ${mistake.side ?? "-"} | ` +
-            `user_side: ${mistake.user_side ?? "-"} | ` +
-            `FEN: ${fen}`;
-    }
 
     positionSelectedSquare =
         null;
