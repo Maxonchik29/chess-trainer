@@ -4630,9 +4630,82 @@ if (replayMistakeButton) {
         "click",
         () => {
 
+            /*
+             * =================================================
+             * СБРАСЫВАЕМ СТАРЫЙ ВЫБОР АНАЛИЗА
+             * =================================================
+             */
+
+            if (replayAnalysisChoice) {
+
+                replayAnalysisChoice.classList.add(
+                    "hidden"
+                );
+
+                replayAnalysisChoice.dataset.pgn =
+                    "";
+
+                replayAnalysisChoice.dataset.playerColor =
+                    "";
+            }
+
+
+            /*
+             * =================================================
+             * СБРАСЫВАЕМ СТАРЫЙ РЕЗУЛЬТАТ PGN
+             * =================================================
+             */
+
+            if (replayPgnResult) {
+
+                replayPgnResult.classList.add(
+                    "hidden"
+                );
+            }
+
+
+            if (replayPgnResultText) {
+
+                replayPgnResultText.value =
+                    "";
+            }
+
+
+            /*
+             * =================================================
+             * СБРАСЫВАЕМ СОСТОЯНИЕ ПЕРЕИГРЫВАНИЯ
+             * =================================================
+             */
+
+            replayMistakeCurrent =
+                null;
+
+            replayMistakeCurrentFen =
+                null;
+
+            replayMistakeStartFen =
+                null;
+
+            replayMistakeMoves =
+                [];
+
+            replayMistakeHighlightedMove =
+                null;
+
+            replayMistakeSelectedSquare =
+                null;
+
+
+            /*
+             * =================================================
+             * ОТКРЫВАЕМ ПЕРЕИГРЫВАНИЕ
+             * =================================================
+             */
+
             showScreen(
                 replayMistakeScreen
             );
+
 
             loadReplayMistakes();
         }
@@ -8896,13 +8969,16 @@ async function finishReplayMistake() {
         "=== ЗАВЕРШЕНИЕ ПЕРЕИГРЫВАНИЯ ==="
     );
 
+
     const pgn =
         generateReplayPgn();
+
 
     console.log(
         "PGN ПЕРЕИГРЫВАНИЯ:",
         pgn
     );
+
 
     if (!pgn) {
 
@@ -8945,13 +9021,16 @@ async function finishReplayMistake() {
                 }
             );
 
+
         data =
             await response.json();
+
 
         console.log(
             "ОТВЕТ /replay_finish:",
             data
         );
+
 
         if (
             !response.ok ||
@@ -8988,7 +9067,7 @@ async function finishReplayMistake() {
 
     /*
      * =====================================================
-     * СОХРАНЯЕМ PGN В ПОЛЕ РЕЗУЛЬТАТА
+     * СОХРАНЯЕМ PGN
      * =====================================================
      */
 
@@ -9010,6 +9089,7 @@ async function finishReplayMistake() {
             "replayMistakeGame"
         );
 
+
     if (game) {
 
         game.classList.add(
@@ -9020,51 +9100,7 @@ async function finishReplayMistake() {
 
     /*
      * =====================================================
-     * ПЕРЕКЛЮЧАЕМСЯ НА ЭКРАН АНАЛИЗА
-     * =====================================================
-     */
-
-    document
-        .querySelectorAll(".screen")
-        .forEach(screen => {
-
-            if (
-                screen.id !==
-                "analysisScreen"
-            ) {
-
-                screen.classList.add(
-                    "hidden"
-                );
-            }
-        });
-
-    const analysisScreen =
-        document.getElementById(
-            "analysisScreen"
-        );
-
-    if (!analysisScreen) {
-
-        console.error(
-            "analysisScreen НЕ НАЙДЕН!"
-        );
-
-        alert(
-            "Ошибка: экран анализа не найден."
-        );
-
-        return;
-    }
-
-    analysisScreen.classList.remove(
-        "hidden"
-    );
-
-
-    /*
-     * =====================================================
-     * ПОКАЗЫВАЕМ ВЫБОР ГЛУБИНЫ АНАЛИЗА
+     * НАХОДИМ ВЫБОР АНАЛИЗА
      * =====================================================
      */
 
@@ -9072,6 +9108,7 @@ async function finishReplayMistake() {
         document.getElementById(
             "replayAnalysisChoice"
         );
+
 
     if (!analysisChoice) {
 
@@ -9088,26 +9125,44 @@ async function finishReplayMistake() {
 
 
     /*
-     * Сохраняем PGN для кнопок выбора.
-     *
-     * Используем dataset, чтобы не хранить
-     * сам PGN в глобальной переменной.
+     * =====================================================
+     * СОХРАНЯЕМ ДАННЫЕ ДЛЯ КНОПОК
+     * =====================================================
      */
 
     analysisChoice.dataset.pgn =
         pgn;
 
 
-    /*
-     * Сохраняем сторону пользователя.
-     */
-
     analysisChoice.dataset.playerColor =
         replayMistakeOrientation;
 
 
     /*
-     * Показываем выбор.
+     * =====================================================
+     * СКРЫВАЕМ СТАРЫЙ РЕЗУЛЬТАТ
+     * =====================================================
+     */
+
+    if (replayPgnResult) {
+
+        replayPgnResult.classList.add(
+            "hidden"
+        );
+    }
+
+
+    /*
+     * =====================================================
+     * ПОКАЗЫВАЕМ ВЫБОР АНАЛИЗА
+     *
+     * ВАЖНО:
+     * НЕ ПЕРЕКЛЮЧАЕМСЯ НА analysisScreen.
+     * Пользователь сначала должен выбрать:
+     *
+     *     🟢 Общий
+     *     🔵 Глубокий
+     * =====================================================
      */
 
     analysisChoice.classList.remove(
@@ -9119,28 +9174,17 @@ async function finishReplayMistake() {
         "=== ОЖИДАЕМ ВЫБОР ГЛУБИНЫ АНАЛИЗА ==="
     );
 
+
     console.log(
         "СТОРОНА:",
         replayMistakeOrientation
     );
 
+
     console.log(
         "PGN:",
         pgn
     );
-
-
-    /*
-     * Старый результат переигрывания
-     * пока скрываем.
-     */
-
-    if (replayPgnResult) {
-
-        replayPgnResult.classList.add(
-            "hidden"
-        );
-    }
 }
 
 function generateReplayPgn() {
