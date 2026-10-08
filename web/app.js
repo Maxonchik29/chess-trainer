@@ -2626,6 +2626,8 @@ async function makeMove(uciMove) {
            ОТПРАВЛЯЕМ ХОД НА СЕРВЕР
         ==================================================== */
 
+        playMoveSound();
+
         const response =
             await fetch(
                 "/move",
@@ -2901,6 +2903,8 @@ async function makeMove(uciMove) {
 
                 };
             }
+
+            playMoveSound();
 
 
             /* ================================================
@@ -12775,5 +12779,26 @@ async function startPgnAnalysis(
                     error
                 }`;
         }
+    }
+}
+
+/* ============================================================
+   ЗВУК ШАХМАТНОГО ХОДА
+============================================================ */
+
+const moveSound = new Audio("/sounds/move.mp3");
+
+moveSound.volume = 0.35;
+
+function playMoveSound() {
+    try {
+        moveSound.currentTime = 0;
+
+        moveSound.play().catch((error) => {
+            console.warn("Не удалось воспроизвести звук хода:", error);
+        });
+
+    } catch (error) {
+        console.warn("Ошибка звука хода:", error);
     }
 }
