@@ -925,6 +925,165 @@ const closeReplayPgnResultButton =
     );
 
 /* ============================================================
+   ВЫБОР ГЛУБИНЫ АНАЛИЗА ПЕРЕИГРАННОЙ ПАРТИИ
+============================================================ */
+
+const replayAnalysisChoice =
+    document.getElementById(
+        "replayAnalysisChoice"
+    );
+
+const replayGeneralAnalysisButton =
+    document.getElementById(
+        "replayGeneralAnalysisButton"
+    );
+
+const replayDeepAnalysisButton =
+    document.getElementById(
+        "replayDeepAnalysisButton"
+    );
+
+
+async function startSelectedReplayAnalysis(
+    analysisMode
+) {
+
+    if (!replayAnalysisChoice) {
+
+        console.error(
+            "replayAnalysisChoice НЕ НАЙДЕН!"
+        );
+
+        return;
+    }
+
+
+    const pgn =
+        replayAnalysisChoice.dataset.pgn ||
+        "";
+
+    const playerColor =
+        replayAnalysisChoice.dataset.playerColor ||
+        replayMistakeOrientation;
+
+
+    if (!pgn) {
+
+        alert(
+            "PGN переигранной партии не найден."
+        );
+
+        return;
+    }
+
+
+    console.log(
+        "=== ЗАПУСК ВЫБРАННОГО АНАЛИЗА ==="
+    );
+
+    console.log(
+        "РЕЖИМ:",
+        analysisMode
+    );
+
+    console.log(
+        "СТОРОНА:",
+        playerColor
+    );
+
+    console.log(
+        "PGN:",
+        pgn
+    );
+
+
+    /*
+     * Скрываем меню выбора,
+     * чтобы нельзя было запустить
+     * два анализа одновременно.
+     */
+
+    replayAnalysisChoice.classList.add(
+        "hidden"
+    );
+
+
+    try {
+
+        await startPgnAnalysis(
+            analysisMode,
+            playerColor,
+            pgn
+        );
+
+    } catch (error) {
+
+        console.error(
+            "Ошибка анализа переигранной партии:",
+            error
+        );
+
+        alert(
+            "Партия сохранена, но не удалось запустить анализ.\n\n" +
+            (
+                error?.message ||
+                error
+            )
+        );
+
+
+        /*
+         * Если произошла ошибка,
+         * возвращаем выбор анализа.
+         */
+
+        replayAnalysisChoice.classList.remove(
+            "hidden"
+        );
+
+        return;
+    }
+}
+
+
+/* ============================================================
+   ОБЩИЙ АНАЛИЗ
+============================================================ */
+
+if (replayGeneralAnalysisButton) {
+
+    replayGeneralAnalysisButton.addEventListener(
+        "click",
+        async () => {
+
+            await startSelectedReplayAnalysis(
+                "general"
+            );
+
+        }
+    );
+}
+
+
+/* ============================================================
+   ГЛУБОКИЙ АНАЛИЗ
+============================================================ */
+
+if (replayDeepAnalysisButton) {
+
+    replayDeepAnalysisButton.addEventListener(
+        "click",
+        async () => {
+
+            await startSelectedReplayAnalysis(
+                "deep"
+            );
+
+        }
+    );
+}
+
+/* ============================================================
    МЕНЮ → ИГРАТЬ С КОМПЬЮТЕРОМ
 ============================================================ */
 
@@ -8829,7 +8988,7 @@ async function finishReplayMistake() {
 
     /*
      * =====================================================
-     * ПОКАЗЫВАЕМ СОХРАНЁННЫЙ PGN
+     * СОХРАНЯЕМ PGN В ПОЛЕ РЕЗУЛЬТАТА
      * =====================================================
      */
 
@@ -8842,7 +9001,7 @@ async function finishReplayMistake() {
 
     /*
      * =====================================================
-     * ЗАКРЫВАЕМ ЭКРАН ПЕРЕИГРЫВАНИЯ
+     * ЗАКРЫВАЕМ ДОСКУ ПЕРЕИГРЫВАНИЯ
      * =====================================================
      */
 
@@ -8905,64 +9064,23 @@ async function finishReplayMistake() {
 
     /*
      * =====================================================
-     * ЗАПУСКАЕМ АНАЛИЗ ТОЛЬКО ЧТО СЫГРАННОЙ ПАРТИИ
+     * ПОКАЗЫВАЕМ ВЫБОР ГЛУБИНЫ АНАЛИЗА
      * =====================================================
-     *
-     * Анализируем сторону пользователя.
-     *
-     * replayMistakeOrientation:
-     *     "white" или "black"
-     *
-     * PGN передаём напрямую, поэтому
-     * startPgnAnalysis() НЕ будет брать старую
-     * партию из pgnInput и НЕ будет запрашивать
-     * /game_pgn.
      */
 
-    console.log(
-        "=== АНАЛИЗ ПЕРЕИГРАННОЙ ПАРТИИ ==="
-    );
-
-    console.log(
-        "СТОРОНА ПОЛЬЗОВАТЕЛЯ:",
-        replayMistakeOrientation
-    );
-
-    console.log(
-        "PGN ДЛЯ АНАЛИЗА:",
-        pgn
-    );
-
-
-    try {
-
-        alert(
-            "ШАГ 1: запускаем анализ переигранной партии"
+    const analysisChoice =
+        document.getElementById(
+            "replayAnalysisChoice"
         );
 
-        await startPgnAnalysis(
-            "general",
-            replayMistakeOrientation,
-            pgn
-        );
-
-        alert(
-            "ШАГ 2: startPgnAnalysis завершился"
-        );
-
-    } catch (error) {
+    if (!analysisChoice) {
 
         console.error(
-            "Ошибка анализа переигранной партии:",
-            error
+            "replayAnalysisChoice НЕ НАЙДЕН!"
         );
 
         alert(
-            "Партия сохранена, но не удалось запустить анализ.\n\n" +
-            (
-                error?.message ||
-                error
-            )
+            "Ошибка: блок выбора анализа не найден."
         );
 
         return;
@@ -8970,9 +9088,51 @@ async function finishReplayMistake() {
 
 
     /*
-     * =====================================================
-     * СКРЫВАЕМ СТАРЫЙ РЕЗУЛЬТАТ ПЕРЕИГРЫВАНИЯ
-     * =====================================================
+     * Сохраняем PGN для кнопок выбора.
+     *
+     * Используем dataset, чтобы не хранить
+     * сам PGN в глобальной переменной.
+     */
+
+    analysisChoice.dataset.pgn =
+        pgn;
+
+
+    /*
+     * Сохраняем сторону пользователя.
+     */
+
+    analysisChoice.dataset.playerColor =
+        replayMistakeOrientation;
+
+
+    /*
+     * Показываем выбор.
+     */
+
+    analysisChoice.classList.remove(
+        "hidden"
+    );
+
+
+    console.log(
+        "=== ОЖИДАЕМ ВЫБОР ГЛУБИНЫ АНАЛИЗА ==="
+    );
+
+    console.log(
+        "СТОРОНА:",
+        replayMistakeOrientation
+    );
+
+    console.log(
+        "PGN:",
+        pgn
+    );
+
+
+    /*
+     * Старый результат переигрывания
+     * пока скрываем.
      */
 
     if (replayPgnResult) {
