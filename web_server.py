@@ -2154,8 +2154,14 @@ def run_analysis_job(
                 or mistake.get("move")
             )
 
+            # ============================================================
+            # ИЩЕМ ТОЧНЫЙ СЫГРАННЫЙ ХОД
+            # ============================================================
+
             played_uci = (
-                mistake.get("played_move")
+                mistake.get("position_played_uci")
+                or mistake.get("played_move_uci")
+                or mistake.get("played_move")
                 or mistake.get("move_uci")
                 or mistake.get("uci")
             )
@@ -2169,14 +2175,42 @@ def run_analysis_job(
                     played_uci.uci()
                 )
 
+            if played_uci:
+
+                played_uci = str(
+                    played_uci
+                ).strip().lower()
+
+            # ============================================================
+            # СТОРОНА ОШИБКИ
+            # ============================================================
+
+            mistake_side = (
+                mistake.get("side")
+                or mistake.get("user_side")
+                or user_color
+            )
+
+            if mistake_side:
+
+                mistake_side = str(
+                    mistake_side
+                ).strip().lower()
+
             matching_position = None
+
+            # ============================================================
+            # 1. ГЛАВНЫЙ ПОИСК — ПО UCI
+            # ============================================================
 
             if played_uci:
 
                 for position in move_positions:
 
                     if (
-                        position["uci"]
+                        str(position["uci"])
+                        .strip()
+                        .lower()
                         == played_uci
                     ):
 
@@ -2185,6 +2219,10 @@ def run_analysis_job(
                         )
 
                         break
+
+            # ============================================================
+            # 2. ЗАПАСНОЙ ПОИСК — НОМЕР ХОДА + СТОРОНА
+            # ============================================================
 
             if (
                 matching_position is None
@@ -2197,9 +2235,9 @@ def run_analysis_job(
                         position["move_number"]
                         == move_number
                         and (
-                            user_color is None
+                            not mistake_side
                             or position["side"]
-                            == user_color
+                            == mistake_side
                         )
                     ):
 
@@ -2208,6 +2246,10 @@ def run_analysis_job(
                         )
 
                         break
+
+            # ============================================================
+            # 3. СОХРАНЯЕМ НАЙДЕННУЮ ПОЗИЦИЮ
+            # ============================================================
 
             if matching_position:
 
@@ -2235,12 +2277,54 @@ def run_analysis_job(
                     "san"
                 ]
 
+                print(
+                    "ПОЗИЦИЯ ОШИБКИ СОПОСТАВЛЕНА:"
+                )
+
+                print(
+                    "  MOVE:",
+                    move_number
+                )
+
+                print(
+                    "  SIDE:",
+                    mistake_side
+                )
+
+                print(
+                    "  PLAYED UCI:",
+                    matching_position["uci"]
+                )
+
+                print(
+                    "  PLAYED SAN:",
+                    matching_position["san"]
+                )
+
+                print(
+                    "  FEN:",
+                    matching_position["fen"]
+                )
+
             else:
 
                 print(
-                    "Не удалось найти позицию "
-                    "для ошибки:",
-                    move_number,
+                    "!!! НЕ УДАЛОСЬ НАЙТИ "
+                    "ПОЗИЦИЮ ДЛЯ ОШИБКИ !!!"
+                )
+
+                print(
+                    "MOVE:",
+                    move_number
+                )
+
+                print(
+                    "SIDE:",
+                    mistake_side
+                )
+
+                print(
+                    "PLAYED UCI:",
                     played_uci
                 )
 
