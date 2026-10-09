@@ -2605,387 +2605,278 @@ function handleSquareClick(
    ОТПРАВКА ХОДА
 ============================================================ */
 
+
 async function makeMove(uciMove) {
 
     setMessage("Ваш ход принят.");
 
     try {
 
-        const user =
-            getTelegramUser();
+        const user = getTelegramUser();
 
         if (!user) {
-
             console.warn(
                 "Telegram пользователь не определён. Отправляем ход без Telegram-пользователя."
             );
         }
 
+        /* ====================================================
+           ОПРЕДЕЛЯЕМ, ЕСТЬ ЛИ ВЗЯТИЕ
+           ДО ИЗМЕНЕНИЯ ДОСКИ
+        ==================================================== */
+
+        const fromSquare = uciMove.substring(0, 2);
+        const toSquare = uciMove.substring(2, 4);
+
+        const fromCol = FILES.indexOf(fromSquare[0]);
+        const fromRow = 8 - Number(fromSquare[1]);
+
+        const toCol = FILES.indexOf(toSquare[0]);
+        const toRow = 8 - Number(toSquare[1]);
+
+        const isCapture =
+            Boolean(board[toRow]?.[toCol]) ||
+            (
+                board[fromRow]?.[fromCol]?.toLowerCase() === "p" &&
+                fromSquare[0] !== toSquare[0]
+            );
 
         /* ====================================================
            ОТПРАВЛЯЕМ ХОД НА СЕРВЕР
         ==================================================== */
 
-        playMoveSound();
+        const response = await fetch(
+            "/move",
+            {
+                method: "POST",
 
-        const response =
-            await fetch(
-                "/move",
-                {
-                    method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
 
-                    headers: {
-                        "Content-Type":
-                            "application/json"
-                    },
+                body: JSON.stringify({
+                    move: uciMove,
+                    telegram_user: user
+                })
+            }
+        );
 
-                    body:
-                        JSON.stringify({
-
-                            move:
-                                uciMove,
-
-                            telegram_user:
-                                user
-
-                        })
-                }
-            );
-
-
-        const data =
-            await response.json();
-
+        const data = await response.json();
 
         if (!response.ok) {
-
             throw new Error(
-                data.error ||
-                "Ошибка выполнения хода."
+                data.error || "Ошибка выполнения хода."
             );
         }
 
-
-        console.log(
-            "ОТВЕТ /move:",
-            data
-        );
-
+        console.log("ОТВЕТ /move:", data);
 
         /* ====================================================
            ХОД НЕПРАВИЛЬНЫЙ
         ==================================================== */
 
-        if (
-            data.success === false
-        ) {
-
+        if (data.success === false) {
             setMessage(
-                data.error ||
-                "Ход невозможен."
+                data.error || "Ход невозможен."
             );
 
             return;
         }
 
+        /* ====================================================
+           ЗВУК ХОДА ИГРОКА
+           ШАХ ВАЖНЕЕ ОБЫЧНОГО ВЗЯТИЯ
+        ==================================================== */
+
+        playChessMoveSound(
+            isCapture,
+            data.played_san
+        );
 
         /* ====================================================
            ОБНОВЛЯЕМ ДОСКУ ПО FEN СЕРВЕРА
         ==================================================== */
 
         if (data.fen) {
-
-            board =
-                fenToBoard(
-                    data.fen
-                );
+            board = fenToBoard(data.fen);
         }
-
 
         /* ====================================================
            ЗАПОМИНАЕМ ПОСЛЕДНИЙ ХОД
         ==================================================== */
 
-        if (
-            data.played_move
-        ) {
-
+        if (data.played_move) {
             lastMove = {
-
-                from:
-                    data.played_move
-                        .substring(0, 2),
-
-                to:
-                    data.played_move
-                        .substring(2, 4)
-
+                from: data.played_move.substring(0, 2),
+                to: data.played_move.substring(2, 4)
             };
-
         } else {
-
             lastMove = {
-
-                from:
-                    uciMove
-                        .substring(0, 2),
-
-                to:
-                    uciMove
-                        .substring(2, 4)
-
+                from: uciMove.substring(0, 2),
+                to: uciMove.substring(2, 4)
             };
         }
 
-
-        selectedSquare =
-            null;
-
+        selectedSquare = null;
 
         /* ====================================================
            СОСТОЯНИЕ ИГРЫ
         ==================================================== */
 
-        if (
-            typeof data.player_turn ===
-            "boolean"
-        ) {
-
-            playerTurn =
-                data.player_turn;
+        if (typeof data.player_turn === "boolean") {
+            playerTurn = data.player_turn;
         }
 
-
-        if (
-            typeof data.game_over ===
-            "boolean"
-        ) {
-
-            gameOver =
-                data.game_over;
+        if (typeof data.game_over === "boolean") {
+            gameOver = data.game_over;
         }
-
 
         /* ====================================================
            СООБЩЕНИЕ О ХОДЕ
         ==================================================== */
 
-        if (
-            data.played_san
-        ) {
-
-            setMessage(
-                `Ваш ход: ${data.played_san}`
-            );
-
-        } else if (
-            data.status
-        ) {
-
-            setMessage(
-                data.status
-            );
-
+        if (data.played_san) {
+            setMessage(`Ваш ход: ${data.played_san}`);
+        } else if (data.status) {
+            setMessage(data.status);
         } else {
-
-            setMessage(
-                "Ход выполнен."
-            );
+            setMessage("Ход выполнен.");
         }
-
 
         renderBoard();
 
-
         /* ====================================================
-           ИГРА ЗАКОНЧЕНА
+           ИГРА ЗАКОНЧЕНА ПОСЛЕ ХОДА ИГРОКА
         ==================================================== */
 
-        if (
-            gameOver
-        ) {
-
+        if (gameOver) {
             showGameAnalysisButton();
             showGameMistakesButton();
-
             return;
         }
-
 
         /* ====================================================
            ХОД КОМПЬЮТЕРА
         ==================================================== */
 
-        if (
-            data.need_computer_move
-        ) {
+        if (data.need_computer_move) {
 
-            setMessage(
-                "Ход компьютера..."
+            setMessage("Ход компьютера...");
+
+            const computerResponse = await fetch(
+                "/computer_move",
+                {
+                    method: "POST",
+
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+
+                    body: JSON.stringify({
+                        telegram_user: user
+                    })
+                }
             );
 
+            const computerData = await computerResponse.json();
 
-            const computerResponse =
-                await fetch(
-                    "/computer_move",
-                    {
-                        method: "POST",
-
-                        headers: {
-                            "Content-Type":
-                                "application/json"
-                        },
-
-                        body:
-                            JSON.stringify({
-                                telegram_user:
-                                    user
-                            })
-                    }
-                );
-
-
-            const computerData =
-                await computerResponse.json();
-
-
-            if (
-                !computerResponse.ok
-            ) {
-
+            if (!computerResponse.ok) {
                 throw new Error(
                     computerData.error ||
                     "Ошибка хода компьютера."
                 );
             }
 
-
             console.log(
                 "ОТВЕТ /computer_move:",
                 computerData
             );
 
+            /* ================================================
+               ОПРЕДЕЛЯЕМ ВЗЯТИЕ НА СТАРОЙ ДОСКЕ
+               ДО ОБНОВЛЕНИЯ FEN
+            ================================================ */
+
+            const computerMoveIsCapture =
+                isCaptureOnBoard(
+                    computerData.played_move,
+                    board
+                );
+
+            /* ================================================
+               ЗВУК ХОДА КОМПЬЮТЕРА
+            ================================================ */
+
+            playChessMoveSound(
+                computerMoveIsCapture,
+                computerData.played_san
+            );
 
             /* ================================================
                ОБНОВЛЯЕМ ДОСКУ
             ================================================ */
 
-            if (
-                computerData.fen
-            ) {
-
-                board =
-                    fenToBoard(
-                        computerData.fen
-                    );
+            if (computerData.fen) {
+                board = fenToBoard(computerData.fen);
             }
-
 
             /* ================================================
                ПОСЛЕДНИЙ ХОД КОМПЬЮТЕРА
             ================================================ */
 
-            if (
-                computerData.played_move
-            ) {
-
+            if (computerData.played_move) {
                 lastMove = {
-
-                    from:
-                        computerData
-                            .played_move
-                            .substring(0, 2),
-
-                    to:
-                        computerData
-                            .played_move
-                            .substring(2, 4)
-
+                    from: computerData.played_move.substring(0, 2),
+                    to: computerData.played_move.substring(2, 4)
                 };
             }
-
-            playMoveSound();
-
 
             /* ================================================
                СОСТОЯНИЕ ИГРЫ
             ================================================ */
 
             if (
-                typeof computerData.player_turn ===
-                "boolean"
+                typeof computerData.player_turn === "boolean"
             ) {
-
-                playerTurn =
-                    computerData.player_turn;
+                playerTurn = computerData.player_turn;
             }
-
 
             if (
-                typeof computerData.game_over ===
-                "boolean"
+                typeof computerData.game_over === "boolean"
             ) {
-
-                gameOver =
-                    computerData.game_over;
+                gameOver = computerData.game_over;
             }
 
-
-            selectedSquare =
-                null;
-
+            selectedSquare = null;
 
             renderBoard();
 
-
             /* ================================================
-            СООБЩЕНИЕ
+               СООБЩЕНИЕ
             ================================================ */
 
             if (gameOver) {
-
-                setMessage(
-                    "Вам поставлен мат"
-                );
-
-            } else if (
-                computerData.played_san
-            ) {
-
+                setMessage("Вам поставлен мат");
+            } else if (computerData.played_san) {
                 setMessage(
                     `Компьютер: ${computerData.played_san}`
                 );
-
-            } else if (
-                computerData.status
-            ) {
-
-                setMessage(
-                    computerData.status
-                );
-
+            } else if (computerData.status) {
+                setMessage(computerData.status);
             } else {
-
-                setMessage(
-                    "Ваш ход."
-                );
+                setMessage("Ваш ход.");
             }
 
             /* ================================================
                КОНЕЦ ИГРЫ ПОСЛЕ ХОДА КОМПЬЮТЕРА
             ================================================ */
 
-            if (
-                gameOver
-            ) {
+            if (gameOver) {
 
                 if (resignButton) {
-
                     resignButton.disabled = true;
 
-                    resignButton.classList.add(
-                        "hidden"
-                    );
+                    resignButton.classList.add("hidden");
                 }
 
                 showGameAnalysisButton();
@@ -2994,7 +2885,6 @@ async function makeMove(uciMove) {
                 return;
             }
         }
-
 
     } catch (error) {
 
@@ -3008,6 +2898,17 @@ async function makeMove(uciMove) {
             "Ошибка соединения с сервером."
         );
     }
+}
+
+/* ============================================================
+   ОЖИДАНИЕ
+============================================================ */
+
+function sleep(ms) {
+
+    return new Promise(
+        resolve => setTimeout(resolve, ms)
+    );
 }
 
 /* ============================================================
@@ -12783,28 +12684,92 @@ async function startPgnAnalysis(
 }
 
 /* ============================================================
-   ЗВУК ШАХМАТНОГО ХОДА
+   ЗВУКИ ШАХМАТНОГО ХОДА
 ============================================================ */
 
 const moveSound = new Audio("/sounds/move.mp3");
+const captureSound = new Audio("/sounds/capture.mp3");
+const checkSound = new Audio("/sounds/check.mp3");
 
 moveSound.volume = 0.35;
+captureSound.volume = 0.45;
+checkSound.volume = 0.45;
 
-function playMoveSound() {
-    console.log("ЗВУК ХОДА: функция вызвана");
+function playChessMoveSound(isCapture, san) {
+
+    console.log(
+        "ЗВУК ХОДА:",
+        "взятие =", isCapture,
+        "нотация =", san
+    );
+
+    const notation = String(san || "");
+
+    // Шах или мат — приоритет над звуком взятия.
+    const isCheck =
+        notation.includes("+") ||
+        notation.includes("#");
+
+    const sound = isCheck
+        ? checkSound
+        : isCapture
+            ? captureSound
+            : moveSound;
 
     try {
-        moveSound.currentTime = 0;
 
-        moveSound.play()
+        sound.currentTime = 0;
+
+        sound.play()
             .then(() => {
-                console.log("ЗВУК ХОДА: воспроизведение началось");
+                console.log(
+                    "ЗВУК: воспроизведение началось"
+                );
             })
             .catch((error) => {
-                console.error("ОШИБКА ВОСПРОИЗВЕДЕНИЯ:", error);
+                console.error(
+                    "ОШИБКА ВОСПРОИЗВЕДЕНИЯ:",
+                    error
+                );
             });
 
     } catch (error) {
-        console.error("ОШИБКА ЗВУКА:", error);
+
+        console.error(
+            "ОШИБКА ЗВУКА:",
+            error
+        );
     }
+}
+
+
+/* ============================================================
+   ОПРЕДЕЛЕНИЕ ВЗЯТИЯ НА ДОСКЕ
+============================================================ */
+
+function isCaptureOnBoard(uciMove, position = board) {
+
+    if (!uciMove || uciMove.length < 4) {
+        return false;
+    }
+
+    const fromSquare = uciMove.substring(0, 2);
+    const toSquare = uciMove.substring(2, 4);
+
+    const fromCol = FILES.indexOf(fromSquare[0]);
+    const fromRow = 8 - Number(fromSquare[1]);
+
+    const toCol = FILES.indexOf(toSquare[0]);
+    const toRow = 8 - Number(toSquare[1]);
+
+    // На целевом поле уже стоит фигура.
+    if (position[toRow]?.[toCol]) {
+        return true;
+    }
+
+    // Взятие на проходе.
+    return (
+        position[fromRow]?.[fromCol]?.toLowerCase() === "p" &&
+        fromSquare[0] !== toSquare[0]
+    );
 }
