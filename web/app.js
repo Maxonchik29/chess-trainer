@@ -2637,7 +2637,7 @@ async function makeMove(uciMove) {
         const isCapture =
             Boolean(board[toRow]?.[toCol]) ||
             (
-                board[fromRow]?.[fromCol]?.toLowerCase() === "p" &&
+                String(board[fromRow]?.[fromCol] ?? "").toLowerCase() === "p" &&
                 fromSquare[0] !== toSquare[0]
             );
 
@@ -12769,7 +12769,7 @@ function isCaptureOnBoard(uciMove, position = board) {
 
     // Взятие на проходе.
     return (
-        position[fromRow]?.[fromCol]?.toLowerCase() === "p" &&
+        String(position[fromRow]?.[fromCol] ?? "").toLowerCase() === "p" &&
         fromSquare[0] !== toSquare[0]
     );
 }
