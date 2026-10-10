@@ -3097,6 +3097,95 @@ def delete_mistake(mistake_id):
 
 
 # ============================================================
+# УДАЛИТЬ ВСЕ МОИ ОШИБКИ
+# ============================================================
+
+@app.route(
+    "/mistakes",
+    methods=["DELETE"]
+)
+def delete_all_mistakes():
+
+    data = request.get_json(
+        silent=True
+    ) or {}
+
+    telegram_user = data.get(
+        "telegram_user"
+    )
+
+    if not isinstance(telegram_user, dict):
+
+        return jsonify({
+            "ok": False,
+            "error": "Telegram пользователь не передан."
+        }), 400
+
+    telegram_id = safe_int(
+        telegram_user.get("id")
+    )
+
+    if telegram_id is None:
+
+        return jsonify({
+            "ok": False,
+            "error": "Некорректный Telegram ID."
+        }), 400
+
+    conn = None
+
+    try:
+
+        conn = get_db_connection()
+
+        with conn:
+
+            with conn.cursor() as cur:
+
+                cur.execute(
+                    """
+                    DELETE FROM public.mistakes
+                    WHERE user_id = (
+                        SELECT id
+                        FROM public.users
+                        WHERE telegram_id = %s
+                    )
+                    """,
+                    (telegram_id,)
+                )
+
+                deleted_count = cur.rowcount
+
+        print(
+            "DB: Все ошибки пользователя удалены.",
+            "telegram_id =", telegram_id,
+            "deleted_count =", deleted_count
+        )
+
+        return jsonify({
+            "ok": True,
+            "deleted_count": deleted_count
+        })
+
+    except Exception as error:
+
+        print(
+            "ОШИБКА УДАЛЕНИЯ ВСЕХ ОШИБОК:",
+            repr(error)
+        )
+
+        return jsonify({
+            "ok": False,
+            "error": "Не удалось удалить ошибки из базы данных."
+        }), 500
+
+    finally:
+
+        if conn:
+            conn.close()
+
+
+# ============================================================
 # РАЗБОР PGN ДЛЯ «ПЕРЕИГРАТЬ ПОЗИЦИЮ»
 # ============================================================
 

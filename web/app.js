@@ -11300,9 +11300,7 @@ function renderMyMistakes() {
         return;
     }
 
-
     let html = "";
-
 
     html += `
         <div class="mistakes-header">
@@ -11330,13 +11328,29 @@ function renderMyMistakes() {
                 ← Назад
             </button>
 
+            ${
+                currentMistakeSource !== "analysis" &&
+                myMistakesData.length > 0
+                    ? `
+                        <button
+                            type="button"
+                            id="deleteAllMyMistakesButton"
+                            class="menu-button"
+                        >
+                            🗑 Удалить все ошибки
+                        </button>
+                    `
+                    : ""
+            }
+
         </div>
     `;
 
+    /* ========================================================
+       ЕСЛИ ОШИБОК НЕТ
+    ======================================================== */
 
-    if (
-        myMistakesData.length === 0
-    ) {
+    if (myMistakesData.length === 0) {
 
         html += `
             <div class="analysis-empty">
@@ -11353,225 +11367,257 @@ function renderMyMistakes() {
             </div>
         `;
 
-        mistakesScreen.innerHTML =
-            html;
+        mistakesScreen.innerHTML = html;
 
-
-        const back =
-            document.getElementById(
-                "backFromMistakesButtonInner"
-            );
+        const back = document.getElementById(
+            "backFromMistakesButtonInner"
+        );
 
         if (back) {
-
-            back.addEventListener(
-                "click",
-                () => {
-
-                    showScreen(
-                        menuScreen
-                    );
-                }
-            );
+            back.addEventListener("click", () => {
+                showScreen(menuScreen);
+            });
         }
 
         return;
     }
 
+    /* ========================================================
+       СПИСОК ОШИБОК
+    ======================================================== */
 
     html += `
         <div class="mistakes-list">
     `;
 
+    myMistakesData.forEach((mistake, index) => {
 
-    myMistakesData.forEach(
-        (
-            mistake,
-            index
-        ) => {
+        const moveNumber =
+            mistake.move_number ??
+            mistake.move ??
+            "—";
 
-            const moveNumber =
-                mistake.move_number ??
-                mistake.move ??
-                "—";
+        const played =
+            mistake.played_move_san ??
+            mistake.played_san ??
+            mistake.played_move ??
+            "—";
 
+        const best =
+            mistake.best_move_san ??
+            mistake.best_san ??
+            mistake.best_move ??
+            "—";
 
-            const played =
-                mistake.played_move_san ??
-                mistake.played_san ??
-                mistake.played_move ??
-                "—";
+        const loss =
+            mistake.loss ??
+            "—";
 
+        const side = getMistakeSide(mistake);
 
-            const best =
-                mistake.best_move_san ??
-                mistake.best_san ??
-                mistake.best_move ??
-                "—";
+        const sideText =
+            side === "black"
+                ? "♚ Чёрные"
+                : "♔ Белые";
 
+        html += `
+            <div class="mistake-card">
 
-            const loss =
-                mistake.loss ??
-                "—";
-
-
-            const side =
-                getMistakeSide(
-                    mistake
-                );
-
-
-            const sideText =
-                side === "black"
-                    ? "♚ Чёрные"
-                    : "♔ Белые";
-
-
-            html += `
-                <div
-                    class="mistake-card"
-                >
-
-                    <div>
-                        <strong>
-                            Ход ${moveNumber}
-                        </strong>
-                    </div>
-
-
-                    <div>
-                        Сторона:
-                        <strong>
-                            ${sideText}
-                        </strong>
-                    </div>
-
-
-                    <div>
-                        Сыграно:
-                        <strong>
-                            ${played}
-                        </strong>
-                    </div>
-
-
-                    <div>
-                        Лучший ход:
-                        <strong>
-                            ${best}
-                        </strong>
-                    </div>
-
-
-                    <div>
-                        Потеря:
-                        <strong>
-                            ${loss}
-                        </strong>
-                    </div>
-
-
-                    <button
-                        type="button"
-                        class="show-my-mistake-button"
-                        data-mistake-index="${index}"
-                    >
-                        Показать позицию
-                    </button>
-
+                <div>
+                    <strong>
+                        Ход ${moveNumber}
+                    </strong>
                 </div>
-            `;
-        }
-    );
 
+                <div>
+                    Сторона:
+                    <strong>
+                        ${sideText}
+                    </strong>
+                </div>
+
+                <div>
+                    Сыграно:
+                    <strong>
+                        ${played}
+                    </strong>
+                </div>
+
+                <div>
+                    Лучший ход:
+                    <strong>
+                        ${best}
+                    </strong>
+                </div>
+
+                <div>
+                    Потеря:
+                    <strong>
+                        ${loss}
+                    </strong>
+                </div>
+
+                <button
+                    type="button"
+                    class="show-my-mistake-button"
+                    data-mistake-index="${index}"
+                >
+                    Показать позицию
+                </button>
+
+            </div>
+        `;
+    });
 
     html += `
         </div>
     `;
 
+    mistakesScreen.innerHTML = html;
 
-    mistakesScreen.innerHTML =
-        html;
+    /* ========================================================
+       КНОПКА «НАЗАД»
+    ======================================================== */
 
-
-    const back =
-        document.getElementById(
-            "backFromMistakesButtonInner"
-        );
-
+    const back = document.getElementById(
+        "backFromMistakesButtonInner"
+    );
 
     if (back) {
+        back.addEventListener("click", () => {
+            showScreen(menuScreen);
+        });
+    }
 
-        back.addEventListener(
+    /* ========================================================
+       КНОПКА «УДАЛИТЬ ВСЕ ОШИБКИ»
+    ======================================================== */
+
+    const deleteAllButton = document.getElementById(
+        "deleteAllMyMistakesButton"
+    );
+
+    if (deleteAllButton) {
+        deleteAllButton.addEventListener(
             "click",
-            () => {
-
-                showScreen(
-                    menuScreen
-                );
-            }
+            deleteAllMyMistakes
         );
     }
 
+    /* ========================================================
+       ОТКРЫТИЕ ПОЗИЦИИ ОШИБКИ
+    ======================================================== */
 
-    const buttons =
-        mistakesScreen.querySelectorAll(
-            ".show-my-mistake-button"
-        );
+    const buttons = mistakesScreen.querySelectorAll(
+        ".show-my-mistake-button"
+    );
 
+    buttons.forEach(button => {
 
-    buttons.forEach(
-        button => {
+        button.addEventListener("click", () => {
 
-            button.addEventListener(
-                "click",
-                () => {
+            const index = Number(
+                button.dataset.mistakeIndex
+            );
 
-                    const index =
-                        Number(
-                            button.dataset
-                                .mistakeIndex
-                        );
+            const mistake = myMistakesData[index];
 
+            if (!mistake) {
+                alert("Ошибка: позиция не найдена.");
+                return;
+            }
 
-                    const mistake =
-                        myMistakesData[
-                            index
-                        ];
+            console.log(
+                "ОТКРЫВАЕМ ОШИБКУ:",
+                mistake
+            );
 
+            /*
+             * Источник уже установлен до вызова
+             * renderMyMistakes().
+             *
+             * Здесь НЕ меняем currentMistakeSource.
+             */
 
-                    if (!mistake) {
-
-                        alert(
-                            "Ошибка: позиция не найдена."
-                        );
-
-                        return;
-                    }
-
-
-                    console.log(
-                        "ОТКРЫВАЕМ ОШИБКУ:",
-                        mistake
-                    );
+            showMistakePosition(mistake);
+        });
+    });
+}
 
 
-                    /*
-                     * Источник уже установлен
-                     * до renderMyMistakes().
-                     *
-                     * Здесь НЕ надо менять
-                     * currentMistakeSource.
-                     */
+async function deleteAllMyMistakes() {
 
-                    showMistakePosition(
-                        mistake
-                    );
-                }
+    const user = getTelegramUser();
+
+    if (!user || !user.id) {
+        alert("Не удалось определить Telegram пользователя.");
+        return;
+    }
+
+    const confirmed = confirm(
+        `Удалить все ${myMistakesData.length} ошибок?\n\n` +
+        "Это действие нельзя отменить."
+    );
+
+    if (!confirmed) {
+        return;
+    }
+
+    const button = document.getElementById(
+        "deleteAllMyMistakesButton"
+    );
+
+    if (button) {
+        button.disabled = true;
+        button.textContent = "Удаление...";
+    }
+
+    try {
+
+        const response = await fetch("/mistakes", {
+            method: "DELETE",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                telegram_user: user
+            })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok || !data.ok) {
+            throw new Error(
+                data.error || "Не удалось удалить ошибки."
             );
         }
-    );
+
+        myMistakesData = [];
+
+        renderMyMistakes();
+
+        alert(
+            `Удаление завершено. Удалено ошибок: ${data.deleted_count}.`
+        );
+
+    } catch (error) {
+
+        console.error(
+            "Ошибка удаления всех ошибок:",
+            error
+        );
+
+        alert(
+            error.message || "Ошибка соединения с сервером."
+        );
+
+        if (button) {
+            button.disabled = false;
+            button.textContent = "🗑 Удалить все ошибки";
+        }
+    }
 }
+
 
 // ============================================================
 // ВЫБОР СТОРОНЫ ДЛЯ АНАЛИЗА PGN
